@@ -285,7 +285,7 @@ local layoutC = {
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layoutA
+local layout = layoutB
 
 
 
