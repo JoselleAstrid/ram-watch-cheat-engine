@@ -106,7 +106,7 @@ local layoutB = {
     --
     -- This file will be called "stats.txt", and will be in one of two places:
     -- (A) The same directory as the cheat table you have open.
-    -- (B) The same directory as the Cheat Engine .exe file, it you don't
+    -- (B) The same directory as the Cheat Engine .exe file, if you don't
     --     have a cheat table open.
     --
     -- For example, if the stat recording goes for 10 seconds (600
