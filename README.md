@@ -72,8 +72,9 @@ If you are ready to do some scripting of your own, I recommend starting with `sa
 
 Tips if (more like when) your script isn't working as expected:
 
-* If your script gets an error, the game will pause and Cheat Engine will make the Memory View and Lua Engine windows pop up. If you try to close the Memory View window, the game will resume and will probably error again immediately. The cleanest way to get out of this is to re-open the game process in Cheat Engine. This will disable the Lua script until you click Execute Script again.
-* There is a debug-display function included, called `debugDisp`. This lets you show debug values on your display window. Open `utils.lua` and locate the part that says `local function debugDisp`. Read the comments above that part to find out how to use `debugDisp`.
+* If your script gets an error, the game will pause and Cheat Engine will make the Memory View and Lua Engine windows pop up. If you try to close the Memory View window, the game will resume and will probably error again immediately. The cleanest way to get out of this is to re-open the game process in Cheat Engine. This will deactivate the Lua script until you click Execute Script again.
+* There is a debug-display function included, called `debugDisp`. This lets you show debug values on your display window. Open `utils.lua` and locate the part that says `local function debugDisp`. Read the comments above that part to find out how to use `debugDisp`. I recommend using this in conjunction with `utils.intToHexStr`, which lets you display memory addresses in hex.
+* The script is prone to errors if it is running while your Dolphin game is starting up. If you have to close a Dolphin game and restart it, first use the previous tip of deactivating the Lua script by re-selecting Dolphin.exe in Cheat Engine. Then, once your game has reached the title screen or something, try executing the script again.
 
 
 # Performance note
