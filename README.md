@@ -74,6 +74,11 @@ Tips if (more like when) your script isn't working as expected:
 
 * If your script gets an error, the game will pause and Cheat Engine will make the Memory View and Lua Engine windows pop up. If you try to close the Memory View window, the game will resume and will probably error again immediately. The cleanest way to get out of this is to re-open the game process in Cheat Engine. This will deactivate the Lua script until you click Execute Script again.
 * There is a debug-display function included, called `debugDisp`. This lets you show debug values on your display window. Open `utils.lua` and locate the part that says `local function debugDisp`. Read the comments above that part to find out how to use `debugDisp`. I recommend using this in conjunction with `utils.intToHexStr`, which lets you display memory addresses in hex.
+
+### Common issues
+
+* If you're using a Dolphin version other than the ones listed in `dolphin.lua`, be careful about the gameRAMStartPointerAddress. You will often get multiple pointerscan results; if you pick the "wrong" result, then the address may work some of the time, but not all the time. From what I've seen so far, every Dolphin version has an address that works all the time, you just need to pick the right one. (Let me know if you find any exceptions though!)
+  * If the gameRAMStartPointerAddress is wrong, then pretty much every address in your Dolphin game script will be wrong, so this can cause all sorts of errors. If you suspect this might be wrong, you can try using `debugDisp` on some addresses, as mentioned above.
 * The script is prone to errors if it is running while your Dolphin game is starting up. If you have to close a Dolphin game and restart it, first use the previous tip of deactivating the Lua script by re-selecting Dolphin.exe in Cheat Engine. Then, once your game has reached the title screen or something, try executing the script again.
 
 
