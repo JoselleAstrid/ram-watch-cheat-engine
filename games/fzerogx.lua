@@ -30,12 +30,39 @@ local StatRecorder = utils.StatRecorder
 
 local values = {
   baseStats = {},
-  currentStats = {},
+  state = {},
 }
 
 
 
 -- Computing RAM values.
+
+local baseStatsBlockOffsets = {
+  accel = 0x8,
+  body = 0x44,
+  boostDuration = 0x34,
+  boostInterval = 0x38,
+  cameraReorienting = 0x4C,
+  cameraRepositioning = 0x50,
+  drag = 0x40,
+  grip1 = 0x10,
+  grip2 = 0x30,
+  grip3 = 0x14,
+  maxSpeed = 0xC,
+  slideTurn = 0x24,
+  strafe = 0x28,
+  tilt1 = 0x54,
+  tilt2 = 0x5C,
+  tilt3 = 0x6C,
+  tilt4 = 0x74,
+  trackCollision = 0x9C,
+  turning1 = 0x18,
+  turning2 = 0x20,
+  turning3 = 0x2C,
+  turningAccel = 0x1C,
+  turningDecel = 0x3C,
+  weight = 0x4,
+}
 
 local stateBlockOffsets = {
   accel = 0x220,
@@ -65,40 +92,34 @@ local stateBlockOffsets = {
   weight = 0x8,
   
   machineId = 0x6,
+  machineName = 0x3C,
   posX = 0x7C,
   posY = 0x80,
   posZ = 0x84,
   velX = 0x94,
   velY = 0x98,
   velZ = 0x9C,
-  kmh = 0x17C
+  kmh = 0x17C,
+  energy = 0x184,
 }
-local baseStatsBlockOffsets = {
-  accel = 0x8,
-  body = 0x44,
-  boostDuration = 0x34,
-  boostInterval = 0x38,
-  cameraReorienting = 0x4C,
-  cameraRepositioning = 0x50,
-  drag = 0x40,
-  grip1 = 0x10,
-  grip2 = 0x30,
-  grip3 = 0x14,
-  maxSpeed = 0xC,
-  slideTurn = 0x24,
-  strafe = 0x28,
-  tilt1 = 0x54,
-  tilt2 = 0x5C,
-  tilt3 = 0x6C,
-  tilt4 = 0x74,
-  trackCollision = 0x9C,
-  turning1 = 0x18,
-  turning2 = 0x20,
-  turning3 = 0x2C,
-  turningAccel = 0x1C,
-  turningDecel = 0x3C,
-  weight = 0x4
+
+local valueTypes = {
+  -- Only add an entry here if it's something other than a float.
+  machineName = "string",
 }
+
+local maxStringLengthToRead = 64
+
+local function readStateValue(address, key)
+  if valueTypes[key] == "string" then
+    return readString(address + values.o, maxStringLengthToRead)
+  else
+    -- float
+    return readFloatBE(address + values.o, 4)
+  end
+end
+
+
 
 local compute = {
     
@@ -131,9 +152,21 @@ local compute = {
     values.baseStats[key] = readFloatBE(address + values.o, 4)
   end,
   
-  currentStats = function(key)
+  state = function(key)
     local address = values.machineStateBlockAddress + stateBlockOffsets[key]
-    values.currentStats[key] = readFloatBE(address + values.o, 4)
+    values.state[key] = readStateValue(address, key)
+  end,
+  
+  stateOfOtherMachine = function(key, machineIndex)
+    local address = (values.machineStateBlockAddress
+      + (0x620 * machineIndex)
+      + stateBlockOffsets[key])
+      
+    if values.state[machineIndex] == nil then
+      values.state[machineIndex] = {}
+    end
+    
+    values.state[machineIndex][key] = readStateValue(address, key)
   end,
   
   kmh = function()
@@ -147,10 +180,9 @@ local compute = {
     values.nextKmh = readFloatBE(address + values.o, 4)
   end,
   
-  settingsSlider = function()
-    -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
-    local address = values.refPointer + 0x2453A0
-    values.settingsSlider = readIntBE(address + values.o, 4)
+  numOfMachinesParticipating = function()
+    local address = values.refPointer + 0x1BAEE0
+    values.numOfMachinesParticipating = readIntBE(address + values.o, 1)
   end,
 }
 
@@ -158,7 +190,7 @@ local compute = {
 
 -- Displaying RAM values.
 
-local statKeysToLabels = {
+local keysToLabels = {
   accel = "Accel",
   body = "Body",
   boostDuration = "Boost duration",
@@ -184,9 +216,8 @@ local statKeysToLabels = {
   turningAccel = "Turning accel",
   turningDecel = "Turning decel",
   weight = "Weight",
-}
-
-local keysToLabels = {
+  
+  energy = "Energy",
   currKmh = "km/h",
   nextKmh = "km/h (next)",
 }
@@ -194,10 +225,11 @@ local keysToLabels = {
 local getStr = {
   
   settingsSlider = function()
-    return string.format(
-      "Settings: %d%%",
-      values.settingsSlider
-    )
+    -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
+    local address = values.refPointer + 0x2453A0
+    local settingsSlider = readIntBE(address + values.o, 4)
+    
+    return string.format("Settings: %d%%", settingsSlider)
   end,
   
   flt = function(key, precision)
@@ -215,7 +247,7 @@ local getStr = {
     -- only has to specify each kind of stat once, rather than in separate
     -- compute and getStr calls.
     compute.baseStats(key)
-    local label = statKeysToLabels[key].." (B)"
+    local label = keysToLabels[key].." (B)"
     return string.format(
       "%s: %s",
       label,
@@ -223,13 +255,33 @@ local getStr = {
     )
   end,
   
-  currentStats = function(key)
-    compute.currentStats(key)
-    local label = statKeysToLabels[key]
+  state = function(key, precision)
+    compute.state(key)
+    local label = keysToLabels[key]
     return string.format(
       "%s: %s",
       label,
-      floatToStr(values.currentStats[key], precision)
+      floatToStr(values.state[key], precision)
+    )
+  end,
+  
+  stateOfOtherMachine = function(key, machineIndex, precision)
+    local index = tonumber(machineIndex)
+    if index == nil then return "nil" end
+    index = math.floor(index)
+  
+    if index+1 > values.numOfMachinesParticipating then
+      return string.format("Rival machine %d is N/A", index)
+    end
+    
+    compute.stateOfOtherMachine(key, index)
+    compute.stateOfOtherMachine("machineName", index)
+    local label = (keysToLabels[key] .. ", "
+                   .. tostring(values.state[index]["machineName"]))
+    return string.format(
+      "%s: %s",
+      label,
+      floatToStr(values.state[index][key], precision)
     )
   end,
 }
@@ -264,7 +316,6 @@ local layoutA = {
     compute.refPointer()
     compute.machineStateBlockAddress()
     compute.kmh()
-    compute.settingsSlider()
     label1:setCaption(
       table.concat(
         {
@@ -286,6 +337,38 @@ local layoutB = {
   label1 = nil,
   
   init = function(window)
+    window:setSize(400, 300)
+  
+    label1 = initLabel(window, 10, 5, "")
+    
+    --shared.debugLabel = initLabel(window, 10, 220, "")
+  end,
+  
+  update = function()
+    compute.o()
+    compute.refPointer()
+    compute.machineStateBlockAddress()
+    compute.numOfMachinesParticipating()
+    label1:setCaption(
+      table.concat(
+        {
+          getStr.state("energy", 1),
+          getStr.stateOfOtherMachine("energy", 1, 1),
+          getStr.stateOfOtherMachine("energy", 2, 1),
+          getStr.stateOfOtherMachine("energy", 3, 1),
+          getStr.stateOfOtherMachine("energy", 4, 1),
+          getStr.stateOfOtherMachine("energy", 5, 1),
+        },
+        "\n"
+      )
+    )
+  end,
+}
+
+local layoutC = {
+  label1 = nil,
+  
+  init = function(window)
     window:setSize(300, 130)
   
     label1 = initLabel(window, 10, 5, "")
@@ -300,7 +383,7 @@ local layoutB = {
       table.concat(
         {
           getStr.baseStats("tilt2", 3),
-          getStr.currentStats("tilt2", 3),
+          getStr.state("tilt2", 3),
         },
         "\n"
       )
