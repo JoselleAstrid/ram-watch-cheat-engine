@@ -169,7 +169,7 @@ end
 -- If you need to debug something, you'll probably want a
 -- debug display on the window.
 --
--- To use this, first set shared.debugLabel = initLabel(<your arguments here>))
+-- To use this, first set shared.debugLabel = initLabel(<your arguments here>)
 -- in your layout's init() function.
 -- Then call debugDisp("your debug text here") whenever you want to display
 -- some debug text.
@@ -305,6 +305,8 @@ end
 
 
 return {
+  curry = curry,
+  
   readIntBE = readIntBE,
   readIntLE = readIntLE,
   intToDouble = intToDouble,

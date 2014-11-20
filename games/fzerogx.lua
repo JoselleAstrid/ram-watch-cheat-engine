@@ -195,8 +195,8 @@ local keysToLabels = {
   body = "Body",
   boostDuration = "Boost duration",
   boostInterval = "Boost interval",
-  cameraReorienting = "Camera reorienting",
-  cameraRepositioning = "Camera repositioning",
+  cameraReorienting = "Cam. reorienting",
+  cameraRepositioning = "Cam. repositioning",
   drag = "Drag",
   grip1 = "Grip 1",
   grip2 = "Grip 2",
@@ -293,10 +293,10 @@ local getStr = {
 
 -- GUI layout specifications.
 
+local label1 = nil
 local statRecorder = {}
 
 local layoutA = {
-  label1 = nil,
   
   init = function(window)
     -- Set the display window's size.
@@ -334,7 +334,6 @@ local layoutA = {
 }
 
 local layoutB = {
-  label1 = nil,
   
   init = function(window)
     window:setSize(400, 300)
@@ -366,7 +365,6 @@ local layoutB = {
 }
 
 local layoutC = {
-  label1 = nil,
   
   init = function(window)
     window:setSize(300, 130)
@@ -388,6 +386,154 @@ local layoutC = {
         "\n"
       )
     )
+  end,
+}
+  
+
+
+-- Finally, one more layout that focuses on convenient
+-- display and editing of stats.
+
+local editableStats = {
+  "accel", "body", "boostDuration", "boostInterval",
+  "cameraReorienting", "cameraRepositioning", "drag",
+  "grip1", "grip2", "grip3", "maxSpeed", "obstacleCollision",
+  "slideTurn", "strafe", "tilt1", "tilt2", "tilt3", "tilt4", 
+  "trackCollision", "turning1", "turning2", "turning3",
+  "turningAccel", "turningDecel", "weight",
+}
+local checkBoxes = {}
+local statsToDisplay = {}
+local addToListButtons = {}
+
+local function addStatAddressToList(key)
+  local addressList = getAddressList()
+  
+  -- We'll actually add two entries: actual stat and base stat. The base stat
+  -- is more convenient to edit. The actual stat needs disabling an instruction
+  -- writing the address before it can be edited, but editing this avoids
+  -- having to consider the base -> actual conversion math.
+  
+  -- First we'll add the actual stat.
+  
+  local memoryRecord = addressList:createMemoryRecord()
+  local address = (
+    values.machineStateBlockAddress + stateBlockOffsets[key] + values.o
+  )
+  -- setAddress doesn't work for some reason, despite being in the Help docs?
+  memoryRecord.Address = utils.intToHexStr(address)
+  memoryRecord:setDescription(keysToLabels[key])
+  
+  -- There don't seem to be any constants for memory record types...
+  -- By trial and error, these are the types in Cheat Engine 6.3:
+  -- 0 = Byte, 1 = 2 Bytes, 2 = 4 Bytes, 3 = 8 Bytes, 4 = Float, 5 = Double,
+  -- 6 = String, 7 = Unicode String, 8 = Array of byte, 9 = Binary, 10 = All,
+  -- 11 = (none, value <script>), 12 = Pointer, 13 = Custom (exact type is
+  -- specified by CustomTypeName)
+  memoryRecord.Type = 13
+  memoryRecord.CustomTypeName = "Float Big Endian"
+  
+  -- Now the base stat.
+  
+  memoryRecord = addressList:createMemoryRecord()
+  address = (
+    values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key] + values.o
+  )
+  memoryRecord.Address = utils.intToHexStr(address)
+  memoryRecord:setDescription(keysToLabels[key] .. " (base)")
+  memoryRecord.Type = 13
+  memoryRecord.CustomTypeName = "Float Big Endian"
+end
+
+local function rebuildStatsDisplay(window)
+  statsToDisplay = {}
+  
+  -- Remove the previous buttons
+  for _, button in pairs(addToListButtons) do
+    button.destroy()
+  end
+  addToListButtons = {}
+  
+  for boxN, checkBox in pairs(checkBoxes) do
+    if checkBox:getState() == 1 then
+      -- Box is checked; include this stat in the display.
+      
+      -- Include the stat display
+      local statKey = editableStats[boxN]
+      table.insert(statsToDisplay, statKey)
+  
+      -- Include an add-to-address-list button, to facilitate
+      -- editing the stat
+      local button = createButton(window)
+      local posY = 28*(#statsToDisplay - 1) + 5
+      button:setPosition(250, posY)
+      button:setCaption("List")
+      local font = button:getFont()
+      font:setSize(12)
+      
+      button:setOnClick(utils.curry(addStatAddressToList, statKey))
+      
+      table.insert(addToListButtons, button)
+    end
+  end
+end
+
+local layoutD = {
+  
+  init = function(window)
+    window:setSize(550, 620)
+  
+    label1 = initLabel(window, 10, 5, "")
+    local font = label1:getFont()
+    font:setSize(14)
+    
+    -- Make a list of checkboxes, one for each possible stat to look at.
+
+    local initiallyCheckedStats = {"accel", "maxSpeed", "weight"}
+    -- Making sets in Lua is kind of roundabout.
+    -- http://www.lua.org/pil/11.5.html
+    local isStatInitiallyChecked = {}
+    for _, key in pairs(initiallyCheckedStats) do
+      isStatInitiallyChecked[key] = true
+    end
+    
+    for statN, key in pairs(editableStats) do
+      local checkBox = createCheckBox(window)
+      local posY = 24*(statN-1) + 5
+      checkBox:setPosition(350, posY)
+      checkBox:setCaption(keysToLabels[key])
+      
+      local font = checkBox:getFont()
+      font:setSize(10)
+      
+      -- When a checkbox is checked, the corresponding stat is displayed.
+      checkBox:setOnChange(utils.curry(rebuildStatsDisplay, window))
+      
+      if isStatInitiallyChecked[key] then
+        checkBox:setState(1)
+      end
+      
+      table.insert(checkBoxes, checkBox)
+    end
+    
+    -- Ensure that the initially checked stats actually get initially checked.
+    rebuildStatsDisplay(window)
+    
+    shared.debugLabel = initLabel(window, 10, 500, "")
+  end,
+  
+  update = function()
+    compute.o()
+    compute.refPointer()
+    compute.machineStateBlockAddress()
+    compute.machineBaseStatsBlockAddress()
+    
+    local statLines = {}
+    for statN, key in pairs(statsToDisplay) do
+      local line = getStr.state(key, 3)
+      table.insert(statLines, line)
+    end
+    label1:setCaption(table.concat(statLines, "\n"))
   end,
 }
 
