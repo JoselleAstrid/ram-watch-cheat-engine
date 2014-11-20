@@ -122,19 +122,22 @@ local function intToHexStr(x)
   return string.format("0x%08X", x)
 end
 
-local function floatToStr(x, precision)
+local function floatToStr(x, precision, trimTrailingZeros)
   -- In: floating-point value
   -- Out: string representation, with the specified precision
   --      (number of decimal places). If not specified, defaults to 3.
-  if x == nil then
-    return "nil"
+  --      If trimTrailingZeros is true, will display fewer decimal digits if
+  --      the final digits are zeros.
+  if x == nil then return "nil" end
+  
+  if not precision then precision = 3 end
+  
+  local s = string.format("%."..precision.."f", x)
+  if trimTrailingZeros then
+    return tostring(tonumber(s))
+  else
+    return s
   end
-  if not precision then
-    precision = 3
-  end
-  local formatStr = "%." .. precision .. "f"
-  local s = string.format(formatStr, x)
-  return s
 end
 
 
