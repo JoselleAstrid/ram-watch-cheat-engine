@@ -492,7 +492,7 @@ end
 local layoutD = {
   
   init = function(window)
-    window:setSize(550, 620)
+    window:setSize(550, 510)
   
     label1 = initLabel(window, 10, 5, "")
     local font = label1:getFont()
@@ -510,12 +510,12 @@ local layoutD = {
     
     for statN, key in pairs(editableStats) do
       local checkBox = createCheckBox(window)
-      local posY = 24*(statN-1) + 5
+      local posY = 20*(statN-1) + 5
       checkBox:setPosition(350, posY)
       checkBox:setCaption(keysToLabels[key])
       
       local font = checkBox:getFont()
-      font:setSize(10)
+      font:setSize(9)
       
       -- When a checkbox is checked, the corresponding stat is displayed.
       checkBox:setOnChange(utils.curry(rebuildStatsDisplay, window))
