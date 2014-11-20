@@ -243,6 +243,8 @@ local getStr = {
   end,
   
   baseStats = function(key, precision)
+    if precision == nil then precision = 4 end
+  
     -- A compute and getStr function rolled into one. This way our layout code
     -- only has to specify each kind of stat once, rather than in separate
     -- compute and getStr calls.
@@ -251,21 +253,25 @@ local getStr = {
     return string.format(
       "%s: %s",
       label,
-      floatToStr(values.baseStats[key], precision)
+      floatToStr(values.baseStats[key], precision, true)
     )
   end,
   
   state = function(key, precision)
+    if precision == nil then precision = 4 end
+  
     compute.state(key)
     local label = keysToLabels[key]
     return string.format(
       "%s: %s",
       label,
-      floatToStr(values.state[key], precision)
+      floatToStr(values.state[key], precision, true)
     )
   end,
   
   stateOfOtherMachine = function(key, machineIndex, precision)
+    if precision == nil then precision = 4 end
+  
     local index = tonumber(machineIndex)
     if index == nil then return "nil" end
     index = math.floor(index)
@@ -281,7 +287,7 @@ local getStr = {
     return string.format(
       "%s: %s",
       label,
-      floatToStr(values.state[index][key], precision)
+      floatToStr(values.state[index][key], precision, true)
     )
   end,
 }
@@ -351,12 +357,12 @@ local layoutB = {
     label1:setCaption(
       table.concat(
         {
-          getStr.state("energy", 1),
-          getStr.stateOfOtherMachine("energy", 1, 1),
-          getStr.stateOfOtherMachine("energy", 2, 1),
-          getStr.stateOfOtherMachine("energy", 3, 1),
-          getStr.stateOfOtherMachine("energy", 4, 1),
-          getStr.stateOfOtherMachine("energy", 5, 1),
+          getStr.state("energy"),
+          getStr.stateOfOtherMachine("energy", 1),
+          getStr.stateOfOtherMachine("energy", 2),
+          getStr.stateOfOtherMachine("energy", 3),
+          getStr.stateOfOtherMachine("energy", 4),
+          getStr.stateOfOtherMachine("energy", 5),
         },
         "\n"
       )
@@ -380,8 +386,8 @@ local layoutC = {
     label1:setCaption(
       table.concat(
         {
-          getStr.baseStats("tilt2", 3),
-          getStr.state("tilt2", 3),
+          getStr.baseStats("turning2"),
+          getStr.state("turning2"),
         },
         "\n"
       )
@@ -409,10 +415,11 @@ local addToListButtons = {}
 local function addStatAddressToList(key)
   local addressList = getAddressList()
   
-  -- We'll actually add two entries: actual stat and base stat. The base stat
-  -- is more convenient to edit. The actual stat needs disabling an instruction
-  -- writing the address before it can be edited, but editing this avoids
-  -- having to consider the base -> actual conversion math.
+  -- We'll actually add two entries: actual stat and base stat.
+  -- The base stat is more convenient to edit, because the actual stat usually
+  -- needs disabling an instruction (which writes to the address every frame)
+  -- before it can be edited. But editing the actual stat avoids having to
+  -- consider the base -> actual conversion math.
   
   -- First we'll add the actual stat.
   
@@ -434,6 +441,10 @@ local function addStatAddressToList(key)
   memoryRecord.CustomTypeName = "Float Big Endian"
   
   -- Now the base stat.
+  
+  -- This stat doesn't have a base value. But the actual value can be changed
+  -- directly without disabling an instruction, anyways.
+  if key == "obstacleCollision" then return end
   
   memoryRecord = addressList:createMemoryRecord()
   address = (
@@ -530,7 +541,7 @@ local layoutD = {
     
     local statLines = {}
     for statN, key in pairs(statsToDisplay) do
-      local line = getStr.state(key, 3)
+      local line = getStr.state(key)
       table.insert(statLines, line)
     end
     label1:setCaption(table.concat(statLines, "\n"))
