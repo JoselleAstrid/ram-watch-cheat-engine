@@ -2,6 +2,23 @@ local shared = require "shared"
 
 
 
+-- tonumber fix, so that it properly handles strings starting with "-0".
+-- See the following bug report: http://cheatengine.org/mantis/view.php?id=328
+if originalTonumber==nil then
+  originalTonumber=tonumber
+end
+
+function tonumber(str)
+  local result = originalTonumber(str)
+  if string.sub(str,1,1) == "-" and result > 0 then
+    result = -result
+  end
+
+  return result
+end
+
+
+
 -- Curry implementation.
 -- From: http://lua-users.org/lists/lua-l/2007-01/msg00205.html
 -- (Linked from: http://lua-users.org/wiki/CurriedLua)
