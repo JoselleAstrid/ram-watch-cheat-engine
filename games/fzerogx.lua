@@ -397,7 +397,7 @@ local layoutC = {
   
 
 
--- Finally, one more layout that focuses on convenient
+-- Next, another kind of layout that focuses on convenient
 -- display and editing of stats.
 
 local editableStats = {
@@ -411,6 +411,7 @@ local editableStats = {
 local checkBoxes = {}
 local statsToDisplay = {}
 local addToListButtons = {}
+local updateButton = nil
 
 local function addStatAddressToList(key)
   local addressList = getAddressList()
@@ -489,6 +490,41 @@ local function rebuildStatsDisplay(window)
   end
 end
 
+local function addStatCheckboxes(window, initiallyCheckedStats)
+  -- Make a list of checkboxes, one for each possible stat to look at.
+    
+  -- Making sets in Lua is kind of roundabout.
+  -- http://www.lua.org/pil/11.5.html
+  local isStatInitiallyChecked = {}
+  for _, key in pairs(initiallyCheckedStats) do
+    isStatInitiallyChecked[key] = true
+  end
+  
+  for statN, key in pairs(editableStats) do
+    local checkBox = createCheckBox(window)
+    local posY = 20*(statN-1) + 5
+    checkBox:setPosition(350, posY)
+    checkBox:setCaption(keysToLabels[key])
+    
+    local font = checkBox:getFont()
+    font:setSize(9)
+    
+    -- When a checkbox is checked, the corresponding stat is displayed.
+    checkBox:setOnChange(utils.curry(rebuildStatsDisplay, window))
+    
+    if isStatInitiallyChecked[key] then
+      checkBox:setState(1)
+    end
+    
+    table.insert(checkBoxes, checkBox)
+  end
+  
+  -- Ensure that the initially checked stats actually get initially checked.
+  rebuildStatsDisplay(window)
+end
+
+
+
 local layoutD = {
   
   init = function(window)
@@ -497,40 +533,11 @@ local layoutD = {
     label1 = initLabel(window, 10, 5, "")
     local font = label1:getFont()
     font:setSize(14)
-    
-    -- Make a list of checkboxes, one for each possible stat to look at.
 
     local initiallyCheckedStats = {"accel", "maxSpeed", "weight"}
-    -- Making sets in Lua is kind of roundabout.
-    -- http://www.lua.org/pil/11.5.html
-    local isStatInitiallyChecked = {}
-    for _, key in pairs(initiallyCheckedStats) do
-      isStatInitiallyChecked[key] = true
-    end
+    addStatCheckboxes(window, initiallyCheckedStats)
     
-    for statN, key in pairs(editableStats) do
-      local checkBox = createCheckBox(window)
-      local posY = 20*(statN-1) + 5
-      checkBox:setPosition(350, posY)
-      checkBox:setCaption(keysToLabels[key])
-      
-      local font = checkBox:getFont()
-      font:setSize(9)
-      
-      -- When a checkbox is checked, the corresponding stat is displayed.
-      checkBox:setOnChange(utils.curry(rebuildStatsDisplay, window))
-      
-      if isStatInitiallyChecked[key] then
-        checkBox:setState(1)
-      end
-      
-      table.insert(checkBoxes, checkBox)
-    end
-    
-    -- Ensure that the initially checked stats actually get initially checked.
-    rebuildStatsDisplay(window)
-    
-    shared.debugLabel = initLabel(window, 10, 500, "")
+    --shared.debugLabel = initLabel(window, 10, 350, "")
   end,
   
   update = function()
@@ -550,8 +557,65 @@ local layoutD = {
 
 
 
+local layoutE = {
+  
+  -- Version of layoutD that updates the display with an update button,
+  -- instead of automatically on every frame. This is fine because the stats
+  -- don't change often (only when you change them, or change machine or
+  -- settings).
+  -- By not updating on every frame, this version can keep Dolphin running
+  -- much more smoothly.
+  
+  init = function(window)
+    window:setSize(550, 510)
+  
+    label1 = initLabel(window, 10, 5, "")
+    local font = label1:getFont()
+    font:setSize(14)
+
+    local initiallyCheckedStats = {"accel", "maxSpeed", "weight"}
+    addStatCheckboxes(window, initiallyCheckedStats)
+    
+    updateButton = createButton(window)
+    updateButton:setPosition(10, 460)
+    updateButton:setCaption("Update")
+    local font = updateButton:getFont()
+    font:setSize(12)
+    
+    -- Update the display via a button this time,
+    -- instead of a breakpoint that runs every frame.
+    local updateDisplay = function()
+      compute.o()
+      compute.refPointer()
+      compute.machineStateBlockAddress()
+      compute.machineBaseStatsBlockAddress()
+      
+      local statLines = {}
+      for statN, key in pairs(statsToDisplay) do
+        local line = getStr.state(key)
+        table.insert(statLines, line)
+      end
+      label1:setCaption(table.concat(statLines, "\n"))
+    end
+    
+    updateButton:setOnClick(updateDisplay)
+    
+    --shared.debugLabel = initLabel(window, 10, 350, "")
+  end,
+  
+  update = function()
+    -- No use for this function since we're not updating on every frame.
+  end,
+}
+
+
+
 -- *** CHOOSE YOUR LAYOUT HERE ***
 local layout = layoutA
+
+-- If using a layout that doesn't require updating on every frame,
+-- set this to false
+local updateOnEveryFrame = true
 
 
 
@@ -578,7 +642,9 @@ layout.init(window)
 -- called exactly once every frame.
 
 debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
+if updateOnEveryFrame then
+  debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
+end
 
 -- If the oncePerFrameAddress was chosen correctly, everything in the
 -- following function should run exactly once every frame. 
