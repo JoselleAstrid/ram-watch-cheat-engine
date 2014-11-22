@@ -30,6 +30,7 @@ local StatRecorder = utils.StatRecorder
 
 local values = {
   baseStats = {},
+  baseStats2 = {},
   state = {},
 }
 
@@ -150,6 +151,19 @@ local compute = {
   baseStats = function(key)
     local address = values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key]
     values.baseStats[key] = readFloatBE(address + values.o, 4)
+  end,
+  
+  baseStats2 = function(key)
+    -- A duplicate of the base stats block. We'll use this as a backup of the
+    -- original values, when playing with the values in the primary block. 
+    
+    local machineIdAddress = values.machineStateBlockAddress + stateBlockOffsets.machineId
+    local machineId = readIntBE(machineIdAddress + values.o, 2)
+    
+    local blockAddress = values.refPointer + 0x195584
+    local machineStart = blockAddress + (0xB4*machineId)
+    local statAddress = machineStart + baseStatsBlockOffsets[key]
+    values.baseStats2[key] = readFloatBE(statAddress + values.o, 4)
   end,
   
   state = function(key)
@@ -481,7 +495,7 @@ local function rebuildStatsDisplay(window)
       button:setPosition(250, posY)
       button:setCaption("List")
       local font = button:getFont()
-      font:setSize(12)
+      font:setSize(10)
       
       button:setOnClick(utils.curry(addStatAddressToList, statKey))
       
@@ -523,6 +537,28 @@ local function addStatCheckboxes(window, initiallyCheckedStats)
   rebuildStatsDisplay(window)
 end
 
+local function statHasChanged(key)
+  -- Check if the primary and backup base stats are different.
+  --
+  -- Limitation: Assumes that you only change stats by changing their base
+  -- values, rather than their actual values.
+  --
+  -- Limitation: Does not account for base -> actual formulas in two ways:
+  -- (1) Actual values of other stats could be changed by changing the base
+  -- value of Accel. (2) Actual values could stay the same even when the base
+  -- value is different.
+  --
+  -- Limitation: If the game is paused, then the actual value will not reflect
+  -- the base value yet. So the "this is changed" display can be misleading
+  -- if you forget that.
+  --
+  -- TODO: Obstacle collision isn't covered yet because it works
+  -- differently (doesn't have a base value).
+  compute.baseStats(key)
+  compute.baseStats2(key)
+  return values.baseStats[key] ~= values.baseStats2[key]
+end
+
 
 
 local layoutD = {
@@ -549,6 +585,7 @@ local layoutD = {
     local statLines = {}
     for statN, key in pairs(statsToDisplay) do
       local line = getStr.state(key)
+      if statHasChanged(key) then line = line.."*" end
       table.insert(statLines, line)
     end
     label1:setCaption(table.concat(statLines, "\n"))
@@ -593,6 +630,7 @@ local layoutE = {
       local statLines = {}
       for statN, key in pairs(statsToDisplay) do
         local line = getStr.state(key)
+        if statHasChanged(key) then line = line.."*" end
         table.insert(statLines, line)
       end
       label1:setCaption(table.concat(statLines, "\n"))
