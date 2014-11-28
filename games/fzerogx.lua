@@ -52,10 +52,6 @@ local baseStatsBlockOffsets = {
   maxSpeed = 0xC,
   slideTurn = 0x24,
   strafe = 0x28,
-  tilt1 = 0x54,
-  tilt2 = 0x5C,
-  tilt3 = 0x6C,
-  tilt4 = 0x74,
   trackCollision = 0x9C,
   turning1 = 0x18,
   turning2 = 0x20,
@@ -63,6 +59,22 @@ local baseStatsBlockOffsets = {
   turningAccel = 0x1C,
   turningDecel = 0x3C,
   weight = 0x4,
+  
+  tilt1a = 0x54,
+  tilt2a = 0x5C,
+  tilt1b = 0x60,
+  tilt2b = 0x68,
+  tilt3a = 0x6C,
+  tilt4a = 0x74,
+  tilt3b = 0x78,
+  tilt4b = 0x80,
+  tilt1c = 0x84,
+  tilt2c = 0x8C,
+  tilt1d = 0x90,
+  tilt2d = 0x98,
+  tilt4c = 0xA4,
+  tilt3c = 0xA8,
+  tilt4d = 0xB0,
 }
 
 local stateBlockOffsets = {
@@ -80,10 +92,6 @@ local stateBlockOffsets = {
   obstacleCollision = 0x584,
   slideTurn = 0x18,
   strafe = 0x1C,
-  tilt1 = 0x24C,
-  tilt2 = 0x254,
-  tilt3 = 0x304,
-  tilt4 = 0x30C,
   trackCollision = 0x588,
   turning1 = 0x10,
   turning2 = 0x14,
@@ -207,28 +215,28 @@ local compute = {
 local keysToLabels = {
   accel = "Accel",
   body = "Body",
-  boostDuration = "Boost duration",
+  boostDuration = "Boost strength",
   boostInterval = "Boost interval",
   cameraReorienting = "Cam. reorienting",
   cameraRepositioning = "Cam. repositioning",
   drag = "Drag",
+  turningAccel = "Drift accel",
   grip1 = "Grip 1",
   grip2 = "Grip 2",
   grip3 = "Grip 3",
   maxSpeed = "Max speed",
   obstacleCollision = "Obstacle collision",
-  slideTurn = "Slide turn",
   strafe = "Strafe",
+  slideTurn = "Strafe turn",
   tilt1 = "Tilt 1",
   tilt2 = "Tilt 2",
   tilt3 = "Tilt 3",
   tilt4 = "Tilt 4",
   trackCollision = "Track collision",
-  turning1 = "Turning 1",
-  turning2 = "Turning 2",
-  turning3 = "Turning 3",
-  turningAccel = "Turning accel",
-  turningDecel = "Turning decel",
+  turning1 = "Turn rotation",
+  turning2 = "Turn movement",
+  turning3 = "Turn reaction",
+  turningDecel = "Turn decel",
   weight = "Weight",
   
   energy = "Energy",
@@ -425,7 +433,121 @@ local editableStats = {
 local checkBoxes = {}
 local statsToDisplay = {}
 local addToListButtons = {}
+local editButtons = {}
+local editWindowHotkeys = {}
+local statEditWindow = nil
 local updateButton = nil
+
+local function statHasChanged(key)
+  -- Check if the primary and backup base stats are different.
+  --
+  -- Limitation: Assumes that you only change stats by changing their base
+  -- values, rather than their actual values.
+  --
+  -- Limitation: Does not account for base -> actual formulas in two ways:
+  -- (1) Actual values of other stats could be changed by changing the base
+  -- value of Accel. (2) Actual values could stay the same even when the base
+  -- value is different.
+  --
+  -- Limitation: If the game is paused, then the actual value will not reflect
+  -- the base value yet. So the "this is changed" display can be misleading
+  -- if you forget that.
+  --
+  -- TODO: Obstacle collision isn't covered yet because it works
+  -- differently (doesn't have a base value).
+  compute.baseStats(key)
+  compute.baseStats2(key)
+  return values.baseStats[key] ~= values.baseStats2[key]
+end
+
+local function updateDisplay()
+  compute.o()
+  compute.refPointer()
+  compute.machineStateBlockAddress()
+  compute.machineBaseStatsBlockAddress()
+  
+  local statLines = {}
+  for statN, key in pairs(statsToDisplay) do
+    local line = getStr.state(key)
+    if statHasChanged(key) then line = line.."*" end
+    table.insert(statLines, line)
+  end
+  label1:setCaption(table.concat(statLines, "\n"))
+end
+
+local function openStatEditWindow(key)
+  -- TODO: Check if tilt, and handle specially
+  -- TODO: Check if obstacle collision, and handle specially
+
+  compute.baseStats(key)
+  local baseStat = values.baseStats[key]
+  
+  local font = nil
+  
+  -- Create an edit window
+  local window = createForm(true)
+  window:setSize(400, 50)
+  window:centerScreen()
+  local title = string.format("Edit: %s base value", keysToLabels[key])
+  window:setCaption(title)
+  font = window:getFont()
+  font:setName("Calibri")
+  font:setSize(10)
+  
+  -- Add a text box, with the baseStat value, full decimal places
+  local statField = createEdit(window)
+  statField:setPosition(70, 10)
+  statField:setSize(200, 20)
+  statField.Text = tostring(baseStat)
+  
+  -- Put an OK button in the window, which would change the base stat
+  -- to the value entered, and close the window
+  local okButton = createButton(window)
+  okButton:setPosition(300, 10)
+  okButton:setCaption("OK")
+  okButton:setSize(30, 25)
+  local confirmValueAndCloseWindow = function(window, statField, key)
+    local newValue = tonumber(statField.Text)
+    if newValue ~= nil then
+      local address = values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key]
+      utils.writeFloatBE(address + values.o, newValue, 4)
+      
+      -- Update the display. Delay for a bit first, because it seems that the
+      -- write to the memory address needs a bit of time to take effect.
+      sleep(50)
+      updateDisplay()
+    end
+    window:close()
+  end
+  
+  local okAction = utils.curry(confirmValueAndCloseWindow, window, statField, key)
+  okButton:setOnClick(okAction)
+  
+  -- Put a Cancel button in the window, which would close the window
+  local cancelButton = createButton(window)
+  cancelButton:setPosition(340, 10)
+  cancelButton:setCaption("Cancel")
+  cancelButton:setSize(50, 25)
+  local closeWindow = function(window)
+    window:close()
+  end
+  cancelButton:setOnClick(utils.curry(closeWindow, window))
+  
+  -- Add a reset button, which would reset the value to baseStat2
+  local resetButton = createButton(window)
+  resetButton:setPosition(5, 10)
+  resetButton:setCaption("Reset")
+  resetButton:setSize(50, 25)
+  local resetValue = function(statField, key)
+    compute.baseStats2(key)
+    local baseStat2 = values.baseStats2[key]
+    statField.Text = tostring(baseStat2)
+  end
+  resetButton:setOnClick(utils.curry(resetValue, statField, key))
+  
+  -- Put the initial focus on the stat field.
+  statField:setFocus()
+end
 
 local function addStatAddressToList(key)
   local addressList = getAddressList()
@@ -446,13 +568,9 @@ local function addStatAddressToList(key)
   memoryRecord.Address = utils.intToHexStr(address)
   memoryRecord:setDescription(keysToLabels[key])
   
-  -- There don't seem to be any constants for memory record types...
-  -- By trial and error, these are the types in Cheat Engine 6.3:
-  -- 0 = Byte, 1 = 2 Bytes, 2 = 4 Bytes, 3 = 8 Bytes, 4 = Float, 5 = Double,
-  -- 6 = String, 7 = Unicode String, 8 = Array of byte, 9 = Binary, 10 = All,
-  -- 11 = (none, value <script>), 12 = Pointer, 13 = Custom (exact type is
-  -- specified by CustomTypeName)
-  memoryRecord.Type = 13
+  -- For the memory record type constants, look up defines.lua in
+  -- your Cheat Engine folder.
+  memoryRecord.Type = vtCustom
   memoryRecord.CustomTypeName = "Float Big Endian"
   
   -- Now the base stat.
@@ -478,7 +596,11 @@ local function rebuildStatsDisplay(window)
   for _, button in pairs(addToListButtons) do
     button.destroy()
   end
+  for _, button in pairs(editButtons) do
+    button.destroy()
+  end
   addToListButtons = {}
+  editButtons = {}
   
   for boxN, checkBox in pairs(checkBoxes) do
     if checkBox:getState() == 1 then
@@ -487,19 +609,30 @@ local function rebuildStatsDisplay(window)
       -- Include the stat display
       local statKey = editableStats[boxN]
       table.insert(statsToDisplay, statKey)
-  
-      -- Include an add-to-address-list button, to facilitate
-      -- editing the stat
-      local button = createButton(window)
+      
+      -- Include an edit button
+      local editButton = createButton(window)
       local posY = 28*(#statsToDisplay - 1) + 5
-      button:setPosition(250, posY)
-      button:setCaption("List")
-      local font = button:getFont()
+      editButton:setPosition(250, posY)
+      editButton:setCaption("Edit")
+      editButton:setSize(40, 20)
+      local font = editButton:getFont()
       font:setSize(10)
       
-      button:setOnClick(utils.curry(addStatAddressToList, statKey))
+      editButton:setOnClick(utils.curry(openStatEditWindow, statKey))
+      table.insert(editButtons, editButton)
+  
+      -- Include an add-to-address-list button
+      local listButton = createButton(window)
+      local posY = 28*(#statsToDisplay - 1) + 5
+      listButton:setPosition(300, posY)
+      listButton:setCaption("List")
+      listButton:setSize(40, 20)
+      local font = listButton:getFont()
+      font:setSize(10)
       
-      table.insert(addToListButtons, button)
+      listButton:setOnClick(utils.curry(addStatAddressToList, statKey))
+      table.insert(addToListButtons, listButton)
     end
   end
 end
@@ -537,28 +670,6 @@ local function addStatCheckboxes(window, initiallyCheckedStats)
   rebuildStatsDisplay(window)
 end
 
-local function statHasChanged(key)
-  -- Check if the primary and backup base stats are different.
-  --
-  -- Limitation: Assumes that you only change stats by changing their base
-  -- values, rather than their actual values.
-  --
-  -- Limitation: Does not account for base -> actual formulas in two ways:
-  -- (1) Actual values of other stats could be changed by changing the base
-  -- value of Accel. (2) Actual values could stay the same even when the base
-  -- value is different.
-  --
-  -- Limitation: If the game is paused, then the actual value will not reflect
-  -- the base value yet. So the "this is changed" display can be misleading
-  -- if you forget that.
-  --
-  -- TODO: Obstacle collision isn't covered yet because it works
-  -- differently (doesn't have a base value).
-  compute.baseStats(key)
-  compute.baseStats2(key)
-  return values.baseStats[key] ~= values.baseStats2[key]
-end
-
 
 
 local layoutD = {
@@ -577,18 +688,7 @@ local layoutD = {
   end,
   
   update = function()
-    compute.o()
-    compute.refPointer()
-    compute.machineStateBlockAddress()
-    compute.machineBaseStatsBlockAddress()
-    
-    local statLines = {}
-    for statN, key in pairs(statsToDisplay) do
-      local line = getStr.state(key)
-      if statHasChanged(key) then line = line.."*" end
-      table.insert(statLines, line)
-    end
-    label1:setCaption(table.concat(statLines, "\n"))
+    updateDisplay()
   end,
 }
 
@@ -620,23 +720,9 @@ local layoutE = {
     font:setSize(12)
     
     -- Update the display via a button this time,
-    -- instead of a breakpoint that runs every frame.
-    local updateDisplay = function()
-      compute.o()
-      compute.refPointer()
-      compute.machineStateBlockAddress()
-      compute.machineBaseStatsBlockAddress()
-      
-      local statLines = {}
-      for statN, key in pairs(statsToDisplay) do
-        local line = getStr.state(key)
-        if statHasChanged(key) then line = line.."*" end
-        table.insert(statLines, line)
-      end
-      label1:setCaption(table.concat(statLines, "\n"))
-    end
-    
+    -- instead of via a function that auto-runs on every frame.
     updateButton:setOnClick(updateDisplay)
+    updateDisplay()
     
     --shared.debugLabel = initLabel(window, 10, 350, "")
   end,
