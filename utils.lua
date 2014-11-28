@@ -2,6 +2,32 @@ local shared = require "shared"
 
 
 
+-- If you need to debug something, you'll probably want a
+-- debug display on the window.
+--
+-- To use this, first set shared.debugLabel = initLabel(<your arguments here>)
+-- in your layout's init() function.
+-- Then call debugDisp("your debug text here") whenever you want to display
+-- some debug text.
+-- Since the debugLabel is in the "shared" module, you can set the debugLabel
+-- in any module and then call debugDisp in any other module, and it should
+-- still work.
+--
+-- Tip: If you are trying to display an object that might have a nil value,
+-- use tostring, like this:
+-- debugDisp(tostring(myObject))
+-- so that nil will display as "nil", instead of as no text at all. tostring
+-- also improves the display of some other kinds of objects.
+
+shared.debugLabel = nil
+local function debugDisp(str)
+  if shared.debugLabel ~= nil then
+    shared.debugLabel:setCaption(str)
+  end
+end
+
+
+
 -- tonumber fix, so that it properly handles strings starting with "-0".
 -- See the following bug report: http://cheatengine.org/mantis/view.php?id=328
 if originalTonumber==nil then
@@ -85,6 +111,7 @@ local function intToFloat(x)
   -- go here and enter 00000040 (64 in hex) in the top box:
   -- http://babbage.cs.qc.cuny.edu/IEEE-754.old/Decimal.html
   
+  -- Reference: http://www.doc.ic.ac.uk/~eedwards/compsys/float/
   -- Bits: 31 - sign (s), 30-23 - exponent (e), 22-0 - mantissa (m)
   if x == 0 then return 0 end
   local s = nil
@@ -159,6 +186,65 @@ end
 
 
 
+-- Functions for writing values to memory.
+
+local function writeIntBE(address, value, numberOfBytesToWrite)
+  local remainingValue = value
+  local bytes = {}
+  for n = numberOfBytesToWrite,1,-1 do
+    byteValue = remainingValue % 256
+    remainingValue = (remainingValue - byteValue) / 256
+    bytes[n] = byteValue
+  end
+  
+  writeBytes(address, bytes)
+end
+
+local function floatToInt(x)
+  -- In: floating-point value
+  -- Out: 4-byte integer value from the same bytes
+  --
+  -- For example, to see what you'd get if you pass in the number 47.125,
+  -- go here and enter 47.125 in the top box:
+  -- http://babbage.cs.qc.cuny.edu/IEEE-754.old/Decimal.html
+  -- Then copy the "Hexadecimal" result until "Single precision (32 bits)", and
+  -- go to Google search, paste that value, and type " in decimal" afterward.
+  -- Do the search to get your integer.
+  
+  -- Reference: http://www.doc.ic.ac.uk/~eedwards/compsys/float/
+  -- Bits: 31 - sign (s), 30-23 - exponent (e), 22-0 - mantissa (m)
+  
+  local s, absX = nil, nil
+  if x > 0 then
+    s = 0
+    absX = x
+  else
+    s = 1  
+    absX = -x
+  end
+  
+  -- In Lua 5.1, math.log doesn't take a second argument for the base. Need to
+  -- divide by log(2) to get the base-2 log.
+  local e = math.floor(math.log(absX) / math.log(2))
+  
+  -- Compute the mantissa, which should end up between 0 and 1.
+  local mantissa = (absX / (2^e)) - 1
+  -- And encode it into 23 bits.
+  local m = twoTo23 * mantissa
+  
+  -- Now we have all the parts, so put them together.
+  local result = twoTo31*s + twoTo23*(e+127) + m
+  return result
+end
+
+local function writeFloatBE(address, value, numberOfBytesToWrite)
+  writeIntBE(
+    address, floatToInt(value, numberOfBytesToWrite), numberOfBytesToWrite
+  )
+end
+
+
+
 -- Scan for a string and return the address of the first result.
 -- If there is no result, it returns nil.
 local function scanStr(str)
@@ -182,32 +268,6 @@ local function initLabel(window, x, y, text)
   label:setCaption(text)
   label:setPosition(x, y)
   return label
-end
-
-
-
--- If you need to debug something, you'll probably want a
--- debug display on the window.
---
--- To use this, first set shared.debugLabel = initLabel(<your arguments here>)
--- in your layout's init() function.
--- Then call debugDisp("your debug text here") whenever you want to display
--- some debug text.
--- Since the debugLabel is in the "shared" module, you can set the debugLabel
--- in any module and then call debugDisp in any other module, and it should
--- still work.
---
--- Tip: If you are trying to display an object that might have a nil value,
--- use tostring, like this:
--- debugDisp(tostring(myObject))
--- so that nil will display as "nil", instead of as no text at all. tostring
--- also improves the display of some other kinds of objects.
-
-shared.debugLabel = nil
-local function debugDisp(str)
-  if shared.debugLabel ~= nil then
-    shared.debugLabel:setCaption(str)
-  end
 end
 
 
@@ -325,6 +385,8 @@ end
 
 
 return {
+  debugDisp = debugDisp,
+  
   curry = curry,
   
   readIntBE = readIntBE,
@@ -335,10 +397,12 @@ return {
   intToHexStr = intToHexStr,
   floatToStr = floatToStr,
   
+  writeIntBE = writeIntBE,
+  writeFloatBE = writeFloatBE,
+  
   scanStr = scanStr,
   
   initLabel = initLabel,
-  debugDisp = debugDisp,
   
   StatRecorder = StatRecorder,
 }
