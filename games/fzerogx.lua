@@ -696,6 +696,8 @@ local layoutD = {
 
 local layoutE = {
   
+  onlyUpdateManually = true,
+  
   -- Version of layoutD that updates the display with an update button,
   -- instead of automatically on every frame. This is fine because the stats
   -- don't change often (only when you change them, or change machine or
@@ -726,20 +728,12 @@ local layoutE = {
     
     --shared.debugLabel = initLabel(window, 10, 350, "")
   end,
-  
-  update = function()
-    -- No use for this function since we're not updating on every frame.
-  end,
 }
 
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
 local layout = layoutA
-
--- If using a layout that doesn't require updating on every frame,
--- set this to false
-local updateOnEveryFrame = true
 
 
 
@@ -766,7 +760,7 @@ layout.init(window)
 -- called exactly once every frame.
 
 debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-if updateOnEveryFrame then
+if not layout.onlyUpdateManually then
   debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
 end
 
