@@ -72,8 +72,9 @@ local baseStatsBlockOffsets = {
   tilt2c = 0x8C,
   tilt1d = 0x90,
   tilt2d = 0x98,
+  -- No tilt 3c here.
   tilt4c = 0xA4,
-  tilt3c = 0xA8,
+  tilt3d = 0xA8,
   tilt4d = 0xB0,
 }
 
@@ -110,6 +111,53 @@ local stateBlockOffsets = {
   velZ = 0x9C,
   kmh = 0x17C,
   energy = 0x184,
+  
+  tilt1a = 0x24C,
+  tilt2a = 0x254,
+  tilt1b = 0x2A8,
+  tilt2b = 0x2B0,
+  tilt3a = 0x304,
+  tilt4a = 0x30C,
+  tilt3b = 0x360,
+  tilt4b = 0x368,
+  tilt1c = 0x3B4,
+  tilt2c = 0x3BC,
+  tilt1d = 0x3E4,
+  tilt2d = 0x3EC,
+  tilt3c = 0x414,
+  tilt4c = 0x41C,
+  tilt3d = 0x444,
+  tilt4d = 0x44C,
+}
+
+local tiltFormulas = {
+  tilt1 = {
+    a = function(v) return v end,
+    b = function(v) return -v end,
+    c = function(v) return v+0.2 end,
+    d = function(v) return -(v+0.2) end,
+  },
+  
+  tilt2 = {
+    a = function(v) return v end,
+    b = function(v) return v end,
+    c = function(v) return v-0.2 end,
+    d = function(v) return v-0.2 end,
+  },
+  
+  tilt3 = {
+    a = function(v) return v end,
+    b = function(v) return -v end,
+    c = function(v) return v+0.2 end,
+    d = function(v) return -(v+0.2) end,
+  },
+  
+  tilt4 = {
+    a = function(v) return v end,
+    b = function(v) return v end,
+    c = function(v) return v+0.2 end,
+    d = function(v) return v+0.2 end,
+  },
 }
 
 local valueTypes = {
@@ -270,24 +318,41 @@ local getStr = {
     -- A compute and getStr function rolled into one. This way our layout code
     -- only has to specify each kind of stat once, rather than in separate
     -- compute and getStr calls.
-    compute.baseStats(key)
-    local label = keysToLabels[key].." (B)"
+    
+    local label, value = nil, nil
+    
+    if string.sub(key,1,4) == "tilt" then
+      compute.baseStats(key.."a")
+      label = keysToLabels[key].." (B)"
+      value = values.baseStats[key.."a"]
+    else
+      compute.baseStats(key)
+      label = keysToLabels[key].." (B)"
+      value = values.baseStats[key]
+    end
+    
     return string.format(
-      "%s: %s",
-      label,
-      floatToStr(values.baseStats[key], precision, true)
+      "%s: %s", label, floatToStr(value, precision, true)
     )
   end,
   
   state = function(key, precision)
     if precision == nil then precision = 4 end
-  
-    compute.state(key)
-    local label = keysToLabels[key]
+    
+    local label, value = nil, nil
+    
+    if string.sub(key,1,4) == "tilt" then
+      compute.state(key.."a")
+      label = keysToLabels[key]
+      value = values.state[key.."a"]
+    else
+      compute.state(key)
+      label = keysToLabels[key]
+      value = values.state[key]
+    end
+    
     return string.format(
-      "%s: %s",
-      label,
-      floatToStr(values.state[key], precision, true)
+      "%s: %s", label, floatToStr(value, precision, true)
     )
   end,
   
@@ -452,12 +517,32 @@ local function statHasChanged(key)
   -- Limitation: If the game is paused, then the actual value will not reflect
   -- the base value yet. So the "this is changed" display can be misleading
   -- if you forget that.
-  --
-  -- TODO: Obstacle collision isn't covered yet because it works
-  -- differently (doesn't have a base value).
-  compute.baseStats(key)
-  compute.baseStats2(key)
-  return values.baseStats[key] ~= values.baseStats2[key]
+  
+  if key == "obstacleCollision" then
+    -- Obstacle collision doesn't have a base value. Therefore, there isn't a
+    -- second base value to compare with, and we have no way of knowing if
+    -- the stat has changed. (Unless we figure out how obstacle collision is
+    -- derived.)
+    return false
+  elseif key == "trackCollision" then
+    -- Since we change the actual value directly in this case, and there is no
+    -- base -> actual formula, we check actual vs. base here.
+    compute.state(key)
+    compute.baseStats2(key)
+    return values.state[key] ~= values.baseStats2[key]
+  elseif string.sub(key,1,4) == "tilt" then
+    -- Tilt stat.
+    -- Since we change the actual value directly in this case, and there is no
+    -- base -> actual formula, we check actual vs. base here.
+    local key2 = key.."a"
+    compute.state(key2)
+    compute.baseStats2(key2)
+    return values.state[key2] ~= values.baseStats2[key2]
+  else
+    compute.baseStats(key)
+    compute.baseStats2(key)
+    return values.baseStats[key] ~= values.baseStats2[key]
+  end
 end
 
 local function updateDisplay()
@@ -476,11 +561,92 @@ local function updateDisplay()
 end
 
 local function openStatEditWindow(key)
-  -- TODO: Check if tilt, and handle specially
-  -- TODO: Check if obstacle collision, and handle specially
 
-  compute.baseStats(key)
-  local baseStat = values.baseStats[key]
+  local initialText, windowTitle, setValue, resetValue = nil, nil, nil, nil
+
+  if key == "obstacleCollision" then
+  
+    -- Obstacle collision doesn't have a base value. So we'll work with the
+    -- actual value instead. This works because the actual value isn't
+    -- "guarded" by an instruction that writes to it every frame, unlike
+    -- most of the other stats.
+  
+    compute.state(key)
+    initialText = tostring(values.state[key])
+    windowTitle = string.format("Edit: %s actual value", keysToLabels[key])
+    
+    setValue = function(key, v)
+      local address = values.machineStateBlockAddress + stateBlockOffsets[key]
+      utils.writeFloatBE(address + values.o, v, 4)
+    end
+    
+    resetValue = function(statField, key)
+      -- Since there is no base value, there is no backup base value, and so
+      -- we don't know how to reset this.
+      return
+    end
+    
+  elseif key == "trackCollision" then
+  
+    -- This does have a base value, but editing the base value does nothing
+    -- to the actual value. So we'll edit the actual value directly.
+  
+    compute.state(key)
+    initialText = tostring(values.state[key])
+    windowTitle = string.format("Edit: %s actual value", keysToLabels[key])
+    
+    setValue = function(key, v)
+      local address = values.machineStateBlockAddress + stateBlockOffsets[key]
+      utils.writeFloatBE(address + values.o, v, 4)
+    end
+    
+    resetValue = function(statField, key)
+      compute.baseStats2(key)
+      local baseStat2 = values.baseStats2[key]
+      statField.Text = tostring(baseStat2)
+    end
+    
+  elseif string.sub(key,1,4) == "tilt" then
+  
+    -- The key starts with "tilt".
+    -- Change the key: tilt1 -> tilt1a, etc.
+    compute.baseStats(key.."a")
+    initialText = tostring(values.state[key.."a"])
+    windowTitle = string.format("Edit: %s actual values", keysToLabels[key])
+    
+    setValue = function(key, v)
+      -- Change actual value directly; changing base doesn't change actual here
+      for keySuffix, func in pairs(tiltFormulas[key]) do
+        local address = (values.machineStateBlockAddress
+          + stateBlockOffsets[key..keySuffix])
+        utils.writeFloatBE(address + values.o, func(v), 4)
+      end
+    end
+    
+    resetValue = function(statField, key)
+      compute.baseStats2(key.."a")
+      local baseStat2 = values.baseStats2[key.."a"]
+      statField.Text = tostring(baseStat2)
+    end
+    
+  else
+  
+    compute.baseStats(key)
+    initialText = tostring(values.baseStats[key])
+    windowTitle = string.format("Edit: %s base value", keysToLabels[key])
+    
+    setValue = function(key, v)
+      local address = values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key]
+      utils.writeFloatBE(address + values.o, v, 4)
+    end
+    
+    resetValue = function(statField, key)
+      compute.baseStats2(key)
+      local baseStat2 = values.baseStats2[key]
+      statField.Text = tostring(baseStat2)
+    end
+    
+  end
   
   local font = nil
   
@@ -488,8 +654,7 @@ local function openStatEditWindow(key)
   local window = createForm(true)
   window:setSize(400, 50)
   window:centerScreen()
-  local title = string.format("Edit: %s base value", keysToLabels[key])
-  window:setCaption(title)
+  window:setCaption(windowTitle)
   font = window:getFont()
   font:setName("Calibri")
   font:setSize(10)
@@ -498,7 +663,7 @@ local function openStatEditWindow(key)
   local statField = createEdit(window)
   statField:setPosition(70, 10)
   statField:setSize(200, 20)
-  statField.Text = tostring(baseStat)
+  statField.Text = initialText
   
   -- Put an OK button in the window, which would change the base stat
   -- to the value entered, and close the window
@@ -509,8 +674,7 @@ local function openStatEditWindow(key)
   local confirmValueAndCloseWindow = function(window, statField, key)
     local newValue = tonumber(statField.Text)
     if newValue ~= nil then
-      local address = values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key]
-      utils.writeFloatBE(address + values.o, newValue, 4)
+      setValue(key, newValue)
       
       -- Update the display. Delay for a bit first, because it seems that the
       -- write to the memory address needs a bit of time to take effect.
@@ -538,11 +702,6 @@ local function openStatEditWindow(key)
   resetButton:setPosition(5, 10)
   resetButton:setCaption("Reset")
   resetButton:setSize(50, 25)
-  local resetValue = function(statField, key)
-    compute.baseStats2(key)
-    local baseStat2 = values.baseStats2[key]
-    statField.Text = tostring(baseStat2)
-  end
   resetButton:setOnClick(utils.curry(resetValue, statField, key))
   
   -- Put the initial focus on the stat field.
@@ -551,42 +710,62 @@ end
 
 local function addStatAddressToList(key)
   local addressList = getAddressList()
+  local listEntries = {}
   
-  -- We'll actually add two entries: actual stat and base stat.
+  -- We'll actually add two types of entries: actual stat and base stat.
   -- The base stat is more convenient to edit, because the actual stat usually
   -- needs disabling an instruction (which writes to the address every frame)
   -- before it can be edited. But editing the actual stat avoids having to
   -- consider the base -> actual conversion math.
   
-  -- First we'll add the actual stat.
-  
-  local memoryRecord = addressList:createMemoryRecord()
-  local address = (
-    values.machineStateBlockAddress + stateBlockOffsets[key] + values.o
-  )
-  -- setAddress doesn't work for some reason, despite being in the Help docs?
-  memoryRecord.Address = utils.intToHexStr(address)
-  memoryRecord:setDescription(keysToLabels[key])
-  
-  -- For the memory record type constants, look up defines.lua in
-  -- your Cheat Engine folder.
-  memoryRecord.Type = vtCustom
-  memoryRecord.CustomTypeName = "Float Big Endian"
+  -- First we'll do the actual stat.
+  if string.sub(key,1,4) == "tilt" then
+    for keySuffix, func in pairs(tiltFormulas[key]) do
+      table.insert(listEntries, {
+        address = (values.machineStateBlockAddress
+          + stateBlockOffsets[key..keySuffix] + values.o),
+        description = keysToLabels[key] .. keySuffix,
+        displayType = vtCustom,
+        customTypeName = "Float Big Endian",
+      })
+    end
+  else
+    table.insert(listEntries, {
+      address = values.machineStateBlockAddress + stateBlockOffsets[key] + values.o,
+      description = keysToLabels[key],
+      -- For the memory record type constants, look up defines.lua in
+      -- your Cheat Engine folder.
+      displayType = vtCustom,
+      customTypeName = "Float Big Endian",
+    })
+  end
   
   -- Now the base stat.
   
-  -- This stat doesn't have a base value. But the actual value can be changed
-  -- directly without disabling an instruction, anyways.
-  if key == "obstacleCollision" then return end
+  if string.sub(key,1,4) == "tilt" then
+    -- Changing the base tilt values doesn't change the actual values, so no
+    -- particular use in adding this to the list.
+  elseif key == "obstacleCollision" or key == "trackCollision" then
+    -- These don't have a base value. The actual value can be
+    -- changed directly without disabling an instruction, anyways.
+  else
+    table.insert(listEntries, {
+      address = (values.machineBaseStatsBlockAddress
+        + baseStatsBlockOffsets[key] + values.o),
+      description = keysToLabels[key] .. " (base)",
+      displayType = vtCustom,
+      customTypeName = "Float Big Endian",
+    })
+  end
   
-  memoryRecord = addressList:createMemoryRecord()
-  address = (
-    values.machineBaseStatsBlockAddress + baseStatsBlockOffsets[key] + values.o
-  )
-  memoryRecord.Address = utils.intToHexStr(address)
-  memoryRecord:setDescription(keysToLabels[key] .. " (base)")
-  memoryRecord.Type = 13
-  memoryRecord.CustomTypeName = "Float Big Endian"
+  for _, entry in pairs(listEntries) do
+    memoryRecord = addressList:createMemoryRecord()
+    -- setAddress doesn't work for some reason, despite being in the Help docs?
+    memoryRecord.Address = utils.intToHexStr(entry.address)
+    memoryRecord:setDescription(entry.description)
+    memoryRecord.Type = entry.displayType
+    memoryRecord.CustomTypeName = entry.customTypeName
+  end
 end
 
 local function rebuildStatsDisplay(window)
@@ -696,14 +875,14 @@ local layoutD = {
 
 local layoutE = {
   
-  onlyUpdateManually = true,
-  
   -- Version of layoutD that updates the display with an update button,
   -- instead of automatically on every frame. This is fine because the stats
   -- don't change often (only when you change them, or change machine or
   -- settings).
   -- By not updating on every frame, this version can keep Dolphin running
   -- much more smoothly.
+  
+  onlyUpdateManually = true,
   
   init = function(window)
     window:setSize(550, 510)
@@ -757,7 +936,7 @@ layout.init(window)
 
 
 -- This sets a breakpoint at a particular instruction which should be
--- called exactly once every frame.
+-- called exactly once every frame. (Unless the layout doesn't require it.)
 
 debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
 if not layout.onlyUpdateManually then
