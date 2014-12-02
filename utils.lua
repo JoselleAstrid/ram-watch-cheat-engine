@@ -193,7 +193,9 @@ local function writeIntBE(address, value, numberOfBytesToWrite)
   local bytes = {}
   for n = numberOfBytesToWrite,1,-1 do
     byteValue = remainingValue % 256
+    byteValue = tonumber(string.format("%.f", byteValue))  -- round to int
     remainingValue = (remainingValue - byteValue) / 256
+    remainingValue = tonumber(string.format("%.f", remainingValue))
     bytes[n] = byteValue
   end
   
