@@ -87,19 +87,20 @@ local compute = {
     values.machineStateBlockAddress = readIntBE(pointerAddress + values.o, 4)
   end,
   
-  machineBaseStatsBlockAddress = function()
+  machineId = function()
     local machineIdAddress = values.machineStateBlockAddress + stateBlockOffsets.machineId
-    local machineId = readIntBE(machineIdAddress + values.o, 2)
-    values.machineBaseStatsBlockAddress = 0x81554000 + (0xB4*machineId)
+    values.machineId = readIntBE(machineIdAddress + values.o, 2)
+  end,
+  
+  machineBaseStatsBlockAddress = function()
+    values.machineBaseStatsBlockAddress = 0x81554000 + (0xB4*values.machineId)
   end,
   
   machineBaseStatsBlock2Address = function()
     -- A duplicate of the base stats block. We'll use this as a backup of the
     -- original values, when playing with the values in the primary block.
-    local machineIdAddress = values.machineStateBlockAddress + stateBlockOffsets.machineId
-    local machineId = readIntBE(machineIdAddress + values.o, 2)
     local firstMachineBlockAddress = values.refPointer + 0x195584
-    values.machineBaseStatsBlock2Address = firstMachineBlockAddress + (0xB4*machineId)
+    values.machineBaseStatsBlock2Address = firstMachineBlockAddress + (0xB4*values.machineId)
   end,
   
   state = function(key)
@@ -220,6 +221,7 @@ local function updateStatDisplay()
   compute.o()
   compute.refPointer()
   compute.machineStateBlockAddress()
+  compute.machineId()
   compute.machineBaseStatsBlockAddress()
   compute.machineBaseStatsBlock2Address()
   
@@ -506,12 +508,14 @@ end
 
 
 
-local TiltStat = {}
-setmetatable(TiltStat, Stat)
+local SizeStat = {}
+setmetatable(SizeStat, Stat)
 
-function TiltStat:new(label, stateBlockOffsets, baseStatsBlockOffsets, formulas)
+function SizeStat:new(label, specificLabels, stateBlockOffsets,
+                      baseStatsBlockOffsets, formulas)
   local newObj = {
     label = label,
+    specificLabels = specificLabels,
     stateBlockOffsets = stateBlockOffsets,
     baseStatsBlockOffsets = baseStatsBlockOffsets,
     formulas = formulas,
@@ -522,36 +526,36 @@ function TiltStat:new(label, stateBlockOffsets, baseStatsBlockOffsets, formulas)
   return newObj
 end
   
-function TiltStat:getCurrent(key)
-  if key == nil then key = "a" end
+function SizeStat:getCurrent(key)
+  if key == nil then key = 1 end
 
   local address = values.machineStateBlockAddress + self.stateBlockOffsets[key]
   return readFloatBE(address + values.o, 4)
 end
   
-function TiltStat:getBase(key, precision)
-  if key == nil then key = "a" end
+function SizeStat:getBase(key, precision)
+  if key == nil then key = 1 end
 
   local address = (values.machineBaseStatsBlockAddress
     + self.baseStatsBlockOffsets[key])
   return readFloatBE(address + values.o, 4)
 end
   
-function TiltStat:getBase2(key, precision)
-  if key == nil then key = "a" end
+function SizeStat:getBase2(key, precision)
+  if key == nil then key = 1 end
 
   local address = (values.machineBaseStatsBlock2Address
     + self.baseStatsBlockOffsets[key])
   return readFloatBE(address + values.o, 4)
 end
 
-function TiltStat:hasChanged()
+function SizeStat:hasChanged()
   -- Since we change the actual value directly, and there is no
   -- base -> actual formula, we check actual vs. base here.
   return self:getCurrent() ~= self:getBase2()
 end
 
-function TiltStat:openEditWindow()
+function SizeStat:openEditWindow()
   local initialText = tostring(self:getCurrent())
   local windowTitle = string.format("Edit: %s actual values", self.label)
   
@@ -571,14 +575,14 @@ function TiltStat:openEditWindow()
   openStatEditWindow(initialText, windowTitle, setValue, resetValue)
 end
 
-function TiltStat:addAddressesToList()
-  -- Only add the actual stats here. Changing the base tilt values
+function SizeStat:addAddressesToList()
+  -- Only add the actual stats here. Changing the base size values
   -- doesn't change the actual values, so no particular use in adding
   -- base values to the list.
-  for key, func in pairs(self.formulas) do
+  for key, specificLabel in pairs(self.specificLabels) do
     addAddressToList({
       address = values.machineStateBlockAddress + self.stateBlockOffsets[key] + values.o,
-      description = self.label .. key,
+      description = specificLabel,
       displayType = vtCustom,
       customTypeName = "Float Big Endian",
     })
@@ -609,48 +613,77 @@ local turning2 = Stat:new("Turning 2", 0x14, 0x20)
 local turning3 = Stat:new("Turning 3", 0x20, 0x2C)
 local weight = Stat:new("Weight", 0x8, 0x4)
 
-local tilt1 = TiltStat:new(
-  "Tilt 1",
-  {a = 0x24C, b = 0x2A8, c = 0x3B4, d = 0x3E4},
-  {a = 0x54, b = 0x60, c = 0x84, d = 0x90},
+local frontWidth = SizeStat:new(
+  "Size, front width",
   {
-    a = function(v) return v end,
-    b = function(v) return -v end,
-    c = function(v) return v+0.2 end,
-    d = function(v) return -(v+0.2) end,
+    "Tilt, front width, right",
+    "Tilt, front width, left",
+    "Wall collision, front width, right",
+    "Wall collision, front width, left",
+  },
+  {0x24C, 0x2A8, 0x3B4, 0x3E4},
+  {0x54, 0x60, 0x84, 0x90},
+  {
+    function(v) return v end,
+    function(v) return -v end,
+    function(v) return v+0.2 end,
+    function(v) return -(v+0.2) end,
   }
 )
-local tilt2 = TiltStat:new(
-  "Tilt 2",
-  {a = 0x254, b = 0x2B0, c = 0x3BC, d = 0x3EC},
-  {a = 0x5C, b = 0x68, c = 0x8C, d = 0x98},
+local frontLength = SizeStat:new(
+  "Size, front length",
   {
-    a = function(v) return v end,
-    b = function(v) return v end,
-    c = function(v) return v-0.2 end,
-    d = function(v) return v-0.2 end,
+    "Tilt, front length, right",
+    "Tilt, front length, left",
+    "Wall collision, front length, right",
+    "Wall collision, front length, left",
+  },
+  {0x254, 0x2B0, 0x3BC, 0x3EC},
+  {0x5C, 0x68, 0x8C, 0x98},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v-0.2 end,
+    function(v) return v-0.2 end,
   }
 )
-local tilt3 = TiltStat:new(
-  "Tilt 3",
-  {a = 0x304, b = 0x360, c = 0x414, d = 0x444},
-  {a = 0x6C, b = 0x78, c = 0x9C, d = 0xA8},
+local backWidth = SizeStat:new(
+  "Size, back width",
   {
-    a = function(v) return v end,
-    b = function(v) return -v end,
-    c = function(v) return v+0.2 end,
-    d = function(v) return -(v+0.2) end,
+    "Tilt, back width, right",
+    "Tilt, back width, left",
+    "Wall collision, back width, right",
+    "Wall collision, back width, left",
+  },
+  {0x304, 0x360, 0x414, 0x444},
+  {0x6C, 0x78, 0x9C, 0xA8},
+  {
+    function(v) return v end,
+    function(v) return -v end,
+    function(v)
+      -- Black Bull is 0.3, everyone else is 0.2
+      if values.machineId == 29 then return v+0.3 else return v+0.2 end
+    end,
+    function(v)
+      if values.machineId == 29 then return -(v+0.3) else return -(v+0.2) end
+    end,
   }
 )
-local tilt4 = TiltStat:new(
-  "Tilt 4",
-  {a = 0x30C, b = 0x368, c = 0x41C, d = 0x44C},
-  {a = 0x74, b = 0x80, c = 0xA4, d = 0xB0},
+local backLength = SizeStat:new(
+  "Size, back length",
   {
-    a = function(v) return v end,
-    b = function(v) return v end,
-    c = function(v) return v+0.2 end,
-    d = function(v) return v+0.2 end,
+    "Tilt, back length, right",
+    "Tilt, back length, left",
+    "Wall collision, back length, right",
+    "Wall collision, back length, left",
+  },
+  {0x30C, 0x368, 0x41C, 0x44C},
+  {0x74, 0x80, 0xA4, 0xB0},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v+0.2 end,
+    function(v) return v+0.2 end,
   }
 )
 
@@ -693,10 +726,41 @@ function obstacleCollision:addAddressesToList()
 end
 
 
--- Treat track collision the same as obstacle collision for now.
--- But need to determine the relationship between trackCollision and Tilt 3.
-setmetatable(trackCollision, obstacleCollision)
-obstacleCollision.__index = obstacleCollision
+
+-- Track collision doesn't change when changing the base value.
+-- By the way: this is always the same value as Back width c, just used for a
+-- different purpose.
+function trackCollision:hasChanged()
+  return self:getCurrent() ~= self:getBase2()
+end
+
+function trackCollision:openEditWindow()
+  local initialText = tostring(self:getCurrent())
+  local windowTitle = string.format("Edit: %s actual value", self.label)
+  
+  local setValue = function(v)
+    -- Change the actual stat, since changing base does nothing.
+    local address = (values.machineStateBlockAddress
+      + self.stateBlockOffset)
+    utils.writeFloatBE(address + values.o, v, 4)
+  end
+  
+  local resetValue = function(statField)
+    statField.Text = tostring(self:getBase2())
+  end
+  
+  openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+end
+
+function trackCollision:addAddressesToList()
+  -- Add the actual stat, since changing base does nothing.
+  addAddressToList({
+    address = values.machineStateBlockAddress + self.stateBlockOffset + values.o,
+    description = self.label,
+    displayType = vtCustom,
+    customTypeName = "Float Big Endian",
+  })
+end
 
 
 
@@ -704,8 +768,9 @@ editableStats = {
   accel, body, boostInterval, boostStrength,
   cameraReorienting, cameraRepositioning, drag, driftAccel,
   grip1, grip2, grip3, maxSpeed, obstacleCollision,
-  strafeTurn, strafe, tilt1, tilt2, tilt3, tilt4, 
-  trackCollision, turnDecel, turning1, turning2, turning3, weight,
+  backLength, backWidth, frontLength, frontWidth,
+  strafeTurn, strafe, trackCollision, turnDecel,
+  turning1, turning2, turning3, weight,
 }
 
 --------------------------------------------------------------------------------
@@ -797,6 +862,7 @@ local layoutC = {
     compute.o()
     compute.refPointer()
     compute.machineStateBlockAddress()
+    compute.machineId()
     compute.machineBaseStatsBlockAddress()
     mainLabel:setCaption(
       table.concat(
