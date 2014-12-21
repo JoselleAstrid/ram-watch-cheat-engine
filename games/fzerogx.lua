@@ -36,7 +36,7 @@ local values = {
 
 -- Computing RAM values.
 
-local stateBlockOffsets = {
+local stateOffsets = {
   machineId = 0x6,
   machineName = 0x3C,
   posX = 0x7C,
@@ -88,7 +88,7 @@ local compute = {
   end,
   
   machineId = function()
-    local machineIdAddress = values.machineStateBlockAddress + stateBlockOffsets.machineId
+    local machineIdAddress = values.machineStateBlockAddress + stateOffsets.machineId
     values.machineId = readIntBE(machineIdAddress + values.o, 2)
   end,
   
@@ -104,14 +104,14 @@ local compute = {
   end,
   
   state = function(key)
-    local address = values.machineStateBlockAddress + stateBlockOffsets[key]
+    local address = values.machineStateBlockAddress + stateOffsets[key]
     values.state[key] = readStateValue(address, key)
   end,
   
   stateOfOtherMachine = function(key, machineIndex)
     local address = (values.machineStateBlockAddress
       + (0x620 * machineIndex)
-      + stateBlockOffsets[key])
+      + stateOffsets[key])
       
     if values.state[machineIndex] == nil then
       values.state[machineIndex] = {}
@@ -125,7 +125,7 @@ local compute = {
     -- *next* frame.
     -- There is no known address for the displayed speed on the current frame,
     -- but we can get that by just taking the previous km/h value.
-    local address = values.machineStateBlockAddress + stateBlockOffsets.kmh
+    local address = values.machineStateBlockAddress + stateOffsets.kmh
     
     values.currKmh = values.nextKmh
     values.nextKmh = readFloatBE(address + values.o, 4)
@@ -228,13 +228,15 @@ local function updateStatDisplay()
   local statLines = {}
   for _, stat in pairs(statsToDisplay) do
     local line = stat:getDisplay()
-    if stat:hasChanged() then line = line.."*" end
+    if stat.hasChanged ~= nil and stat:hasChanged() then
+      line = line.."*"
+    end
     table.insert(statLines, line)
   end
   mainLabel:setCaption(table.concat(statLines, "\n"))
 end
 
-local function openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+local function openValueEditWindow(initialText, windowTitle, setValue, resetValue)
   local font = nil
   
   -- Create an edit window
@@ -246,28 +248,26 @@ local function openStatEditWindow(initialText, windowTitle, setValue, resetValue
   font:setName("Calibri")
   font:setSize(10)
   
-  -- Add a text box, with the baseStat value, full decimal places
+  -- Add a text box with the current value
   local statField = createEdit(window)
   statField:setPosition(70, 10)
   statField:setSize(200, 20)
   statField.Text = initialText
   
-  -- Put an OK button in the window, which would change the base stat
-  -- to the value entered, and close the window
+  -- Put an OK button in the window, which would change the value
+  -- to the text field contents, and close the window
   local okButton = createButton(window)
   okButton:setPosition(300, 10)
   okButton:setCaption("OK")
   okButton:setSize(30, 25)
   local confirmValueAndCloseWindow = function(window, statField)
-    local newValue = tonumber(statField.Text)
-    if newValue ~= nil then
-      setValue(newValue)
-      
-      -- Update the display. Delay for a bit first, because it seems that the
-      -- write to the memory address needs a bit of time to take effect.
-      sleep(50)
-      updateStatDisplay()
-    end
+    setValue(statField.Text)
+    
+    -- Update the display. Delay for a bit first, because it seems that the
+    -- write to the memory address needs a bit of time to take effect.
+    -- TODO: Use Timer instead of sleep?
+    sleep(50)
+    updateStatDisplay()
     window:close()
   end
   
@@ -284,12 +284,14 @@ local function openStatEditWindow(initialText, windowTitle, setValue, resetValue
   end
   cancelButton:setOnClick(utils.curry(closeWindow, window))
   
-  -- Add a reset button, which would reset the value to baseStat2
-  local resetButton = createButton(window)
-  resetButton:setPosition(5, 10)
-  resetButton:setCaption("Reset")
-  resetButton:setSize(50, 25)
-  resetButton:setOnClick(utils.curry(resetValue, statField))
+  -- Add a reset button, if applicable
+  if resetValue then
+    local resetButton = createButton(window)
+    resetButton:setPosition(5, 10)
+    resetButton:setCaption("Reset")
+    resetButton:setSize(50, 25)
+    resetButton:setOnClick(utils.curry(resetValue, statField))
+  end
   
   -- Put the initial focus on the stat field.
   statField:setFocus()
@@ -303,7 +305,16 @@ local function addAddressToList(entry)
   memoryRecord.Address = utils.intToHexStr(entry.address)
   memoryRecord:setDescription(entry.description)
   memoryRecord.Type = entry.displayType
-  memoryRecord.CustomTypeName = entry.customTypeName
+  if entry.displayType == vtCustom then
+    memoryRecord.CustomTypeName = entry.customTypeName
+  elseif entry.displayType == vtBinary then
+    -- TODO: Can't figure out how to set the start bit and size.
+    -- And this entry is useless if it's a 0-sized Binary display (which is
+    -- default). Best we can do is to make this entry a Byte...
+    --memoryRecord.Binary.Startbit = entry.binaryStartBit
+    --memoryRecord.Binary.Size = entry.binarySize
+    memoryRecord.Type = vtByte
+  end
 end
 
 local function rebuildStatsDisplay(window)
@@ -389,71 +400,305 @@ end
 
 
 
-local Stat = {}
+local StateValue = {}
 
-function Stat:new(label, stateBlockOffset, baseStatsBlockOffset)
+function StateValue:getAddress()
+  return values.machineStateBlockAddress + self.stateOffset + values.o
+end
+
+function StateValue:get()
+  return self.read(self:getAddress(), self.numOfBytes)
+end
+
+function StateValue:getDisplay(...)
+  local value = self:get()
+  return self.label .. ": " .. self.toStr(value, ...)
+end
+
+function StateValue:set(v)
+  self.write(self:getAddress(), v, self.numOfBytes)
+end
+
+function StateValue:openEditWindow()
+  -- Use tostring instead of self.toStr() to ensure that the raw value (e.g.
+  -- full float decimal places) is there. We want accuracy here, not fluff.
+  local initialText = tostring(self:get())
+  local windowTitle = string.format("Edit: %s value", self.label)
+  local setValue = function(s)
+    local v = tonumber(s)
+    if v ~= nil then self:set(v) end
+  end
+  
+  -- Normal values don't have a reference value to use for resetting.
+  local resetValue = nil
+  
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
+end
+
+function StateValue:addAddressesToList()
+  addAddressToList({
+    address = self:getAddress(),
+    description = self.label,
+    -- For the memory record type constants, look up defines.lua in
+    -- your Cheat Engine folder.
+    displayType = self.addressListType,
+    -- Just give all the possible fields, and let addAddressToList figure out
+    -- what needs to be used.
+    customTypeName = self.addressListCustomTypeName,
+    binaryStartBit = self.binaryStartBit,
+    binarySize = self.binarySize,
+  })
+end
+
+
+
+function StateValue:new(label, stateOffset, classes, extraArgs)
   local newObj = {
     -- Note that these parameters are optional, any unspecified ones
     -- will just become nil.
     label = label,
-    stateBlockOffset = stateBlockOffset,
-    baseStatsBlockOffset = baseStatsBlockOffset,
+    stateOffset = stateOffset,
   }
   setmetatable(newObj, self)
   self.__index = self
   
+  -- The below is a simple implementation of mixins. This lets us get
+  -- some attributes from one class and some attributes from another class.
+  
+  for _, class in pairs(classes) do
+    for key, value in pairs(class) do
+      newObj[key] = value
+    end
+    if class.extraArgs then
+      for _, argName in pairs(class.extraArgs) do
+        -- TODO: Would be nice to have a good way of enforcing that the
+        -- extraArgs needed are present.
+        newObj[argName] = extraArgs[argName]
+      end
+    end
+  end
+  
   return newObj
 end
-  
-function Stat:getCurrent()
-  local address = values.machineStateBlockAddress + self.stateBlockOffset
-  return readFloatBE(address + values.o, 4)
+
+-- Kind of like inheritance, except it just copies the fields from the parents
+-- to the children. This means no "super" calls. This also means you can
+-- easily have multiple parents ordered by priority.
+function copyFields(child, parents)
+  for _, parent in pairs(parents) do
+    for key, value in pairs(parent) do
+      if key == "extraArgs" then
+        -- Add the parent's extraArgs to the child's. 
+        for _, name in pairs(value) do
+          table.insert(child.extraArgs, name)
+        end
+      else
+        -- For any non-extraArgs field, just set the value directly.
+        child[key] = value
+      end
+    end
+  end
 end
 
-function Stat:getDisplay(precision)
+
+
+local FloatValue = {}
+FloatValue.read = utils.readFloatBE
+FloatValue.write = utils.writeFloatBE
+FloatValue.toStr = function(v, precision, trimTrailingZeros)
   if precision == nil then precision = 4 end
+  if trimTrailingZeros == nil then trimTrailingZeros = false end
+  return utils.floatToStr(v, precision, trimTrailingZeros)
+end
+FloatValue.numOfBytes = 4
+FloatValue.addressListType = vtCustom
+FloatValue.addressListCustomTypeName = "Float Big Endian"
 
-  local value = self:getCurrent()
-  return string.format(
-    "%s: %s",
-    self.label,
-    floatToStr(value, precision, true)
-  )
+local IntValue = {}
+IntValue.read = utils.readIntBE
+IntValue.write = utils.writeIntBE
+IntValue.toStr = tostring
+IntValue.numOfBytes = 4
+IntValue.addressListType = vtCustom
+IntValue.addressListCustomTypeName = "4 Byte Big Endian"
+
+local ByteValue = {}
+ByteValue.read = utils.readIntBE
+ByteValue.write = utils.writeIntBE
+ByteValue.toStr = tostring
+ByteValue.numOfBytes = 1
+ByteValue.addressListType = vtByte
+
+
+
+local BinaryValue = {}
+BinaryValue.extraArgs = {"binarySize", "binaryStartBit"}
+BinaryValue.addressListType = vtBinary
+
+
+
+function BinaryValue.read(address, firstBit, binarySize)
+  -- address is the byte address
+  -- Possible startBit values from left to right: 76543210
+  -- Returns: a table of the bits
+  -- For now, we only support binary values contained in a single byte.
+  local byte = utils.readIntBE(address, 1)
+  local lastBit = firstBit - binarySize + 1
+  local bits = {}
+  for bitNumber = firstBit, lastBit, -1 do
+    -- Check if the byte has 1 or 0 in this position.
+    if 2^bitNumber == bAnd(byte, 2^bitNumber) then
+      table.insert(bits, 1)
+    else
+      table.insert(bits, 0)
+    end
+  end
+  return bits
+end
+
+function BinaryValue:get()
+  return self.read(self:getAddress(), self.binaryStartBit, self.binarySize)
+end
+
+function BinaryValue.write(address, firstBit, binarySize, v)
+  -- v is a table of the bits
+  -- For now, we only support binary values contained in a single byte.
+  
+  -- Start with the current byte value. Then write the bits that need to
+  -- be written.
+  local byte = utils.readIntBE(address, 1)
+  local lastBit = firstBit - binarySize + 1
+  local bitCount = 0
+  for bitNumber = firstBit, lastBit, -1 do
+    bitCount = bitCount + 1
+    if v[bitCount] == 1 then
+      byte = bOr(byte, 2^bitNumber)
+    else
+      byte = bAnd(byte, 255 - 2^bitNumber)
+    end
+  end
+  utils.writeIntBE(address, byte, 1)
+end
+
+function BinaryValue:set(v)
+  self.write(self:getAddress(), self.binaryStartBit, self.binarySize, v)
+end
+
+function BinaryValue.toStr(v)
+  -- v is a table of bits
+  local s = ""
+  for _, bit in pairs(v) do
+    s = s .. tostring(bit)
+  end
+  return s
+end
+
+function BinaryValue:bitStrToTable(s)
+  local bits = {}
+  -- Iterate over string characters (http://stackoverflow.com/a/832414)
+  for singleBitStr in s:gmatch"." do
+    if singleBitStr == "1" then
+      table.insert(bits, 1)
+    elseif singleBitStr == "0" then
+      table.insert(bits, 0)
+    else
+      return nil
+    end
+  end
+  if self.binarySize ~= #bits then return nil end
+  return bits
+end
+
+function BinaryValue:openEditWindow()
+  local initialText = self.toStr(self:get())
+  local windowTitle = string.format("Edit: %s value", self.label)
+  local setValue = function(bitStr)
+    local v = self:bitStrToTable(bitStr)
+    if v ~= nil then self:set(v) end
+  end
+  
+  local resetValue = nil
+  
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
+end
+
+
+
+local StatWithBase = {}
+
+StatWithBase.extraArgs = {"baseOffset"}
+
+function StatWithBase:getBaseAddress()
+  return values.o + values.machineBaseStatsBlockAddress + self.baseOffset
+end
+
+function StatWithBase:getBase2Address()
+  return values.o + values.machineBaseStatsBlock2Address + self.baseOffset
 end
   
-function Stat:getBase(precision)
-  local address = (values.machineBaseStatsBlockAddress
-    + self.baseStatsBlockOffset)
-  return readFloatBE(address + values.o, 4)
+function StatWithBase:getBase()
+  return self.read(self:getBaseAddress(), self.numOfBytes)
 end
   
-function Stat:getBase2(precision)
-  local address = (values.machineBaseStatsBlock2Address
-    + self.baseStatsBlockOffset)
-  return readFloatBE(address + values.o, 4)
+function StatWithBase:getBase2()
+  return self.read(self:getBase2Address(), self.numOfBytes)
 end
 
-function Stat:getBaseDisplay(precision)
-  if precision == nil then precision = 4 end
-
+function StatWithBase:getBaseDisplay(...)
   local value = self:getBase()
-  return string.format(
-    "%s: %s",
-    self.label .. " (B)",
-    floatToStr(value, precision, true)
-  )
+  return self.label .. " (B): " .. self.toStr(value, ...)
 end
 
-function Stat:hasChanged()
-  -- Implementation: Check if the primary and backup base stats are different.
+function StatWithBase:hasChanged()
+  -- Implementation: Check if the actual value and backup base value
+  -- are the same.
   --
-  -- Limitation: Assumes that you only change stats by changing their base
-  -- values, rather than their actual values.
+  -- Assumes you don't go into the memory and change the backup base value.
   --
-  -- Limitation: Does not account for base -> actual formulas in two ways:
+  -- Assumes there is no formula between the base and actual values,
+  -- though this can be changed for specific stats by overriding this function.
+  --
+  -- Limitation: If the game is paused, then the actual value will not reflect
+  -- the base value yet. So the "this is changed" display can be misleading
+  -- if you forget that.
+  return self:get() ~= self:getBase2()
+end
+
+function StatWithBase:openEditWindow()
+  local initialText = tostring(self:get())
+  local windowTitle = string.format("Edit: %s actual value", self.label)
+  
+  local setValue = function(s)
+    local v = tonumber(s)
+    if v ~= nil then self:set(v) end
+  end
+  
+  local resetValue = function(statField)
+    statField.Text = tostring(self:getBase2())
+  end
+  
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
+end
+
+
+
+local StatTiedToBase = {}
+
+StatTiedToBase.extraArgs = {}
+copyFields(StatTiedToBase, {StatWithBase})
+
+function StatTiedToBase:hasChanged()
+  -- Implementation: Check if the primary and backup base values are different.
+  --
+  -- Assumes that you only change this stat by changing its base
+  -- values, rather than the actual value.
+  --
+  -- Does not fully account for base -> actual formulas in two ways:
   -- (1) Actual values of other stats could be changed by changing the base
-  -- value of Accel. (2) Actual values could stay the same even when the base
-  -- value is different.
+  -- value of Accel (it's special that way).
+  -- (2) Actual values could stay the same even when the base value
+  -- is different. For example, Turn decel's actual value may be locked at
+  -- 0.01 for a variety of base values.
   --
   -- Limitation: If the game is paused, then the actual value will not reflect
   -- the base value yet. So the "this is changed" display can be misleading
@@ -461,24 +706,25 @@ function Stat:hasChanged()
   return self:getBase() ~= self:getBase2()
 end
 
-function Stat:openEditWindow()
+function StatTiedToBase:openEditWindow()
   local initialText = tostring(self:getBase())
   local windowTitle = string.format("Edit: %s base value", self.label)
   
-  local setValue = function(v)
-    local address = (values.machineBaseStatsBlockAddress
-      + self.baseStatsBlockOffset)
-    utils.writeFloatBE(address + values.o, v, 4)
+  local setValue = function(s)
+    local v = tonumber(s)
+    if v ~= nil then
+      self.write(self:getBaseAddress(), v, self.numOfBytes)
+    end
   end
   
   local resetValue = function(statField)
     statField.Text = tostring(self:getBase2())
   end
   
-  openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
 end
 
-function Stat:addAddressesToList()
+function StatTiedToBase:addAddressesToList()
   -- We'll add two entries: actual stat and base stat.
   -- The base stat is more convenient to edit, because the actual stat usually
   -- needs disabling an instruction (which writes to the address every frame)
@@ -488,83 +734,66 @@ function Stat:addAddressesToList()
   
   -- Actual stat
   addAddressToList({
-    address = values.machineStateBlockAddress + self.stateBlockOffset + values.o,
+    address = self:getAddress(),
     description = self.label,
-    -- For the memory record type constants, look up defines.lua in
-    -- your Cheat Engine folder.
-    displayType = vtCustom,
-    customTypeName = "Float Big Endian",
+    displayType = self.addressListType,
+    customTypeName = self.addressListCustomTypeName,
+    binaryBitPosition = self.binaryBitPosition,
   })
   
   -- Base stat
   addAddressToList({
-    address = (values.machineBaseStatsBlockAddress
-      + self.baseStatsBlockOffset + values.o),
+    address = self:getBaseAddress(),
     description = self.label .. " (base)",
-    displayType = vtCustom,
-    customTypeName = "Float Big Endian",
+    displayType = self.addressListType,
+    customTypeName = self.addressListCustomTypeName,
+    binaryBitPosition = self.binaryBitPosition,
   })
 end
 
 
 
 local SizeStat = {}
-setmetatable(SizeStat, Stat)
 
-function SizeStat:new(label, specificLabels, stateBlockOffsets,
-                      baseStatsBlockOffsets, formulas)
-  local newObj = {
-    label = label,
-    specificLabels = specificLabels,
-    stateBlockOffsets = stateBlockOffsets,
-    baseStatsBlockOffsets = baseStatsBlockOffsets,
-    formulas = formulas,
-  }
-  setmetatable(newObj, self)
-  self.__index = self
+SizeStat.extraArgs = {"specificLabels", "formulas"}
+copyFields(SizeStat, {StatWithBase})
   
-  return newObj
-end
-  
-function SizeStat:getCurrent(key)
+function SizeStat:get(key)
   if key == nil then key = 1 end
 
-  local address = values.machineStateBlockAddress + self.stateBlockOffsets[key]
-  return readFloatBE(address + values.o, 4)
+  local address = values.machineStateBlockAddress + self.stateOffset[key]
+  return self.read(address + values.o, 4)
 end
   
 function SizeStat:getBase(key, precision)
   if key == nil then key = 1 end
 
   local address = (values.machineBaseStatsBlockAddress
-    + self.baseStatsBlockOffsets[key])
-  return readFloatBE(address + values.o, 4)
+    + self.baseOffset[key])
+  return self.read(address + values.o, 4)
 end
   
 function SizeStat:getBase2(key, precision)
   if key == nil then key = 1 end
 
   local address = (values.machineBaseStatsBlock2Address
-    + self.baseStatsBlockOffsets[key])
-  return readFloatBE(address + values.o, 4)
-end
-
-function SizeStat:hasChanged()
-  -- Since we change the actual value directly, and there is no
-  -- base -> actual formula, we check actual vs. base here.
-  return self:getCurrent() ~= self:getBase2()
+    + self.baseOffset[key])
+  return self.read(address + values.o, 4)
 end
 
 function SizeStat:openEditWindow()
-  local initialText = tostring(self:getCurrent())
+  local initialText = tostring(self:get())
   local windowTitle = string.format("Edit: %s actual values", self.label)
   
-  local setValue = function(v)
-    -- Change actual values directly; changing base doesn't change actual here
-    for key, func in pairs(self.formulas) do
-      local address = (values.machineStateBlockAddress
-        + self.stateBlockOffsets[key])
-      utils.writeFloatBE(address + values.o, func(v), 4)
+  local setValue = function(s)
+    local v = tonumber(s)
+    if v ~= nil then
+      -- Change actual values directly; changing base doesn't change actual here
+      for key, func in pairs(self.formulas) do
+        local address = (values.machineStateBlockAddress
+          + self.stateOffset[key])
+        self.write(address + values.o, func(v), self.numOfBytes)
+      end
     end
   end
   
@@ -572,7 +801,7 @@ function SizeStat:openEditWindow()
     statField.Text = tostring(self:getBase2())
   end
   
-  openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
 end
 
 function SizeStat:addAddressesToList()
@@ -581,186 +810,233 @@ function SizeStat:addAddressesToList()
   -- base values to the list.
   for key, specificLabel in pairs(self.specificLabels) do
     addAddressToList({
-      address = values.machineStateBlockAddress + self.stateBlockOffsets[key] + values.o,
+      address = values.machineStateBlockAddress + self.stateOffset[key] + values.o,
       description = specificLabel,
-      displayType = vtCustom,
-      customTypeName = "Float Big Endian",
+      displayType = self.addressListType,
+      customTypeName = self.addressListCustomTypeName,
+      binaryStartBit = self.binaryStartBit,
+      binarySize = self.binarySize,
     })
   end
 end
 
 
 
-local accel = Stat:new("Accel", 0x220, 0x8)
-local body = Stat:new("Body", 0x30, 0x44)
-local boostInterval = Stat:new("Boost interval", 0x234, 0x38)
-local boostStrength = Stat:new("Boost strength", 0x230, 0x34)
-local cameraReorienting = Stat:new("Cam. reorienting", 0x34, 0x4C)
-local cameraRepositioning = Stat:new("Cam. repositioning", 0x38, 0x50)
-local drag = Stat:new("Drag", 0x23C, 0x40)
-local driftAccel = Stat:new("Drift accel", 0x2C, 0x1C) 
-local grip1 = Stat:new("Grip 1", 0xC, 0x10)
-local grip2 = Stat:new("Grip 2", 0x24, 0x30)
-local grip3 = Stat:new("Grip 3", 0x28, 0x14)
-local maxSpeed = Stat:new("Max speed", 0x22C, 0xC)
-local obstacleCollision = Stat:new("Obstacle collision", 0x584)
-local strafe = Stat:new("Strafe", 0x1C, 0x28)
-local strafeTurn = Stat:new("Strafe turn", 0x18, 0x24)
-local trackCollision = Stat:new("Track collision", 0x588, 0x9C)
-local turnDecel = Stat:new("Turn decel", 0x238, 0x3C)
-local turning1 = Stat:new("Turning 1", 0x10, 0x18)
-local turning2 = Stat:new("Turning 2", 0x14, 0x20)
-local turning3 = Stat:new("Turning 3", 0x20, 0x2C)
-local weight = Stat:new("Weight", 0x8, 0x4)
+local FloatStat = {}
 
-local frontWidth = SizeStat:new(
-  "Size, front width",
-  {
-    "Tilt, front width, right",
-    "Tilt, front width, left",
-    "Wall collision, front width, right",
-    "Wall collision, front width, left",
-  },
-  {0x24C, 0x2A8, 0x3B4, 0x3E4},
-  {0x54, 0x60, 0x84, 0x90},
-  {
-    function(v) return v end,
-    function(v) return -v end,
-    function(v) return v+0.2 end,
-    function(v) return -(v+0.2) end,
-  }
-)
-local frontLength = SizeStat:new(
-  "Size, front length",
-  {
-    "Tilt, front length, right",
-    "Tilt, front length, left",
-    "Wall collision, front length, right",
-    "Wall collision, front length, left",
-  },
-  {0x254, 0x2B0, 0x3BC, 0x3EC},
-  {0x5C, 0x68, 0x8C, 0x98},
-  {
-    function(v) return v end,
-    function(v) return v end,
-    function(v) return v-0.2 end,
-    function(v) return v-0.2 end,
-  }
-)
-local backWidth = SizeStat:new(
-  "Size, back width",
-  {
-    "Tilt, back width, right",
-    "Tilt, back width, left",
-    "Wall collision, back width, right",
-    "Wall collision, back width, left",
-  },
-  {0x304, 0x360, 0x414, 0x444},
-  {0x6C, 0x78, 0x9C, 0xA8},
-  {
-    function(v) return v end,
-    function(v) return -v end,
-    function(v)
-      -- Black Bull is 0.3, everyone else is 0.2
-      if values.machineId == 29 then return v+0.3 else return v+0.2 end
-    end,
-    function(v)
-      if values.machineId == 29 then return -(v+0.3) else return -(v+0.2) end
-    end,
-  }
-)
-local backLength = SizeStat:new(
-  "Size, back length",
-  {
-    "Tilt, back length, right",
-    "Tilt, back length, left",
-    "Wall collision, back length, right",
-    "Wall collision, back length, left",
-  },
-  {0x30C, 0x368, 0x41C, 0x44C},
-  {0x74, 0x80, 0xA4, 0xB0},
-  {
-    function(v) return v end,
-    function(v) return v end,
-    function(v) return v+0.2 end,
-    function(v) return v+0.2 end,
-  }
-)
+copyFields(FloatStat, {FloatValue})
+
+FloatStat.toStr = function(v, precision, trimTrailingZeros)
+  if precision == nil then precision = 4 end
+  if trimTrailingZeros == nil then trimTrailingZeros = true end
+  return utils.floatToStr(v, precision, trimTrailingZeros)
+end
 
 
 
--- Obstacle collision has no value in the base stats block.
-function obstacleCollision:getBase() return nil end
+-- It's ugly design that this class exists, as it is mostly redundant
+-- with BinaryValue and StatTiedToBase. Reasons for the messiness include:
+-- 1. BinaryValue having to define get(), set(), and openEditWindow() which
+--    are normally not datatype specific
+-- 2. The need for involving a binary start bit into many of these kinds of
+--    functions; and there is a different binary start bit for the actual
+--    and base for the two binary machine stats
 
-function obstacleCollision:getBase2() return nil end
+local BinaryValueTiedToBase = {}
 
--- Since there is no base stat to refer to, we don't know if the
--- stat has changed.
-function obstacleCollision:hasChanged() return false end
-
-function obstacleCollision:openEditWindow()
-  local initialText = tostring(self:getCurrent())
-  local windowTitle = string.format("Edit: %s actual value", self.label)
+BinaryValueTiedToBase.extraArgs = {"baseBinaryStartBit"}
+copyFields(BinaryValueTiedToBase, {StatTiedToBase, BinaryValue})
   
-  local setValue = function(v)
-    -- Change the actual stat, since there's no base stat.
-    local address = (values.machineStateBlockAddress
-      + self.stateBlockOffset)
-    utils.writeFloatBE(address + values.o, v, 4)
+function BinaryValueTiedToBase:getBase()
+  return self.read(self:getBaseAddress(), self.baseBinaryStartBit, self.binarySize)
+end
+  
+function BinaryValueTiedToBase:getBase2()
+  return self.read(self:getBase2Address(), self.baseBinaryStartBit, self.binarySize)
+end
+
+function BinaryValueTiedToBase:hasChanged()
+  local base = self:getBase()
+  local base2 = self:getBase2()
+  for index = 1, #base do
+    if base[index] ~= base2[index] then return true end
   end
-  
-  -- No base value, so don't know how to reset the value.
-  local resetValue = function(statField) return end
-  
-  openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+  return false
 end
-
-function obstacleCollision:addAddressesToList()
-  -- Add the actual stat, since there's no base stat.
-  addAddressToList({
-    address = values.machineStateBlockAddress + self.stateBlockOffset + values.o,
-    description = self.label,
-    displayType = vtCustom,
-    customTypeName = "Float Big Endian",
-  })
-end
-
-
-
--- Track collision doesn't change when changing the base value.
--- By the way: this is always the same value as Back width c, just used for a
--- different purpose.
-function trackCollision:hasChanged()
-  return self:getCurrent() ~= self:getBase2()
-end
-
-function trackCollision:openEditWindow()
-  local initialText = tostring(self:getCurrent())
-  local windowTitle = string.format("Edit: %s actual value", self.label)
   
-  local setValue = function(v)
-    -- Change the actual stat, since changing base does nothing.
-    local address = (values.machineStateBlockAddress
-      + self.stateBlockOffset)
-    utils.writeFloatBE(address + values.o, v, 4)
+function BinaryValueTiedToBase:openEditWindow()
+  local initialText = self.toStr(self:getBase())
+  local windowTitle = string.format("Edit: %s base value", self.label)
+  
+  local setValue = function(bitStr)
+    local v = self:bitStrToTable(bitStr)
+    if v ~= nil then
+      self.write(
+        self:getBaseAddress(), self.baseBinaryStartBit, self.binarySize, v
+      )
+    end
   end
   
   local resetValue = function(statField)
-    statField.Text = tostring(self:getBase2())
+    statField.Text = self.toStr(self:getBase2())
   end
   
-  openStatEditWindow(initialText, windowTitle, setValue, resetValue)
+  openValueEditWindow(initialText, windowTitle, setValue, resetValue)
 end
-
-function trackCollision:addAddressesToList()
-  -- Add the actual stat, since changing base does nothing.
+  
+function BinaryValueTiedToBase:addAddressesToList()
+  -- Actual stat
   addAddressToList({
-    address = values.machineStateBlockAddress + self.stateBlockOffset + values.o,
+    address = self:getAddress(),
     description = self.label,
-    displayType = vtCustom,
-    customTypeName = "Float Big Endian",
+    displayType = self.addressListType,
+    customTypeName = self.addressListCustomTypeName,
+    binaryBitPosition = self.binaryBitPosition,
+  })
+  
+  -- Base stat
+  addAddressToList({
+    address = self:getBaseAddress(),
+    description = self.label .. " (base)",
+    displayType = self.addressListType,
+    customTypeName = self.addressListCustomTypeName,
+    binaryBitPosition = self.baseBinaryStartBit,
   })
 end
+
+
+
+function GenericStat(label, stateOffset, baseOffset)
+  return StateValue:new(
+    label, stateOffset, {FloatStat, StatTiedToBase}, {baseOffset=baseOffset}
+  )
+end
+
+local accel = GenericStat("Accel", 0x220, 0x8)
+local body = GenericStat("Body", 0x30, 0x44)
+local boostInterval = GenericStat("Boost interval", 0x234, 0x38)
+local boostStrength = GenericStat("Boost strength", 0x230, 0x34)
+local cameraReorienting = GenericStat("Cam. reorienting", 0x34, 0x4C)
+local cameraRepositioning = GenericStat("Cam. repositioning", 0x38, 0x50)
+local drag = GenericStat("Drag", 0x23C, 0x40)
+local driftAccel = GenericStat("Drift accel", 0x2C, 0x1C) 
+local grip1 = GenericStat("Grip 1", 0xC, 0x10)
+local grip2 = GenericStat("Grip 2", 0x24, 0x30)
+local grip3 = GenericStat("Grip 3", 0x28, 0x14)
+local maxSpeed = GenericStat("Max speed", 0x22C, 0xC)
+local obstacleCollision = StateValue:new(
+  "Obstacle collision", 0x584, {FloatStat}, nil
+)
+local strafe = GenericStat("Strafe", 0x1C, 0x28)
+local strafeTurn = GenericStat("Strafe turn", 0x18, 0x24)
+local trackCollision = StateValue:new(
+  "Track collision", 0x588, {FloatStat, StatWithBase}, {baseOffset=0x9C}
+)
+local turnDecel = GenericStat("Turn decel", 0x238, 0x3C)
+local turning1 = GenericStat("Turning 1", 0x10, 0x18)
+local turning2 = GenericStat("Turning 2", 0x14, 0x20)
+local turning3 = GenericStat("Turning 3", 0x20, 0x2C)
+local weight = GenericStat("Weight", 0x8, 0x4)
+local unknown48 = StateValue:new(
+  "Unknown 48", 0x477, {ByteValue, StatTiedToBase}, {baseOffset=0x48}
+)
+
+-- Actual is state bit 1; base is 0x49 / 2
+local unknown49a = StateValue:new(
+  "Unknown 49a", 0x0, {BinaryValueTiedToBase},
+  {baseOffset=0x49, binarySize=1, binaryStartBit=7, baseBinaryStartBit=1}
+)
+-- Actual is state bit 24; base is 0x49 % 2
+local unknown49b = StateValue:new(
+  "Unknown 49b", 0x2, {BinaryValueTiedToBase},
+  {baseOffset=0x49, binarySize=1, binaryStartBit=0, baseBinaryStartBit=0}
+)
+
+local frontWidth = StateValue:new(
+  "Size, front width",
+  {0x24C, 0x2A8, 0x3B4, 0x3E4},
+  {FloatStat, SizeStat},
+  {
+    baseOffset={0x54, 0x60, 0x84, 0x90},
+    specificLabels={
+      "Tilt, front width, right",
+      "Tilt, front width, left",
+      "Wall collision, front width, right",
+      "Wall collision, front width, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return -v end,
+      function(v) return v+0.2 end,
+      function(v) return -(v+0.2) end,
+    },
+  }
+)
+local frontLength = StateValue:new(
+  "Size, front length",
+  {0x254, 0x2B0, 0x3BC, 0x3EC},
+  {FloatStat, SizeStat},
+  {
+    baseOffset={0x5C, 0x68, 0x8C, 0x98},
+    specificLabels={
+      "Tilt, front length, right",
+      "Tilt, front length, left",
+      "Wall collision, front length, right",
+      "Wall collision, front length, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return v end,
+      function(v) return v-0.2 end,
+      function(v) return v-0.2 end,
+    },
+  }
+)
+local backWidth = StateValue:new(
+  "Size, back width",
+  {0x304, 0x360, 0x414, 0x444},
+  {FloatStat, SizeStat},
+  {
+    baseOffset={0x6C, 0x78, 0x9C, 0xA8},
+    specificLabels={
+      "Tilt, back width, right",
+      "Tilt, back width, left",
+      "Wall collision, back width, right",
+      "Wall collision, back width, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return -v end,
+      function(v)
+        -- Black Bull is 0.3, everyone else is 0.2
+        if values.machineId == 29 then return v+0.3 else return v+0.2 end
+      end,
+      function(v)
+        if values.machineId == 29 then return -(v+0.3) else return -(v+0.2) end
+      end,
+    },
+  }
+)
+local backLength = StateValue:new(
+  "Size, back length",
+  {0x30C, 0x368, 0x41C, 0x44C},
+  {FloatStat, SizeStat},
+  {
+    baseOffset={0x74, 0x80, 0xA4, 0xB0},
+    specificLabels={
+      "Tilt, back length, right",
+      "Tilt, back length, left",
+      "Wall collision, back length, right",
+      "Wall collision, back length, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return v end,
+      function(v) return v+0.2 end,
+      function(v) return v+0.2 end,
+    },
+  }
+)
 
 
 
@@ -768,9 +1044,10 @@ editableStats = {
   accel, body, boostInterval, boostStrength,
   cameraReorienting, cameraRepositioning, drag, driftAccel,
   grip1, grip2, grip3, maxSpeed, obstacleCollision,
-  backLength, backWidth, frontLength, frontWidth,
   strafeTurn, strafe, trackCollision, turnDecel,
   turning1, turning2, turning3, weight,
+  backLength, backWidth, frontLength, frontWidth,
+  unknown48, unknown49a, unknown49b,
 }
 
 --------------------------------------------------------------------------------
@@ -912,11 +1189,13 @@ local layoutE = {
   onlyUpdateManually = true,
   
   init = function(window)
-    window:setSize(550, 510)
+    window:setSize(550, 570)
   
     mainLabel = initLabel(window, 10, 5, "")
     local font = mainLabel:getFont()
     font:setSize(14)
+    
+    --shared.debugLabel = initLabel(window, 10, 350, "")
 
     local initiallyCheckedStats = {accel, maxSpeed, weight}
     addStatCheckboxes(window, initiallyCheckedStats)
@@ -931,8 +1210,6 @@ local layoutE = {
     -- instead of via a function that auto-runs on every frame.
     updateButton:setOnClick(updateStatDisplay)
     updateStatDisplay()
-    
-    --shared.debugLabel = initLabel(window, 10, 350, "")
   end,
 }
 
