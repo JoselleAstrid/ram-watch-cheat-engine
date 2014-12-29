@@ -220,6 +220,11 @@ local function floatToInt(x)
   if x > 0 then
     s = 0
     absX = x
+  elseif x == 0.0 then
+    -- This must be handled specially, otherwise we will attempt to compute
+    -- log(0.0) later (which gives -inf, and long story short, doesn't give
+    -- us the desired function result of 0 here).
+    return 0
   else
     s = 1  
     absX = -x
