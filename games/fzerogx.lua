@@ -1044,10 +1044,17 @@ machineStats = {
 -- GUI layout specifications.
 
 local vars = {}
+local updateMethod = nil
+local timer = nil
+local timerInterval = nil
+local timerFunction = nil
 
 local layout1 = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 50  -- milliseconds
+    
     -- Set the display window's size.
     window:setSize(300, 200)
   
@@ -1089,6 +1096,9 @@ local layout1 = {
 local layout2A = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 50
+    
     window:setSize(400, 300)
   
     mainLabel = initLabel(window, 10, 5, "")
@@ -1123,6 +1133,9 @@ local layout2A = {
 local layout2B = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 50
+  
     window:setSize(550, 300)
   
     mainLabel = initLabel(window, 10, 5, "")
@@ -1149,6 +1162,9 @@ local layout2B = {
 local layout3 = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 50
+  
     window:setSize(300, 130)
   
     mainLabel = initLabel(window, 10, 5, "")
@@ -1173,6 +1189,9 @@ local layout3 = {
 local layout4A = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 50
+  
     window:setSize(550, 570)
   
     mainLabel = initLabel(window, 10, 5, "")
@@ -1202,9 +1221,9 @@ local layout4B = {
   -- By not updating on every frame, this version can keep Dolphin running
   -- much more smoothly.
   
-  onlyUpdateManually = true,
-  
   init = function(window)
+    updateMethod = "button"
+  
     window:setSize(550, 570)
   
     mainLabel = initLabel(window, 10, 5, "")
@@ -1222,10 +1241,9 @@ local layout4B = {
     updateButton:setCaption("Update")
     local font = updateButton:getFont()
     font:setSize(12)
-    
-    -- Update the display via a button this time,
-    -- instead of via a function that auto-runs on every frame.
-    updateButton:setOnClick(updateValueDisplay)
+  end,
+  
+  update = function()
     updateValueDisplay()
   end,
 }
@@ -1233,7 +1251,7 @@ local layout4B = {
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layout4B
+local layout = layout4A
 
 
 
@@ -1256,22 +1274,66 @@ layout.init(window)
 
 
 
--- This sets a breakpoint at a particular instruction which should be
--- called exactly once every frame. (Unless the layout doesn't require it.)
 
-debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-if not layout.onlyUpdateManually then
-  debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
+local dolphinFrameCount = 0
+
+-- Clean up from previous runs of the script 
+if dolphin.oncePerFrameAddress then
+  debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
 end
 
--- If the oncePerFrameAddress was chosen correctly, everything in the
--- following function should run exactly once every frame. 
 
-function debugger_onBreakpoint()
+if updateMethod == "timer" then
+
+  -- Set the window to be the timer's parent, so that when the window is
+  -- closed, the timer will stop being called. This allows us to edit and then
+  -- re-run the script, and then close the old window to stop previous timer
+  -- loops.
+  timer = createTimer(window)
+  timer.setInterval(timerInterval)
   
-  layout.update()
+  timerFunction = function()
+    if dolphin.frameCounterAddress then
+      -- Only update if the game has advanced at least one frame. This way we
+      -- can pause emulation and let the game stay paused without wasting too
+      -- much CPU.
+      local newFrameCount = utils.readIntLE(
+        getAddress("Dolphin.exe")+dolphin.frameCounterAddress
+      )
+      if newFrameCount > dolphinFrameCount then
+        layout.update()
+        dolphinFrameCount = newFrameCount
+      end
+    else
+      layout.update()
+    end
+    
+    timer.destroy()
+    timer = createTimer(window)
+    timer.setInterval(timerInterval)
+    timer.setOnTimer(timerFunction)
+  end
+  timer.setOnTimer(timerFunction)
 
-  return 1
+elseif updateMethod == "breakpoint" then
+
+  -- This sets a breakpoint at a particular Dolphin instruction which
+  -- should be called exactly once every frame.
+  debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
+  
+  -- If the oncePerFrameAddress was chosen correctly, the
+  -- following function should run exactly once every frame.
+  function debugger_onBreakpoint()
+    layout.update()
+    return 1
+  end
+  
+elseif updateMethod == "button" then
+  
+  -- First do an initial update.
+  updateValueDisplay()
+  -- Set the update function to run when the update button is clicked.
+  updateButton:setOnClick(layout.update)
 
 end
 
