@@ -4,8 +4,7 @@ RAM watch display examples, using Lua scripts in Cheat Engine.
 
 Basic use of Cheat Engine lets you display RAM values in real time while a game is running, but with scripting you can get a much more customized display, which has several advantages:
 
-* You can limit the number of decimal places in a float, perform math on values and display the result, deal with arbitrary pointer schemes, deal with weird data formats like mixed little/big endian, and so on.
-* You're not constrained to Cheat Engine's normal display, which has small text and doesn't update at 60 frames per second.
+* You're not constrained to Cheat Engine's address list display. You can set your font size and style, limit the number of decimal places in a float, perform math on values and display the result, deal with arbitrary pointer schemes, deal with weird data formats like mixed little/big endian, and so on.
 * With a script, it's much easier to build upon previous results. Instead of entering the same pointer base for 10 different cheat table entries, you can save that pointer to a Lua variable and re-use that variable.
 * You can add GUI elements to your custom display that just make your work easier. The examples here show how to make a button that starts recording values to a .txt file (which can then be pasted into a spreadsheet for further analysis, e.g. making a graph of your character's speed).
 
@@ -29,7 +28,7 @@ Included here are examples for a few Dolphin emulator games, and a PC game.
 
 ### Running for the first time
 
-If you are using this for a Dolphin game: Open `dolphin.lua` that you downloaded from this repository, and edit it according to the steps in that file's comments. The easiest way is to download a specific version of Dolphin listed in `dolphin.lua`, and uncomment the line for that version, as explained there. You can download specific versions here: https://dolphin-emu.org/download/list/master/1/
+If you are using this for a Dolphin game: Open `dolphin.lua` that you downloaded from this repository, and edit it according to the steps in that file's comments. Depending on your needs, it may be useful to download a specific version of Dolphin listed in `dolphin.lua`. You can download specific versions here: https://dolphin-emu.org/download/list/master/1/
 
 Start up Cheat Engine. In the Cheat Engine menu, go to Table -> Show Cheat Table Lua Script. Paste the following script in there:
 
@@ -48,7 +47,7 @@ Start up Cheat Engine. In the Cheat Engine menu, go to Table -> Show Cheat Table
 
 You need to edit the first two lines of this script:
 
-1. in place of `"sample"`, put the name of the game-specific script you want to run. The `games` directory contains the game-specific scripts. Try to get an existing game script running as a first step, even if you're not particularly interested in RAM watching any of those games. Pick a game script and enter its name in double quotes; for example, if it's `sample.lua`, enter `"sample"`.
+1. In place of `"sample"`, put the name of the game-specific script you want to run. The `games` directory contains the game-specific scripts. Try to get an existing game script running as a first step, even if you're not particularly interested in RAM watching any of those games. Pick a game script and enter its name in double quotes; for example, if it's `sample.lua`, enter `"sample"`.
 
 2. After `local scriptDir = `, enter the file path to the location where you extracted this repository's ZIP file. If it's a Windows file path, you need to put two backslashes `\\` whenever you really mean one backslash. Do not end the file path with any slashes or backslashes. For example, if the `utils.lua` that you extracted is located at `C:\Cheat Engine\RAM watch scripts\utils.lua`, then this line should say `local scriptDir = "C:\\Cheat Engine\\RAM watch scripts"`.
 
@@ -81,14 +80,16 @@ Tips if (more like when) your script isn't working as expected:
 
 ### Common issues
 
-* If you're using a Dolphin version other than the ones listed in `dolphin.lua`, be careful about the gameRAMStartPointerAddress. You will often get multiple pointerscan results; if you pick the "wrong" result, then the address may work some of the time, but not all the time. From what I've seen so far, every Dolphin version has an address that works all the time, you just need to pick the right one. (Let me know if you find any exceptions though!)
-  * If the gameRAMStartPointerAddress is wrong, then pretty much every address in your Dolphin game script will be wrong, so this can cause all sorts of errors. If you suspect this might be wrong, you can try using `debugDisp` on some addresses, as mentioned above.
 * The script is prone to errors if it is running while your Dolphin game is starting up. If you have to close a Dolphin game and restart it, first use the previous tip of deactivating the Lua script by re-selecting Dolphin.exe in Cheat Engine. Then, once your game has reached the title screen or something, try executing the script again.
+* If you're trying to find a gameRAMStartPointerAddress for `dolphin.lua`, be careful. You will often get multiple pointerscan results; if you pick the "wrong" result, then the address may work some of the time, but not all the time. From what I've seen so far, every Dolphin version has an address that works all the time, you just need to pick the right one. (Let me know if you find any exceptions though!)
+  * If the gameRAMStartPointerAddress is wrong, then pretty much every address in your Dolphin game script will be wrong, so this can cause all sorts of errors. If you suspect this might be wrong, you can try using `debugDisp` on some addresses, as mentioned above.
 
 
 # Performance note
 
-Running one of these scripts alongside your game may cause the game to run slower. Generally, it seems to get worse if you've clicked Execute Script many times while testing, and in this case closing and re-opening Cheat Engine may make it better. (But I could be wrong.)
+Running one of these scripts alongside your game may cause the game to run slower, especially if the script uses a breakpoint to run the code. Using Cheat Engine's Timer class has noticeably better performance than using breakpoints, even for very simple Lua scripts. (Credit to Miles for finding that the Timer class was better.)
+
+Also, it seems like the script may run slower if you've clicked Execute Script many times while testing, and in this case closing and re-opening Cheat Engine may make it better. (But I could be wrong.)
 
 If you can identify a particular part of the example scripts that is making things slow, feel free to post a GitHub issue about it, and I'll look into it.
 
