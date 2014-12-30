@@ -63,7 +63,7 @@ local function readIntBE(address, numberOfBytesToRead)
   --     numberOfBytesToRead - the number of bytes to read from that address
   -- Out: integer value of the memory that was read
   
-  if numberOfBytesToRead == nil then numberofBytesToRead = 4 end
+  if numberOfBytesToRead == nil then numberOfBytesToRead = 4 end
   
   -- Call Cheat Engine's built-in readBytes() function.
   -- The "true" parameter says we want the return value as a table of the bytes.
@@ -82,7 +82,7 @@ end
 local function readIntLE(address, numberOfBytesToRead)
   -- Same, but for little-endian
   
-  if numberOfBytesToRead == nil then numberofBytesToRead = 4 end
+  if numberOfBytesToRead == nil then numberOfBytesToRead = 4 end
   
   local bytes = readBytes(address, numberOfBytesToRead, true)
   
