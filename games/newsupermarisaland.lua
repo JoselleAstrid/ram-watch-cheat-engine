@@ -24,9 +24,11 @@ local StatRecorder = utils.StatRecorder
 
 
 
--- Static instruction (as an offset from 6kinoko.exe) that runs
+-- Static value (as an offset from 6kinoko.exe) that increases by 1
 -- once per frame.
-
+local frameCounterAddress = 0x11B750
+-- Static instruction that runs once per frame. (This is just the
+-- instruction that updates the above)
 local oncePerFrameAddress = 0xE0F3
 
 
@@ -43,6 +45,10 @@ local compute = {
   
   o = function()
     values.o = getAddress("6kinoko.exe")
+  end,
+  
+  refPointer = function()
+    values.refPointer = readIntLE(0x114424 + values.o, 4)
   end,
   
   marisaSpriteAddress = function()
@@ -80,9 +86,19 @@ local compute = {
     values.velY = readFloatLE(values.marisaSpriteAddress + 0x104, 4)
   end,
   
+  ticksLeft = function()
+    local address = values.refPointer + 0x194404
+    values.ticksLeft = readIntLE(address, 4)
+  end,
+  
+  framesLeft = function()
+    local address = values.refPointer + 0x3AA8C
+    values.framesLeft = readIntLE(address, 4) / 2
+  end,
+  
   frameCount = function()
-    local address = 0x11B750
-    values.frameCount = readIntLE(address + values.o, 4)
+    local address = frameCounterAddress + values.o
+    values.frameCount = readIntLE(address, 4)
   end,
 }
 
@@ -93,6 +109,7 @@ local compute = {
 local keysToLabels = {
   frameCount = "Frames",
   spriteCount = "Sprites",
+  timeTicks = "Timer",
   velX = "Vel X",
   velY = "Vel Y",
 }
@@ -103,7 +120,7 @@ local getStr = {
     local label = keysToLabels[key]
     
     if values[key] == nil then
-      return "%s: nil"
+      return string.format("%s: nil", label)
     end
     
     return string.format("%s: %d", label, values[key])
@@ -129,6 +146,12 @@ local getStr = {
       values.posX, values.posY
     )
   end,
+  
+  ticksAndFramesLeft = function()
+    local ticks = (values.framesLeft - (values.framesLeft % 30)) / 30
+    local frames = values.framesLeft % 30
+    return string.format("Timer: %dT %02dF", ticks, frames)
+  end,
 }
 
 --------------------------------------------------------------------------------
@@ -138,26 +161,35 @@ local getStr = {
 
 -- GUI layout specifications.
 
-local statRecorder = {}
+local vars = {}
+local updateMethod = nil
+local timer = nil
+local timerInterval = nil
+local timerFunction = nil
 
-local layoutA = {
-  label1 = nil,
+local layout1 = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 16
+    
     -- Set the display window's size.
     window:setSize(300, 200)
   
     -- Add a blank label to the window at position (10,5). In the update
     -- function, which is called on every frame, we'll update the label text.
-    label1 = initLabel(window, 10, 5, "")
+    vars.label1 = initLabel(window, 10, 5, "")
   end,
   
   update = function()
     compute.o()
+    compute.refPointer()
+    compute.framesLeft()
     compute.frameCount()
-    label1:setCaption(
+    vars.label1:setCaption(
       table.concat(
         {
+          getStr.ticksAndFramesLeft(),
           getStr.int("frameCount"),
         },
         "\n"
@@ -166,27 +198,31 @@ local layoutA = {
   end,
 }
 
-local layoutB = {
-  label1 = nil,
+local layout2 = {
   
   init = function(window)
+    updateMethod = "timer"
+    timerInterval = 16
+  
     window:setSize(300, 200)
   
-    label1 = initLabel(window, 10, 5, "")
+    vars.label1 = initLabel(window, 10, 5, "")
   end,
   
   update = function()
     compute.o()
+    compute.refPointer()
+    compute.framesLeft()
     compute.marisaSpriteAddress()
     compute.posAndVel()
     compute.frameCount()
-    label1:setCaption(
+    vars.label1:setCaption(
       table.concat(
         {
+          getStr.ticksAndFramesLeft(),
           getStr.flt("velX", 2),
           getStr.flt("velY", 2),
           getStr.pos(),
-          getStr.int("spriteCount"),
         },
         "\n"
       )
@@ -197,7 +233,7 @@ local layoutB = {
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layoutB
+local layout = layout2
 
 
 
@@ -220,16 +256,44 @@ layout.init(window)
 
 
 
-debug_removeBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
-debug_setBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
-
--- If the oncePerFrameAddress was chosen correctly, everything in the
--- following function should run exactly once every frame. 
-
-function debugger_onBreakpoint()
-  
-  layout.update()
-
-  return 1
-
+-- Clean up from previous runs of the script 
+if oncePerFrameAddress then
+  debug_removeBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
 end
+
+
+if updateMethod == "timer" then
+
+  -- Set the window to be the timer's parent, so that when the window is
+  -- closed, the timer will stop being called. This allows us to edit and then
+  -- re-run the script, and then close the old window to stop previous timer
+  -- loops.
+  timer = createTimer(window)
+  timer.setInterval(timerInterval)
+  
+  timerFunction = function()
+    layout.update()
+    
+    timer.destroy()
+    timer = createTimer(window)
+    timer.setInterval(timerInterval)
+    timer.setOnTimer(timerFunction)
+  end
+  timer.setOnTimer(timerFunction)
+
+elseif updateMethod == "breakpoint" then
+  
+  debug_setBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
+  
+  -- If the oncePerFrameAddress was chosen correctly, everything in the
+  -- following function should run exactly once every frame.
+  function debugger_onBreakpoint()
+    layout.update()
+    return 1
+  end
+  
+end
+
+
+
+
