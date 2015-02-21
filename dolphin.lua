@@ -170,9 +170,100 @@ end
 
 
 
+local timer = nil
+local timerFunction = nil
+local frameCount = 0
+
+local function getFrameCount()
+  return frameCount
+end
+
+local function setupDisplayUpdates(
+  updateMethod, updateFunction, window, timerInterval, updateButton)
+  
+  -- updateMethod
+  --   string representing the update method.
+  -- updateFunction
+  --   to be called here whenever an update is needed.
+  -- window
+  --   if updateMethod is "timer", this is required so that we
+  --   can assign window to be the timer's parent object.
+  -- timerInterval
+  --   if updateMethod is "timer", this is the number
+  --   of milliseconds to wait till the next update.
+  -- updateButton
+  --   if updateMethod is "button", this is the button
+  --   that you'd click to update the display.
+
+  -- Clean up from previous runs of the script 
+  if oncePerFrameAddress then
+    debug_removeBreakpoint(getAddress("Dolphin.exe")+oncePerFrameAddress)
+  end
+  
+  if updateMethod == "timer" then
+  
+    -- Set the window to be the timer's parent, so that when the window is
+    -- closed, the timer will stop being called. This allows us to edit and then
+    -- re-run the script, and then close the old window to stop previous timer
+    -- loops.
+    timer = createTimer(window)
+    timer.setInterval(timerInterval)
+    
+    timerFunction = function()
+      if frameCounterAddress then
+        -- Only update if the game has advanced at least one frame. This way we
+        -- can pause emulation and let the game stay paused without wasting too
+        -- much CPU.
+        local newFrameCount = utils.readIntLE(
+          getAddress("Dolphin.exe")+frameCounterAddress
+        )
+        if newFrameCount > frameCount then
+          updateFunction()
+          frameCount = newFrameCount
+        end
+      else
+        -- If we have no way to count frames, then just update
+        -- no matter what.
+        updateFunction()
+      end
+      
+      timer.destroy()
+      timer = createTimer(window)
+      timer.setInterval(timerInterval)
+      timer.setOnTimer(timerFunction)
+    end
+    timer.setOnTimer(timerFunction)
+  
+  elseif updateMethod == "breakpoint" then
+  
+    -- This sets a breakpoint at a particular Dolphin instruction which
+    -- should be called exactly once every frame.
+    debug_setBreakpoint(getAddress("Dolphin.exe")+oncePerFrameAddress)
+    
+    -- If the oncePerFrameAddress was chosen correctly, the
+    -- following function should run exactly once every frame.
+    function debugger_onBreakpoint()
+      updateFunction()
+      return 1
+    end
+    
+  elseif updateMethod == "button" then
+    
+    -- First do an initial update.
+    updateFunction()
+    -- Set the update function to run when the update button is clicked.
+    updateButton:setOnClick(updateFunction)
+  
+  end
+end
+
+
+
 return {
   frameCounterAddress = frameCounterAddress,
   oncePerFrameAddress = oncePerFrameAddress,
   
   getGameStartAddress = getGameStartAddress,
+  getFrameCount = getFrameCount,
+  setupDisplayUpdates = setupDisplayUpdates,
 }

@@ -45,6 +45,16 @@ end
 
 
 
+local function tableContentsToStr(t)
+  local items = {}
+  for key, value in pairs(t) do
+    table.insert(items, tostring(key)..": "..tostring(value))
+  end
+  return table.concat(items, "\n")
+end
+
+
+
 -- Curry implementation.
 -- From: http://lua-users.org/lists/lua-l/2007-01/msg00205.html
 -- (Linked from: http://lua-users.org/wiki/CurriedLua)
@@ -160,6 +170,25 @@ end
 -- (little-endian). So don't be surprised if you forget the BE/LE in the name
 -- and it still runs.
 
+local function unsignedToSigned(v, numOfBytes)
+  -- In: unsigned integer value, and the number of bytes at its address
+  -- Out: signed version of this value
+  local possibleValues = 2^(numOfBytes*8)
+  if v >= possibleValues/2 then
+    return v - possibleValues
+  else
+    return v
+  end
+end
+local function signedToUnsigned(v, numOfBytes)
+  local possibleValues = 2^(numOfBytes*8)
+  if v < 0 then
+    return v + possibleValues
+  else
+    return v
+  end
+end
+
 local function intToHexStr(x)
   -- In: integer value
   -- Out: string of the integer's hexadecimal representation
@@ -269,11 +298,21 @@ end
 
 -- Initialize a GUI label.
 -- Based on: http://forum.cheatengine.org/viewtopic.php?t=530121
-local function initLabel(window, x, y, text)
+local function initLabel(window, x, y, text, fontSize, fontName)
   local label = createLabel(window)
   if label == nil then return nil end
   label:setCaption(text)
   label:setPosition(x, y)
+  
+  if fontSize ~= nil then
+    local font = label:getFont()
+    font:setSize(fontSize)
+  end
+  if fontName ~= nil then
+    local font = label:getFont()
+    font:setName(fontName)
+  end
+  
   return label
 end
 
@@ -359,9 +398,9 @@ function StatRecorder:new(window, baseYPos, framerate)
   obj:initializeUI(window, baseYPos)
   
   if framerate ~= nil then
-    self.framerate = framerate
+    obj.framerate = framerate
   else
-    self.framerate = 60
+    obj.framerate = 60
   end
   
   return obj
@@ -394,6 +433,7 @@ end
 return {
   debugDisp = debugDisp,
   
+  tableContentsToStr = tableContentsToStr,
   curry = curry,
   
   readIntBE = readIntBE,
@@ -401,6 +441,8 @@ return {
   intToDouble = intToDouble,
   readFloatBE = readFloatBE,
   readFloatLE = readFloatLE,
+  unsignedToSigned = unsignedToSigned,
+  signedToUnsigned = signedToUnsigned,
   intToHexStr = intToHexStr,
   floatToStr = floatToStr,
   

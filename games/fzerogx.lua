@@ -9,10 +9,14 @@
 package.loaded.shared = nil
 package.loaded.utils = nil
 package.loaded.dolphin = nil
+package.loaded.valuetypes = nil
+package.loaded.valuedisplay = nil
 
 local shared = require "shared"
 local utils = require "utils"
 local dolphin = require "dolphin"
+local vtypes = require "valuetypes"
+local vdisplay = require "valuedisplay"
 
 local readIntBE = utils.readIntBE
 local readFloatBE = utils.readFloatBE
@@ -21,18 +25,28 @@ local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
 local StatRecorder = utils.StatRecorder
 
+local V = vtypes.V
+local copyFields = vtypes.copyFields
+local MemoryValue = vtypes.MemoryValue
+local FloatValue = vtypes.FloatValue
+local IntValue = vtypes.IntValue
+local ShortValue = vtypes.ShortValue
+local ByteValue = vtypes.ByteValue
+local SignedIntValue = vtypes.SignedIntValue
+local StringValue = vtypes.StringValue
+local BinaryValue = vtypes.BinaryValue
+local addAddressToList = vtypes.addAddressToList
+
+local ValueDisplay = vdisplay.ValueDisplay
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 
 
--- Data structure for RAM values we care about.
+-- Functions that compute some addresses.
 
 local addrs = {}
-
-
-
--- Compute functions for some addresses.
 
 local computeAddr = {
     
@@ -83,477 +97,17 @@ local numOfRaceEntrants = nil
 
 
 
--- Stuff for an advanced UI scheme, with togglable value displays, edit
--- functions, and add-to-list functions.
-
-local mainLabel = nil
-
-local trackedValues = {}
-local checkBoxes = {}
-local valuesToDisplay = {}
-local addToListButtons = {}
-local editButtons = {}
-local updateButton = nil
-
-local function updateValueDisplay()
-  updateAddresses()
-  
-  local lines = {}
-  for n, v in pairs(valuesToDisplay) do
-    table.insert(lines, v:getDisplay())
-    
-    local isValid = v:isValid()
-    addToListButtons[n]:setEnabled(isValid)
-    editButtons[n]:setEnabled(isValid)
-  end
-  mainLabel:setCaption(table.concat(lines, "\n"))
-end
-
-local function openEditWindow(mvObj)
-  -- mvObj = MemoryValue object
-
-  local font = nil
-  
-  -- Create an edit window
-  local window = createForm(true)
-  window:setSize(400, 50)
-  window:centerScreen()
-  window:setCaption(mvObj:getEditWindowTitle())
-  font = window:getFont()
-  font:setName("Calibri")
-  font:setSize(10)
-  
-  -- Add a text box with the current value
-  local textField = createEdit(window)
-  textField:setPosition(70, 10)
-  textField:setSize(200, 20)
-  textField.Text = mvObj:getEditFieldText()
-  
-  -- Put an OK button in the window, which would change the value
-  -- to the text field contents, and close the window
-  local okButton = createButton(window)
-  okButton:setPosition(300, 10)
-  okButton:setCaption("OK")
-  okButton:setSize(30, 25)
-  local confirmValueAndCloseWindow = function(mvObj, window, textField)
-    local newValue = mvObj:strToValue(textField.Text)
-    if newValue == nil then return end
-    mvObj:set(newValue)
-    
-    -- Delay for a bit first, because it seems that the
-    -- write to the memory address needs a bit of time to take effect.
-    -- TODO: Use Timer instead of sleep?
-    sleep(50)
-    -- Update the display.
-    updateValueDisplay()
-    -- Close the edit window.
-    window:close()
-  end
-  
-  local okAction = utils.curry(confirmValueAndCloseWindow, mvObj, window, textField)
-  okButton:setOnClick(okAction)
-  
-  -- Put a Cancel button in the window, which would close the window
-  local cancelButton = createButton(window)
-  cancelButton:setPosition(340, 10)
-  cancelButton:setCaption("Cancel")
-  cancelButton:setSize(50, 25)
-  local closeWindow = function(window)
-    window:close()
-  end
-  cancelButton:setOnClick(utils.curry(closeWindow, window))
-  
-  -- Add a reset button, if applicable
-  if mvObj.getResetValue then
-    local resetButton = createButton(window)
-    resetButton:setPosition(5, 10)
-    resetButton:setCaption("Reset")
-    resetButton:setSize(50, 25)
-    local resetValue = function(textField)
-      textField.Text = mvObj:toStrForEditField(mvObj:getResetValue())
-    end
-    resetButton:setOnClick(utils.curry(resetValue, textField))
-  end
-  
-  -- Put the initial focus on the text field.
-  textField:setFocus()
-end
-
-local function addAddressToList(mvObj, args)
-  -- mvObj = MemoryValue object
-  -- args = table of custom arguments for the address list entry, otherwise
-  -- it's assumed that certain fields of the mvObj should be used
-  
-  local addressList = getAddressList()
-  local memoryRecord = addressList:createMemoryRecord()
-  
-  local address = mvObj:getAddress()
-  if args.address then address = args.address end
-  
-  local description = mvObj:getLabel()
-  if args.description then description = args.description end
-  
-  local displayType = mvObj.addressListType
-  
-  -- setAddress doesn't work for some reason, despite being in the Help docs?
-  memoryRecord.Address = utils.intToHexStr(address)
-  memoryRecord:setDescription(description)
-  memoryRecord.Type = displayType
-  
-  if displayType == vtCustom then
-  
-    local customTypeName = mvObj.addressListCustomTypeName
-    memoryRecord.CustomTypeName = customTypeName
-    
-  elseif displayType == vtBinary then
-  
-    -- TODO: Can't figure out how to set the start bit and size.
-    -- And this entry is useless if it's a 0-sized Binary display (which is
-    -- default). So, best we can do is to make this entry a Byte...
-    memoryRecord.Type = vtByte
-    
-    local binaryStartBit = mvObj.binaryStartBit
-    if args.binaryStartBit then binaryStartBit = args.binaryStartBit end
-    
-    local binarySize = mvObj.binarySize
-    if args.binarySize then binarySize = args.binarySize end
-    
-    -- This didn't work.
-    --memoryRecord.Binary.Startbit = binaryStartBit
-    --memoryRecord.Binary.Size = binarySize
-    
-  end
-end
-
-local function rebuildValuesDisplay(window)
-  valuesToDisplay = {}
-  
-  -- Remove the previous buttons
-  for _, button in pairs(addToListButtons) do
-    button.destroy()
-  end
-  for _, button in pairs(editButtons) do
-    button.destroy()
-  end
-  addToListButtons = {}
-  editButtons = {}
-  
-  for boxN, checkBox in pairs(checkBoxes) do
-    if checkBox:getState() == cbChecked then
-      -- Box is checked; include this value in the display.
-      
-      -- Include the value itself
-      local value = trackedValues[boxN]
-      table.insert(valuesToDisplay, value)
-      
-      -- Include an edit button
-      local editButton = createButton(window)
-      local posY = 28*(#valuesToDisplay - 1) + 5
-      editButton:setPosition(250, posY)
-      editButton:setCaption("Edit")
-      editButton:setSize(40, 20)
-      local font = editButton:getFont()
-      font:setSize(10)
-      
-      editButton:setOnClick(utils.curry(openEditWindow, value))
-      table.insert(editButtons, editButton)
-  
-      -- Include an add-to-address-list button
-      local listButton = createButton(window)
-      local posY = 28*(#valuesToDisplay - 1) + 5
-      listButton:setPosition(300, posY)
-      listButton:setCaption("List")
-      listButton:setSize(40, 20)
-      local font = listButton:getFont()
-      font:setSize(10)
-      
-      listButton:setOnClick(utils.curry(value.addAddressesToList, value))
-      table.insert(addToListButtons, listButton)
-    end
-  end
-end
-
-local function addCheckboxes(window, initiallyActive)
-  -- Make a list of checkboxes, one for each possible memory value to look at.
-    
-  -- For the purposes of seeing which values are initially active, we just
-  -- identify values by their addresses. This assumes we don't depend on
-  -- having copies of the same value objects.
-  --
-  -- Note: making "sets" in Lua is kind of roundabout.
-  -- http://www.lua.org/pil/11.5.html
-  local isInitiallyActive = {}
-  for _, mvObj in pairs(initiallyActive) do
-    isInitiallyActive[mvObj] = true
-  end
-  
-  -- Getting the label for a checkbox may require some addresses to be
-  -- computed first.
-  updateAddresses()
-  
-  for mvObjN, mvObj in pairs(trackedValues) do
-    local checkBox = createCheckBox(window)
-    local posY = 20*(mvObjN-1) + 5
-    checkBox:setPosition(350, posY)
-    checkBox:setCaption(mvObj:getLabel())
-    
-    local font = checkBox:getFont()
-    font:setSize(9)
-    
-    -- When a checkbox is checked, the corresponding memory value is displayed.
-    checkBox:setOnChange(utils.curry(rebuildValuesDisplay, window))
-    
-    if isInitiallyActive[mvObj] then
-      checkBox:setState(cbChecked)
-    end
-    
-    table.insert(checkBoxes, checkBox)
-  end
-  
-  -- Ensure that the initially checked values actually get initially checked.
-  rebuildValuesDisplay(window)
-end
-
-
-
--- Generic classes and their supporting functions.
-
-
-
-local function V(label, offset, classes, extraArgs)
-  -- Note that these parameters are optional, any unspecified ones
-  -- will just become nil.
-  local newObj = {label = label, offset = offset}
-  
-  -- The below is a simple implementation of mixins. This lets us get
-  -- some attributes from one class and some attributes from another class.
-  for _, class in pairs(classes) do
-    for key, value in pairs(class) do
-      newObj[key] = value
-    end
-    if class.extraArgs then
-      for _, argName in pairs(class.extraArgs) do
-        -- TODO: Would be nice to have a good way of enforcing that the
-        -- extraArgs needed are present.
-        newObj[argName] = extraArgs[argName]
-      end
-    end
-  end
-  
-  return newObj
-end
-
--- Kind of like inheritance, except it just copies the fields from the parents
--- to the children. This means no "super" calls. This also means you can
--- easily have multiple parents ordered by priority.
-local function copyFields(child, parents)
-  for _, parent in pairs(parents) do
-    for key, value in pairs(parent) do
-      if key == "extraArgs" then
-        -- Add the parent's extraArgs to the child's. 
-        for _, name in pairs(value) do
-          table.insert(child.extraArgs, name)
-        end
-      else
-        -- For any non-extraArgs field, just set the value directly.
-        child[key] = value
-      end
-    end
-  end
-end
-
-
-
-local MemoryValue = {}
-
-function MemoryValue:get()
-  return self:read(self:getAddress())
-end
-function MemoryValue:set(v)
-  self:write(self:getAddress(), v)
-end
-
-function MemoryValue:isValid()
-  -- Is there currently a valid value in memory here? Would it be okay to
-  -- take this value and use it for computations, assume it will change
-  -- something if edited, etc.?
-  return true
-end
-
-function MemoryValue:getLabel()
-  return self.label
-end
-function MemoryValue:getDisplay(label, value)
-  -- Passing a custom label, or even value, allows you to customize a display
-  -- using this memory value's display method.
-  if label == nil then label = self:getLabel() end
-  if value == nil then value = self:get() end
-  
-  return label .. ": " .. self:toStrForDisplay(value)
-end
-
-function MemoryValue:getEditFieldText()
-  return self:toStrForEditField(self:get())
-end
-function MemoryValue:getEditWindowTitle()
-  return string.format("Edit: %s", self:getLabel())
-end
-
-function MemoryValue:addAddressesToList()
-  addAddressToList(self, {})
-end
-
-
-
-local FloatValue = {}
-function FloatValue:read(address)
-  return utils.readFloatBE(address, self.numOfBytes)
-end
-function FloatValue:write(address, v)
-  return utils.writeFloatBE(address, v, self.numOfBytes)
-end
-function FloatValue:strToValue(s) return tonumber(s) end
-function FloatValue:toStrForDisplay(v, precision, trimTrailingZeros)
-  if precision == nil then precision = 4 end
-  if trimTrailingZeros == nil then trimTrailingZeros = false end
-  
-  return utils.floatToStr(v, precision, trimTrailingZeros)
-end
-function FloatValue:toStrForEditField(v, precision, trimTrailingZeros)
-  -- Here we have less concern of looking good, and more concern of
-  -- giving more info.
-  if precision == nil then precision = 10 end
-  if trimTrailingZeros == nil then trimTrailingZeros = false end
-  
-  return utils.floatToStr(v, precision, trimTrailingZeros)
-end
-FloatValue.numOfBytes = 4
--- For the memory record type constants, look up defines.lua in
--- your Cheat Engine folder.
-FloatValue.addressListType = vtCustom
-FloatValue.addressListCustomTypeName = "Float Big Endian"
-
-local IntValue = {}
-function IntValue:read(address)
-  return utils.readIntBE(address, self.numOfBytes)
-end
-function IntValue:write(address, v)
-  return utils.writeIntBE(address, v, self.numOfBytes)
-end
-function IntValue:strToValue(s) return tonumber(s) end
-function IntValue:toStrForDisplay(v) return tostring(v) end
-IntValue.toStrForEditField = IntValue.toStrForDisplay 
-IntValue.numOfBytes = 4
-IntValue.addressListType = vtCustom
-IntValue.addressListCustomTypeName = "4 Byte Big Endian"
-
-local ByteValue = {}
-ByteValue.read = IntValue.read
-ByteValue.write = IntValue.write
-ByteValue.strToValue = IntValue.strToValue
-ByteValue.toStrForDisplay = IntValue.toStrForDisplay
-ByteValue.toStrForEditField = IntValue.toStrForEditField
-ByteValue.numOfBytes = 1
-ByteValue.addressListType = vtByte
-
-local StringValue = {}
-StringValue.extraArgs = {"maxLength"}
-function StringValue:read(address)
-  return readString(address, self.maxLength)
-end
-function StringValue:write(address, text)
-  writeString(address, text)
-end
-function StringValue:strToValue(s) return s end
-function StringValue:toStrForDisplay(v) return v end
-StringValue.toStrForEditField = StringValue.toStrForDisplay 
-StringValue.addressListType = vtString
--- TODO: Figure out the remaining details of adding a String to the
--- address list. I think there's a couple of special fields for vtString?
--- Check Cheat Engine's help.
-
-
-
-local BinaryValue = {}
-BinaryValue.extraArgs = {"binarySize", "binaryStartBit"}
-BinaryValue.addressListType = vtBinary
-
-function BinaryValue:read(address, startBit)
-  -- address is the byte address
-  -- Possible startBit values from left to right: 76543210
-  -- Returns: a table of the bits
-  -- For now, we only support binary values contained in a single byte.
-  local byte = utils.readIntBE(address, 1)
-  local endBit = startBit - self.binarySize + 1
-  local bits = {}
-  for bitNumber = startBit, endBit, -1 do
-    -- Check if the byte has 1 or 0 in this position.
-    if 2^bitNumber == bAnd(byte, 2^bitNumber) then
-      table.insert(bits, 1)
-    else
-      table.insert(bits, 0)
-    end
-  end
-  return bits
-end
-
-function BinaryValue:get()
-  return self:read(self:getAddress(), self.binaryStartBit)
-end
-
-function BinaryValue:write(address, startBit, v)
-  -- v is a table of the bits
-  -- For now, we only support binary values contained in a single byte.
-  
-  -- Start with the current byte value. Then write the bits that need to
-  -- be written.
-  local byte = utils.readIntBE(address, 1)
-  local endBit = startBit - self.binarySize + 1
-  local bitCount = 0
-  for bitNumber = startBit, endBit, -1 do
-    bitCount = bitCount + 1
-    if v[bitCount] == 1 then
-      byte = bOr(byte, 2^bitNumber)
-    else
-      byte = bAnd(byte, 255 - 2^bitNumber)
-    end
-  end
-  utils.writeIntBE(address, byte, 1)
-end
-
-function BinaryValue:set(v)
-  self:write(self:getAddress(), self.binaryStartBit, v)
-end
-
-function BinaryValue:strToValue(s)
-  local bits = {}
-  -- Iterate over string characters (http://stackoverflow.com/a/832414)
-  for singleBitStr in s:gmatch"." do
-    if singleBitStr == "1" then
-      table.insert(bits, 1)
-    elseif singleBitStr == "0" then
-      table.insert(bits, 0)
-    else
-      return nil
-    end
-  end
-  if self.binarySize ~= #bits then return nil end
-  return bits
-end
-
-function BinaryValue:toStrForDisplay(v)
-  -- v is a table of bits
-  local s = ""
-  for _, bit in pairs(v) do
-    s = s .. tostring(bit)
-  end
-  return s
-end
-BinaryValue.toStrForEditField = BinaryValue.toStrForDisplay
-
-
-
 -- GX specific classes and their supporting functions.
+
+
+
+local StaticValue = {}
+
+copyFields(StaticValue, {MemoryValue})
+
+function StaticValue:getAddress()
+  return addrs.o + self.offset
+end
 
 
 
@@ -856,6 +410,81 @@ end
 
 
 
+-- Controller inputs
+local inputABXYS = V("Input, ABXY & Start", 0x15CBD0, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+local inputDZ = V("Input, D-Pad Z", 0x15CBD1, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+local inputStickX = V("Input, Stick X", 0x15CBD2, {StaticValue, ByteValue})
+local inputStickY = V("Input, Stick Y", 0x15CBD3, {StaticValue, ByteValue})
+local inputCStickX = V("Input, C-Stick X", 0x15CBD4, {StaticValue, ByteValue})
+local inputCStickY = V("Input, C-Stick Y", 0x15CBD5, {StaticValue, ByteValue})
+local inputL = V("Input, L", 0x15CBD6, {StaticValue, ByteValue})
+local inputR = V("Input, R", 0x15CBD7, {StaticValue, ByteValue})
+local inputStickXF = V("Input, Stick X", 0x1BAB54, {RefValue, FloatValue})
+local inputStickYF = V("Input, Stick Y", 0x1BAB58, {RefValue, FloatValue})
+local inputCStickXF = V("Input, C-Stick X", 0x1BAB5C, {RefValue, FloatValue})
+local inputCStickYF = V("Input, C-Stick Y", 0x1BAB60, {RefValue, FloatValue})
+local inputLF = V("Input, L", 0x1BAB64, {RefValue, FloatValue})
+local inputRF = V("Input, R", 0x1BAB68, {RefValue, FloatValue})
+local function buttonDisp(button)
+  local value = nil
+  if button == "A" then
+    value = inputABXYS:get()[8]
+  elseif button == "B" then
+    value = inputABXYS:get()[7]
+  elseif button == "X" then
+    value = inputABXYS:get()[6]
+  elseif button == "Y" then
+    value = inputABXYS:get()[5]
+  elseif button == "S" then
+    value = inputABXYS:get()[4]
+  elseif button == "Z" then
+    value = inputDZ:get()[4]
+  end
+  if value == 1 then
+    return button
+  else
+    return " "
+  end
+end
+local function inputDisplayRaw()
+  local displayStickX = string.format("%+04d", inputStickX:get()-128)
+  local displayStickY = string.format("%+04d", inputStickY:get()-128)
+  local displayStick = displayStickX .. "," .. displayStickY
+  local displayL = string.format("%03d", inputL:get())
+  local displayR = string.format("%03d", inputR:get())
+  local displayButtons = string.format("%s%s%s%s%s%s",
+    buttonDisp("A"), buttonDisp("B"), buttonDisp("X"),
+    buttonDisp("Y"), buttonDisp("S"), buttonDisp("Z")
+  )
+  local s = string.format(
+    "   %s        %s   \n".."%s    %s",
+    displayL, displayR,
+    displayStick, displayButtons
+  )
+  return s
+end
+local function inputDisplayCalibrated()
+  -- This version doesn't use the full stick range (in accordance to your
+  -- calibration) and doesn't use the full L/R range.
+  local displayStickX = string.format("%+06.1f", inputStickXF:get()*100.0)
+  local displayStickY = string.format("%+06.1f", inputStickYF:get()*100.0)
+  local displayStick = displayStickX .. "," .. displayStickY
+  local displayL = string.format("%05.1f", inputLF:get()*100.0)
+  local displayR = string.format("%05.1f", inputRF:get()*100.0)
+  local displayButtons = string.format("%s%s%s%s%s%s",
+    buttonDisp("A"), buttonDisp("B"), buttonDisp("X"),
+    buttonDisp("Y"), buttonDisp("S"), buttonDisp("Z")
+  )
+  local s = string.format(
+    "    %s       %s   \n".."%s   %s",
+    displayL, displayR,
+    displayStick, displayButtons
+  )
+  return s
+end
+
 -- Number of machines competing in the race when it began
 numOfRaceEntrants = V("# Race entrants", 0x1BAEE0, {RefValue, ByteValue})
 
@@ -866,7 +495,7 @@ function settingsSlider:getDisplay(label, value)
   if value == nil then value = self:get() end
   
   return label .. ": " .. self:toStrForDisplay(value) .. "%"
-end
+end 
 
 
 
@@ -881,16 +510,230 @@ machineId.addressListCustomTypeName = "2 Byte Big Endian"
 
 machineName = V("Machine name", 0x3C, {StateValue, StringValue}, {maxLength=64})
 
+
+-- Coordinates
 local posX = NewStateFloat("Pos X", 0x7C)
 local posY = NewStateFloat("Pos Y", 0x80)
 local posZ = NewStateFloat("Pos Z", 0x84)
 local velX = NewStateFloat("Vel X", 0x94)
 local velY = NewStateFloat("Vel Y", 0x98)
 local velZ = NewStateFloat("Vel Z", 0x9C)
+-- Machine orientation in world coordinates
+local wOrientX = NewStateFloat("W Orient X", 0xEC)
+local wOrientY = NewStateFloat("W Orient Y", 0xF0)
+local wOrientZ = NewStateFloat("W Orient Z", 0xF4)
+-- Machine orientation in current gravity coordinates
+local gOrientX = NewStateFloat("G Orient X", 0x10C)
+local gOrientY = NewStateFloat("G Orient Y", 0x110)
+local gOrientZ = NewStateFloat("G Orient Z", 0x114)
+
+local function coordinatesDisplay(key, beforeDot, afterDot)
+  if key == "pos" then coords = {posX, posY, posZ}
+  elseif key == "vel" then coords = {velX, velY, velZ}
+  elseif key == "wOrient" then coords = {wOrientZ, wOrientY, wOrientX}
+  elseif key == "gOrient" then coords = {gOrientX, gOrientY, gOrientZ}
+  else return nil
+  end
+  if beforeDot == nil then beforeDot = 4 end
+  if afterDot == nil then afterDot = 1 end
+  
+  local format = "%+0" .. 1+beforeDot+1+afterDot .. "." .. afterDot .. "f"
+  local s = string.format(
+    format .. "," .. format .. "," .. format,
+    coords[1]:get(), coords[2]:get(), coords[3]:get()
+  )
+  return s
+end
+
+local function getDirectionChange(oldDir, newDir)
+  if newDir - oldDir > 180 then
+    -- Probably crossing from -180 to 180
+    return (newDir - oldDir) - 360
+  elseif newDir - oldDir < -180 then
+    -- Probably crossing from 180 to -180
+    return (newDir - oldDir) + 360
+  else
+    return newDir - oldDir
+  end
+end
+local lastVelocityDirUpdate = dolphin.getFrameCount()
+local lastVelocityDir = 0
+local velocityDirChangeStr = ""
+local function XZvelocityDirDisplay()
+  -- We'll make 0 degrees be facing right at the starting line. Then a higher
+  -- angle as you rotate counter-clockwise, till you're facing left at 180.
+  -- Below the horizontal you have negative angles.
+  local degrees = math.deg(math.atan2(-velZ:get(), velX:get()))
+  local degreesStr = string.format("%+07.2f°", degrees)
+  
+  -- Update the display showing the change in orientation.
+  -- Only bother with this if the dolphin frame count is being updated,
+  -- otherwise we're updating for nothing.
+  local frameCount = dolphin.getFrameCount()
+  if frameCount ~= lastVelocityDirUpdate then
+    velocityDirChangeStr = string.format(
+      "(%+07.2f°)", getDirectionChange(lastVelocityDir, degrees)
+    )
+    lastVelocityDirUpdate = frameCount
+    lastVelocityDir = degrees
+  end
+  
+  -- Add the orientationChangeStr even if it wasn't updated, so that we can
+  -- display any old orientation change (e.g. when we are just pausing
+  -- emulation).
+  local s = "Moving: " .. degreesStr .. " " .. velocityDirChangeStr
+  return s
+end
+local lastOrientationUpdate = dolphin.getFrameCount()
+local lastOrientation = 0
+local orientationChangeStr = ""
+local function XZorientationDisplay()
+  -- Note that wOrient seems to have X and Z switched, compared to pos/vel,
+  -- hence the order of the components here.
+  local degrees = math.deg(math.atan2(wOrientX:get(), -wOrientZ:get()))
+  local degreesStr = string.format("%+07.2f°", degrees)
+  
+  local frameCount = dolphin.getFrameCount()
+  if frameCount ~= lastOrientationUpdate then
+    orientationChangeStr = string.format(
+      "(%+07.2f°)", getDirectionChange(lastOrientation, degrees)
+    )
+    lastOrientationUpdate = frameCount
+    lastOrientation = degrees
+  end
+  
+  local s = "Facing: " .. degreesStr .. " " .. orientationChangeStr
+  return s
+end
+
+
+-- Racer inputs; useful for CPUs and Replays
+local inputSteerY = NewStateFloat("Input, steering Y", 0x1F4)
+local inputStrafe = NewStateFloat("Input, strafe", 0x1F8)
+local inputSteerX = NewStateFloat("Input, steering X", 0x1FC)
+local inputAccel = NewStateFloat("Input, accel", 0x200)
+local inputBrake = NewStateFloat("Input, brake", 0x204)
+
+local function racerInputButtonDisp(button)
+  -- Both possible buttons can only be at two values: 1.0 and 0.0.
+  if button == "A" then
+    if inputAccel:get() > 0.5 then return "A" else return " " end
+  elseif button == "Brake" then
+    if inputBrake:get() > 0.5 then return "Brake" else return "     " end
+  end
+end
+
+local function inputDisplayRacerState()
+  local displayStickX = string.format("%+06.1f", inputSteerX:get()*100.0)
+  local displayStickY = string.format("%+06.1f", inputSteerY:get()*100.0)
+  local displayStick = displayStickX .. "," .. displayStickY
+  local displayStrafe = string.format("%+06.1f", inputStrafe:get()*100.0)
+  local displayButtons = string.format("%s %s",
+    racerInputButtonDisp("A"), racerInputButtonDisp("Brake")
+  )
+  local s = string.format(
+    "Strafe: %s\n".."Stick:  %s\n".."        %s",
+    displayStrafe, displayStick, displayButtons
+  )
+  return s
+end
+
+
+-- General-interest values
+local generalState1a = V(
+  "State bits 01-08", 0x0, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1b = V(
+  "State bits 09-16", 0x1, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1c = V(
+  "State bits 17-24", 0x2, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1d = V(
+  "State bits 25-32", 0x3, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
 local kmh = NewStateFloat("km/h (next)", 0x17C)
 local energy = NewStateFloat("Energy", 0x184)
+local boostFramesLeft = V("Boost frames left", 0x18A, {StateValue, ByteValue})
+local checkpointNumber = NewStateFloat("Checkpoint number", 0x1CC)
+local progressToNextCheckpoint = NewStateFloat("Progress to next checkpoint", 0x1D0)
+local score = V("Score", 0x210, {StateValue, ShortValue})
+local terrainState1 = V(
+  "Terrain state", 0x218, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local gripAndAirState = V(
+  "Grip and air state", 0x247, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local damageLastHit = NewStateFloat("Damage, last hit", 0x4AC)
+local boostDelay = V("Boost delay", 0x4C6, {StateValue, ShortValue})
+local boostEnergyUsageFactor = NewStateFloat("Boost energy usage factor", 0x4DC)
+local terrainState4FD = V(
+  "Terrain state 4FD", 0x4FD, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState58F = V(
+  "State 58F", 0x58F, {StateValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
 
 
+-- Physics related
+local gripA4 = NewStateFloat("Grip A4", 0xA4)
+local collisionC4 = NewStateFloat("Collision C4", 0xC4)
+local accelC8 = NewStateFloat("Accel C8", 0xC8)
+local stabilityCC = NewStateFloat("Stability CC", 0xCC)
+local aerialTilt = NewStateFloat("Aerial Tilt", 0x180)
+local boost18C = NewStateFloat("Boost 18C", 0x18C)
+local stability198 = NewStateFloat("Stability 198", 0x198)
+local stability19C = NewStateFloat("Stability 19C", 0x19C)
+local stability1A0 = NewStateFloat("Stability 1A0", 0x1A0)
+local stability1A4 = NewStateFloat("Stability 1A4", 0x1A4)
+local stability1A8 = NewStateFloat("Stability 1A8", 0x1A8)
+local stability1AC = NewStateFloat("Stability 1AC", 0x1AC)
+local stability1B0 = NewStateFloat("Stability 1B0", 0x1B0)
+local stability1B4 = NewStateFloat("Stability 1B4", 0x1B4)
+local stability1B8 = NewStateFloat("Stability 1B8", 0x1B8)
+local groundContact = NewStateFloat("Ground contact", 0x1C8)
+local collision216 = V("Collision 216", 0x216, {StateValue, IntValue})
+local speed224 = NewStateFloat("Speed 224", 0x224)
+local boost228 = NewStateFloat("Boost 228", 0x228)
+local slopeRateOfChange288 = NewStateFloat("Slope rate of change 288", 0x288)
+local tilt28C = NewStateFloat("Tilt 28C", 0x28C)
+local orientation290 = NewStateFloat("Orientation 290", 0x290)
+local collision3D8 = NewStateFloat("Collision 3D8", 0x3D8)
+local speed478 = NewStateFloat("Speed 478", 0x478)
+local strafeEffect = V("Strafe effect", 0x4B0, {StateValue, ShortValue, SignedIntValue})
+local stability4B4 = NewStateFloat("Stability 4B4", 0x4B4)
+local turnReactionInput = NewStateFloat("T. reaction input", 0x4D4)
+local turnReactionEffect = NewStateFloat("T. reaction effect", 0x4D8)
+local collision500X = NewStateFloat("Collision 500, X", 0x500)
+local collision500Y = NewStateFloat("Collision 500, Y", 0x504)
+local collision500Z = NewStateFloat("Collision 500, Z", 0x508)
+local turning580 = NewStateFloat("Turning 580", 0x580)
+local collision5C4 = NewStateFloat("Collision 5C4", 0x5C4)
+local turning5C8 = NewStateFloat("Turning 5C8", 0x5C8)
+local turning5CC = NewStateFloat("Turning 5CC", 0x5CC)
+local unknown5D0 = NewStateFloat("Unknown 5D0", 0x5D0)
+local unknown5D4 = NewStateFloat("Unknown 5D4", 0x5D4)
+
+
+-- Misc or unknown values
+local unknown10C = NewStateFloat("Unknown 10C", 0x10C)
+local unknown110 = NewStateFloat("Unknown 110", 0x110)
+local unknown114 = NewStateFloat("Unknown 114", 0x114)
+
+
+
+
+
+
+-- Machine stats
 
 local function NewMachineStatFloat(label, offset, baseOffset)
   return V(
@@ -919,9 +762,9 @@ local trackCollision = V(
   "Track collision", 0x588, {StatWithBase, FloatStat}, {baseOffset=0x9C}
 )
 local turnDecel = NewMachineStatFloat("Turn decel", 0x238, 0x3C)
-local turning1 = NewMachineStatFloat("Turning 1", 0x10, 0x18)
-local turning2 = NewMachineStatFloat("Turning 2", 0x14, 0x20)
-local turning3 = NewMachineStatFloat("Turning 3", 0x20, 0x2C)
+local turning1 = NewMachineStatFloat("Turn resistance", 0x10, 0x18)
+local turning2 = NewMachineStatFloat("Turn movement", 0x14, 0x20)
+local turning3 = NewMachineStatFloat("Turn reaction", 0x20, 0x2C)
 local weight = NewMachineStatFloat("Weight", 0x8, 0x4)
 local unknown48 = V(
   "Unknown 48", 0x477, {StatTiedToBase, ByteValue}, {baseOffset=0x48}
@@ -934,7 +777,7 @@ local unknown49a = V(
 )
 -- Actual is state bit 24; base is 0x49 % 2
 local unknown49b = V(
-  "Unknown 49b", 0x2, {BinaryValueTiedToBase},
+  "Drift camera", 0x2, {BinaryValueTiedToBase},
   {baseOffset=0x49, binarySize=1, binaryStartBit=0, baseBinaryStartBit=0}
 )
 
@@ -955,6 +798,26 @@ local frontWidth = V(
       function(v) return -v end,
       function(v) return v+0.2 end,
       function(v) return -(v+0.2) end,
+    },
+  }
+)
+local frontHeight = V(
+  "Size, front width",
+  {0x250, 0x2AC, 0x3B8, 0x3E8},
+  {SizeStat, FloatStat},
+  {
+    baseOffset={0x58, 0x64, 0x88, 0x94},
+    specificLabels={
+      "Tilt, front height, right",
+      "Tilt, front height, left",
+      "Wall collision, front height, right",
+      "Wall collision, front height, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return v end,
+      function(v) return v-0.1 end,
+      function(v) return v-0.1 end,
     },
   }
 )
@@ -1003,6 +866,26 @@ local backWidth = V(
     },
   }
 )
+local backHeight = V(
+  "Size, back height",
+  {0x308, 0x364, 0x418, 0x448},
+  {SizeStat, FloatStat},
+  {
+    baseOffset={0x70, 0x7C, 0xA0, 0xAC},
+    specificLabels={
+      "Tilt, back height, right",
+      "Tilt, back height, left",
+      "Wall collision, back height, right",
+      "Wall collision, back height, left",
+    },
+    formulas={
+      function(v) return v end,
+      function(v) return v end,
+      function(v) return v-0.1 end,
+      function(v) return v-0.1 end,
+    },
+  }
+)
 local backLength = V(
   "Size, back length",
   {0x30C, 0x368, 0x41C, 0x44C},
@@ -1045,22 +928,20 @@ machineStats = {
 
 local vars = {}
 local updateMethod = nil
-local timer = nil
 local timerInterval = nil
-local timerFunction = nil
+local updateButton = nil
 
 local layout1 = {
   
   init = function(window)
-    updateMethod = "timer"
-    timerInterval = 50  -- milliseconds
+    updateMethod = "breakpoint"
     
     -- Set the display window's size.
     window:setSize(300, 200)
   
     -- Add a blank label to the window at position (10,5). In the update
     -- function, which is called on every frame, we'll update the label text.
-    mainLabel = initLabel(window, 10, 5, "")
+    vars.label = initLabel(window, 10, 5, "")
     
     --shared.debugLabel = initLabel(window, 10, 160, "<debug>")
     
@@ -1071,7 +952,7 @@ local layout1 = {
   
   update = function()
     updateAddresses()
-    mainLabel:setCaption(
+    vars.label:setCaption(
       table.concat(
         {
           settingsSlider:getDisplay(),
@@ -1101,7 +982,7 @@ local layout2A = {
     
     window:setSize(400, 300)
   
-    mainLabel = initLabel(window, 10, 5, "")
+    vars.label = initLabel(window, 10, 5, "")
     --shared.debugLabel = initLabel(window, 10, 220, "")
     
     vars.energies = {}
@@ -1113,7 +994,7 @@ local layout2A = {
   
   update = function()
     updateAddresses()
-    mainLabel:setCaption(
+    vars.label:setCaption(
       table.concat(
         {
           vars.energies[0]:getDisplay(),
@@ -1136,26 +1017,26 @@ local layout2B = {
     updateMethod = "timer"
     timerInterval = 50
   
-    window:setSize(550, 300)
+    window:setSize(650, 300)
   
-    mainLabel = initLabel(window, 10, 5, "")
-    local font = mainLabel:getFont()
-    font:setSize(14)
+    vars.label = initLabel(window, 10, 5, "", 14)
     
     --shared.debugLabel = initLabel(window, 10, 220, "")
     
-    trackedValues = {energy}
+    local trackedValues = {energy}
     for i = 1, 5 do
       table.insert(trackedValues, forMachineI(energy, i))
     end
 
     local initiallyActive = {}
     for k, v in pairs(trackedValues) do initiallyActive[k] = v end
-    addCheckboxes(window, initiallyActive)
+    
+    vars.display = ValueDisplay:new(
+      window, vars.label, updateAddresses, trackedValues, initiallyActive, 320)
   end,
   
   update = function()
-    updateValueDisplay()
+    vars.display:update()
   end,
 }
 
@@ -1167,12 +1048,12 @@ local layout3 = {
   
     window:setSize(300, 130)
   
-    mainLabel = initLabel(window, 10, 5, "")
+    vars.label = initLabel(window, 10, 5, "")
   end,
   
   update = function()
     updateAddresses()
-    mainLabel:setCaption(
+    vars.label:setCaption(
       table.concat(
         {
           turning2:getDisplay(turning2:getLabel().." (B)", turning2:getBase()),
@@ -1194,19 +1075,19 @@ local layout4A = {
   
     window:setSize(550, 570)
   
-    mainLabel = initLabel(window, 10, 5, "")
-    local font = mainLabel:getFont()
-    font:setSize(14)
+    vars.label = initLabel(window, 10, 5, "", 14)
     
     --shared.debugLabel = initLabel(window, 10, 350, "")
 
-    trackedValues = machineStats
+    local trackedValues = machineStats
     local initiallyActive = {accel, maxSpeed, weight}
-    addCheckboxes(window, initiallyActive)
+    
+    vars.display = ValueDisplay:new(
+      window, vars.label, updateAddresses, trackedValues, initiallyActive)
   end,
   
   update = function()
-    updateValueDisplay()
+    vars.display:update()
   end,
 }
 
@@ -1215,26 +1096,22 @@ local layout4A = {
 local layout4B = {
   
   -- Version of layout 4 that updates the display with an update button,
-  -- instead of automatically on every frame. This is fine because the stats
-  -- don't change often (only when you change them, or change machine or
-  -- settings).
-  -- By not updating on every frame, this version can keep Dolphin running
-  -- much more smoothly.
+  -- instead of automatically on every frame.
   
   init = function(window)
     updateMethod = "button"
   
     window:setSize(550, 570)
   
-    mainLabel = initLabel(window, 10, 5, "")
-    local font = mainLabel:getFont()
-    font:setSize(14)
+    vars.label = initLabel(window, 10, 5, "", 14)
     
     --shared.debugLabel = initLabel(window, 10, 350, "")
 
-    trackedValues = machineStats
+    local trackedValues = machineStats
     local initiallyActive = {accel, maxSpeed, weight}
-    addCheckboxes(window, initiallyActive)
+    
+    vars.display = ValueDisplay:new(
+      window, vars.label, updateAddresses, trackedValues, initiallyActive)
     
     updateButton = createButton(window)
     updateButton:setPosition(10, 460)
@@ -1244,7 +1121,56 @@ local layout4B = {
   end,
   
   update = function()
-    updateValueDisplay()
+    vars.display:update()
+  end,
+}
+
+
+
+local layout5 = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    timerInterval = 16
+  
+    window:setSize(550, 800)
+    
+    vars.mainLabel = initLabel(window, 10, 5, "", 18)
+    
+    vars.velocityLabel = initLabel(window, 10, 100, "", 18)
+    vars.orientationLabel = initLabel(window, 10, 300, "", 14)
+    
+    -- TODO: Check what fixed-width font is safe to use on any system
+    vars.inputsLabel = initLabel(window, 10, 400, "", 14, "Consolas")
+    
+    --shared.debugLabel = initLabel(window, 10, 500, "ABC", 8, "Consolas")
+    
+    local trackedValues = {
+      speed224,
+      kmh,
+    }
+    local initiallyActive = {
+      speed224,
+      kmh,
+    }
+    
+    vars.display = ValueDisplay:new(
+      window, vars.mainLabel, updateAddresses, trackedValues, initiallyActive, 320)
+  end,
+  
+  update = function()
+    vars.display:update()
+    
+    local velMag = math.sqrt(velX:get()^2 + velY:get()^2 + velZ:get()^2)
+    local velMagOverKmhStr = string.format("%.6f", velMag / kmh:get())
+    local kmhOverSpeed224Str = string.format("%.3f", kmh:get() / speed224:get())
+    vars.velocityLabel.setCaption(table.concat({
+      "Vel: "..coordinatesDisplay("vel", 4, 1),
+      "velMag/kmh: "..velMagOverKmhStr,
+      "kmh/speed224: "..kmhOverSpeed224Str,
+    }, "\n"))
+    vars.orientationLabel.setCaption("Dir: "..coordinatesDisplay("wOrient", 1, 4))
+    vars.inputsLabel.setCaption(inputDisplayRacerState())
   end,
 }
 
@@ -1273,67 +1199,6 @@ layout.init(window)
 --------------------------------------------------------------------------------
 
 
-
-
-local dolphinFrameCount = 0
-
--- Clean up from previous runs of the script 
-if dolphin.oncePerFrameAddress then
-  debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-end
-
-
-if updateMethod == "timer" then
-
-  -- Set the window to be the timer's parent, so that when the window is
-  -- closed, the timer will stop being called. This allows us to edit and then
-  -- re-run the script, and then close the old window to stop previous timer
-  -- loops.
-  timer = createTimer(window)
-  timer.setInterval(timerInterval)
-  
-  timerFunction = function()
-    if dolphin.frameCounterAddress then
-      -- Only update if the game has advanced at least one frame. This way we
-      -- can pause emulation and let the game stay paused without wasting too
-      -- much CPU.
-      local newFrameCount = utils.readIntLE(
-        getAddress("Dolphin.exe")+dolphin.frameCounterAddress
-      )
-      if newFrameCount > dolphinFrameCount then
-        layout.update()
-        dolphinFrameCount = newFrameCount
-      end
-    else
-      layout.update()
-    end
-    
-    timer.destroy()
-    timer = createTimer(window)
-    timer.setInterval(timerInterval)
-    timer.setOnTimer(timerFunction)
-  end
-  timer.setOnTimer(timerFunction)
-
-elseif updateMethod == "breakpoint" then
-
-  -- This sets a breakpoint at a particular Dolphin instruction which
-  -- should be called exactly once every frame.
-  debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-  
-  -- If the oncePerFrameAddress was chosen correctly, the
-  -- following function should run exactly once every frame.
-  function debugger_onBreakpoint()
-    layout.update()
-    return 1
-  end
-  
-elseif updateMethod == "button" then
-  
-  -- First do an initial update.
-  updateValueDisplay()
-  -- Set the update function to run when the update button is clicked.
-  updateButton:setOnClick(layout.update)
-
-end
+dolphin.setupDisplayUpdates(
+  updateMethod, layout.update, window, timerInterval, updateButton)
 
