@@ -67,6 +67,11 @@ local computeAddr = {
     return addrs.o + readIntBE(pointerAddress, 4)
   end,
   
+  machineState2Blocks = function()
+    local pointerAddress = addrs.machineStateBlocks - 0x20
+    return addrs.o + readIntBE(pointerAddress, 4)
+  end,
+  
   machineBaseStatsBlocks = function()
     return addrs.o + 0x81554000
   end,
@@ -81,19 +86,17 @@ local computeAddr = {
 local function updateAddresses()
   addrs.o = computeAddr.o()
   addrs.refPointer = computeAddr.refPointer()
-  addrs.machineStateBlocks = computeAddr.machineStateBlocks(machineIndex)
-  addrs.machineBaseStatsBlocks = computeAddr.machineBaseStatsBlocks(machineIndex)
-  addrs.machineBaseStatsBlocks2 = computeAddr.machineBaseStatsBlocks2(machineIndex)
+  addrs.machineStateBlocks = computeAddr.machineStateBlocks()
+  addrs.machineState2Blocks = computeAddr.machineState2Blocks()
+  addrs.machineBaseStatsBlocks = computeAddr.machineBaseStatsBlocks()
+  addrs.machineBaseStatsBlocks2 = computeAddr.machineBaseStatsBlocks2()
 end
 
 
 
 -- Forward declarations.
-local forMachineI = nil
 local machineId = nil
-local machineIndexIsValid = nil
 local machineName = nil
-local numOfRaceEntrants = nil
 
 
 
@@ -101,6 +104,7 @@ local numOfRaceEntrants = nil
 
 
 
+-- Values at static addresses (from the beginning of the game memory).
 local StaticValue = {}
 
 copyFields(StaticValue, {MemoryValue})
@@ -111,6 +115,7 @@ end
 
 
 
+-- Values that are a constant offset from a certain reference pointer.
 local RefValue = {}
 
 copyFields(RefValue, {MemoryValue})
@@ -121,6 +126,29 @@ end
 
 
 
+-- Number of machines competing in the race when it began
+local numOfRaceEntrants = V("# Race entrants", 0x1BAEE0, {RefValue, ByteValue})
+-- Number of human racers
+local numOfHumanRacers = V("# Human racers", 0x245309, {RefValue, ByteValue})
+
+local function machineIndexIsValid(machineIndex)
+  return machineIndex < numOfRaceEntrants:get()
+end
+
+local function forMachineI(stateValueObj, machineIndex)
+  -- Create a new object which is the same as the first param, except
+  -- it has the specified machineIndex
+  local newObj = {machineIndex = machineIndex}
+  setmetatable(newObj, stateValueObj)
+  stateValueObj.__index = stateValueObj
+
+  return newObj
+end
+
+
+
+-- 0x620-byte memory block that's dense with useful information.
+-- There's one such block per machine in a race.
 local StateValue = {machineIndex = 0}
 
 copyFields(StateValue, {MemoryValue})
@@ -156,8 +184,24 @@ function StateValue:getDisplay(label, value)
   return label .. ": " .. self:toStrForDisplay(value)
 end
 
-function machineIndexIsValid(machineIndex)
-  return machineIndex < numOfRaceEntrants:get()
+
+
+-- Another memory block that has some useful information.
+-- There's one such block per machine in a race. 0x760 for humans and
+-- 0x820 for CPUs.
+local State2Value = {machineIndex = 0}
+
+copyFields(State2Value, {StateValue})
+
+function State2Value:getAddress()
+  local humans = numOfHumanRacers:get()
+  if self.machineIndex <= humans then
+    return addrs.machineState2Blocks + self.offset
+    + (0x760 * self.machineIndex)
+  else
+    return addrs.machineState2Blocks + self.offset
+    + (0x820 * (self.machineIndex - humans) + 0x760 * humans)
+  end
 end
 
 
@@ -398,96 +442,6 @@ end
 
 
 
-forMachineI = function(stateValueObj, machineIndex)
-  -- Create a new object which is the same as the first param, except
-  -- it has the specified machineIndex
-  local newObj = {machineIndex = machineIndex}
-  setmetatable(newObj, stateValueObj)
-  stateValueObj.__index = stateValueObj
-
-  return newObj
-end
-
-
-
--- Controller inputs
-local inputABXYS = V("Input, ABXY & Start", 0x15CBD0, {StaticValue, BinaryValue},
-  {binarySize=8, binaryStartBit=7})
-local inputDZ = V("Input, D-Pad Z", 0x15CBD1, {StaticValue, BinaryValue},
-  {binarySize=8, binaryStartBit=7})
-local inputStickX = V("Input, Stick X", 0x15CBD2, {StaticValue, ByteValue})
-local inputStickY = V("Input, Stick Y", 0x15CBD3, {StaticValue, ByteValue})
-local inputCStickX = V("Input, C-Stick X", 0x15CBD4, {StaticValue, ByteValue})
-local inputCStickY = V("Input, C-Stick Y", 0x15CBD5, {StaticValue, ByteValue})
-local inputL = V("Input, L", 0x15CBD6, {StaticValue, ByteValue})
-local inputR = V("Input, R", 0x15CBD7, {StaticValue, ByteValue})
-local inputStickXF = V("Input, Stick X", 0x1BAB54, {RefValue, FloatValue})
-local inputStickYF = V("Input, Stick Y", 0x1BAB58, {RefValue, FloatValue})
-local inputCStickXF = V("Input, C-Stick X", 0x1BAB5C, {RefValue, FloatValue})
-local inputCStickYF = V("Input, C-Stick Y", 0x1BAB60, {RefValue, FloatValue})
-local inputLF = V("Input, L", 0x1BAB64, {RefValue, FloatValue})
-local inputRF = V("Input, R", 0x1BAB68, {RefValue, FloatValue})
-local function buttonDisp(button)
-  local value = nil
-  if button == "A" then
-    value = inputABXYS:get()[8]
-  elseif button == "B" then
-    value = inputABXYS:get()[7]
-  elseif button == "X" then
-    value = inputABXYS:get()[6]
-  elseif button == "Y" then
-    value = inputABXYS:get()[5]
-  elseif button == "S" then
-    value = inputABXYS:get()[4]
-  elseif button == "Z" then
-    value = inputDZ:get()[4]
-  end
-  if value == 1 then
-    return button
-  else
-    return " "
-  end
-end
-local function inputDisplayRaw()
-  local displayStickX = string.format("%+04d", inputStickX:get()-128)
-  local displayStickY = string.format("%+04d", inputStickY:get()-128)
-  local displayStick = displayStickX .. "," .. displayStickY
-  local displayL = string.format("%03d", inputL:get())
-  local displayR = string.format("%03d", inputR:get())
-  local displayButtons = string.format("%s%s%s%s%s%s",
-    buttonDisp("A"), buttonDisp("B"), buttonDisp("X"),
-    buttonDisp("Y"), buttonDisp("S"), buttonDisp("Z")
-  )
-  local s = string.format(
-    "   %s        %s   \n".."%s    %s",
-    displayL, displayR,
-    displayStick, displayButtons
-  )
-  return s
-end
-local function inputDisplayCalibrated()
-  -- This version doesn't use the full stick range (in accordance to your
-  -- calibration) and doesn't use the full L/R range.
-  local displayStickX = string.format("%+06.1f", inputStickXF:get()*100.0)
-  local displayStickY = string.format("%+06.1f", inputStickYF:get()*100.0)
-  local displayStick = displayStickX .. "," .. displayStickY
-  local displayL = string.format("%05.1f", inputLF:get()*100.0)
-  local displayR = string.format("%05.1f", inputRF:get()*100.0)
-  local displayButtons = string.format("%s%s%s%s%s%s",
-    buttonDisp("A"), buttonDisp("B"), buttonDisp("X"),
-    buttonDisp("Y"), buttonDisp("S"), buttonDisp("Z")
-  )
-  local s = string.format(
-    "    %s       %s   \n".."%s   %s",
-    displayL, displayR,
-    displayStick, displayButtons
-  )
-  return s
-end
-
--- Number of machines competing in the race when it began
-numOfRaceEntrants = V("# Race entrants", 0x1BAEE0, {RefValue, ByteValue})
-
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 local settingsSlider = V("Settings slider", 0x2453A0, {RefValue, IntValue})
 function settingsSlider:getDisplay(label, value)
@@ -499,6 +453,7 @@ end
 
 
 
+-- There are two memory blocks containing a lot of machine state information.
 local function NewStateFloat(label, stateBlockOffset)
   return V(label, stateBlockOffset, {StateValue, FloatValue})
 end
@@ -607,39 +562,7 @@ local function XZorientationDisplay()
 end
 
 
--- Racer inputs; useful for CPUs and Replays
-local inputSteerY = NewStateFloat("Input, steering Y", 0x1F4)
-local inputStrafe = NewStateFloat("Input, strafe", 0x1F8)
-local inputSteerX = NewStateFloat("Input, steering X", 0x1FC)
-local inputAccel = NewStateFloat("Input, accel", 0x200)
-local inputBrake = NewStateFloat("Input, brake", 0x204)
-
-local function racerInputButtonDisp(button)
-  -- Both possible buttons can only be at two values: 1.0 and 0.0.
-  if button == "A" then
-    if inputAccel:get() > 0.5 then return "A" else return " " end
-  elseif button == "Brake" then
-    if inputBrake:get() > 0.5 then return "Brake" else return "     " end
-  end
-end
-
-local function inputDisplayRacerState()
-  local displayStickX = string.format("%+06.1f", inputSteerX:get()*100.0)
-  local displayStickY = string.format("%+06.1f", inputSteerY:get()*100.0)
-  local displayStick = displayStickX .. "," .. displayStickY
-  local displayStrafe = string.format("%+06.1f", inputStrafe:get()*100.0)
-  local displayButtons = string.format("%s %s",
-    racerInputButtonDisp("A"), racerInputButtonDisp("Brake")
-  )
-  local s = string.format(
-    "Strafe: %s\n".."Stick:  %s\n".."        %s",
-    displayStrafe, displayStick, displayButtons
-  )
-  return s
-end
-
-
--- General-interest values
+-- General-interest state values
 local generalState1a = V(
   "State bits 01-08", 0x0, {StateValue, BinaryValue},
   {binarySize=8, binaryStartBit=7}
@@ -662,7 +585,7 @@ local boostFramesLeft = V("Boost frames left", 0x18A, {StateValue, ByteValue})
 local checkpointNumber = NewStateFloat("Checkpoint number", 0x1CC)
 local progressToNextCheckpoint = NewStateFloat("Progress to next checkpoint", 0x1D0)
 local score = V("Score", 0x210, {StateValue, ShortValue})
-local terrainState1 = V(
+local terrainState218 = V(
   "Terrain state", 0x218, {StateValue, BinaryValue},
   {binarySize=8, binaryStartBit=7}
 )
@@ -681,6 +604,9 @@ local generalState58F = V(
   "State 58F", 0x58F, {StateValue, BinaryValue},
   {binarySize=8, binaryStartBit=7}
 )
+local lapNumber = V("Lap number", 0x67B, {State2Value, ByteValue})
+local lapNumberPosition = V("Lap number (position)", 0x67F, {State2Value, ByteValue, SignedIntValue})
+
 
 
 -- Physics related
@@ -723,13 +649,253 @@ local unknown5D0 = NewStateFloat("Unknown 5D0", 0x5D0)
 local unknown5D4 = NewStateFloat("Unknown 5D4", 0x5D4)
 
 
--- Misc or unknown values
-local unknown10C = NewStateFloat("Unknown 10C", 0x10C)
-local unknown110 = NewStateFloat("Unknown 110", 0x110)
-local unknown114 = NewStateFloat("Unknown 114", 0x114)
+
+-- Controller inputs
+
+-- Digital inputs
+local input = {}
+input.ABXYS = V("ABXY & Start", 0x15CBD0, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+input.DZ = V("D-Pad & Z", 0x15CBD1, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+  
+-- Analog inputs, raw/uncalibrated integers
+input.stickXRaw = V("Stick X, Raw", 0x15CBD2, {StaticValue, ByteValue})
+input.stickYRaw = V("Stick Y, Raw", 0x15CBD3, {StaticValue, ByteValue})
+input.CStickXRaw = V("C-Stick X", 0x15CBD4, {StaticValue, ByteValue})
+input.CStickYRaw = V("C-Stick Y", 0x15CBD5, {StaticValue, ByteValue})
+input.LRaw = V("L, Raw", 0x15CBD6, {StaticValue, ByteValue})
+input.RRaw = V("R, Raw", 0x15CBD7, {StaticValue, ByteValue})
+
+-- Analog inputs, calibrated floats 
+input.stickX = V("Stick X", 0x1BAB54, {RefValue, FloatValue})
+input.stickY = V("Stick Y", 0x1BAB58, {RefValue, FloatValue})
+input.CStickX = V("C-Stick X", 0x1BAB5C, {RefValue, FloatValue})
+input.CStickY = V("C-Stick Y", 0x1BAB60, {RefValue, FloatValue})
+input.L = V("L", 0x1BAB64, {RefValue, FloatValue})
+input.R = V("R", 0x1BAB68, {RefValue, FloatValue})
+
+function displayAnalog(v, format, posSymbol, negSymbol)
+  -- Display a signed analog value, e.g. something that ranges
+  -- anywhere from -100 to 100.
+  local s = string.format(format, math.abs(v))
+  if v == 0 then s = "  "..s
+  elseif v > 0 then s = posSymbol.." "..s
+  else s = negSymbol.." "..s end
+  return s
+end
+
+function input.button(buttonName)
+  local value = nil
+  if buttonName == "A" then
+    value = input.ABXYS:get()[8]
+  elseif buttonName == "B" then
+    value = input.ABXYS:get()[7]
+  elseif buttonName == "X" then
+    value = input.ABXYS:get()[6]
+  elseif buttonName == "Y" then
+    value = input.ABXYS:get()[5]
+  elseif buttonName == "S" then
+    value = input.ABXYS:get()[4]
+  elseif buttonName == "Z" then
+    value = input.DZ:get()[4]
+  end
+  if value == 1 then
+    return buttonName
+  else
+    return " "
+  end
+end
+
+function input.displayRaw()
+  local stickX = displayAnalog(input.stickXRaw:get()-128, "%03d", ">", "<")
+  local stickY = displayAnalog(input.stickYRaw:get()-128, "%03d", "^", "v")
+  local stick = stickX .. "," .. stickY
+  local L = string.format("%03d", input.LRaw:get())
+  local R = string.format("%03d", input.RRaw:get())
+  local buttons = string.format("%s%s%s%s%s%s",
+    input.button("A"), input.button("B"), input.button("X"),
+    input.button("Y"), input.button("S"), input.button("Z")
+  )
+  local s = string.format(
+    "L %s      %s R\n"
+    .."Stick:  %s\n"
+    .."Buttons:  %s",
+    L, R, stick, buttons
+  )
+  return s
+end
+
+function input.displayCalibrated()
+  -- This version doesn't use the full stick range (in accordance to your
+  -- calibration) and doesn't use the full L/R range (only the range
+  -- that the game recognizes?).
+  local stickX = displayAnalog(input.stickX:get()*100.0, "%05.1f", ">", "<")
+  local stickY = displayAnalog(input.stickY:get()*100.0, "%05.1f", "^", "v")
+  local stick = stickX .. "," .. stickY
+  local L = string.format("%05.1f", input.L:get()*100.0)
+  local R = string.format("%05.1f", input.R:get()*100.0)
+  local buttons = string.format("%s%s%s%s%s%s",
+    input.button("A"), input.button("B"), input.button("X"),
+    input.button("Y"), input.button("S"), input.button("Z")
+  )
+  local s = string.format(
+    "L %s      %s R\n"
+    .."Stick:  %s\n"
+    .."Buttons:  %s",
+    L, R, stick, buttons
+  )
+  return s
+end
+
+-- Racer control state; useful for CPUs and Replays.
+-- This differs from previous input-related values since
+-- if you're not actually controlling your racer (e.g. in a
+-- menu, or pressing buttons when watching a replay), then
+-- these don't register accordingly.
+-- Limitation: We only know the net strafe amount (R minus L).
+
+local controlSteerY = NewStateFloat("Control, steering Y", 0x1F4)
+local controlStrafe = NewStateFloat("Control, strafe", 0x1F8)
+local controlSteerX = NewStateFloat("Control, steering X", 0x1FC)
+local controlAccel = NewStateFloat("Control, accel", 0x200)
+local controlBrake = NewStateFloat("Control, brake", 0x204)
+
+local controlState = {}
+function controlState.button(buttonName)
+  if buttonName == "A" then
+    -- Can only be at two float values: 1.0 or 0.0.
+    if controlAccel:get() > 0.5 then return "A" else return " " end
+  elseif buttonName == "Brake" then
+    if controlBrake:get() > 0.5 then return "Brake" else return "     " end
+  elseif buttonName == "Side" then
+    -- Can only be at 1 or 0.
+    if generalState1b:get()[7] == 1 then return "Side" else return "    " end
+  elseif buttonName == "Spin" then
+    if generalState1d:get()[5] == 1 then return "Spin" else return "    " end
+  end
+end
+function controlState.boost()
+  local framesLeft = boostFramesLeft:get()
+  local delay = boostDelay:get()
+  if framesLeft > 0 then return string.format("%03d", framesLeft)
+  elseif delay > 0 then return string.format("+%02d", delay)
+  else return "   "
+  end
+end
+function controlState.display()
+  local steerX = displayAnalog(controlSteerX:get()*100.0, "%05.1f", ">", "<")
+  local steerY = displayAnalog(controlSteerY:get()*100.0, "%05.1f", "^", "v")
+  local steer = steerX .. "   " .. steerY
+  local strafe = displayAnalog(controlStrafe:get()*100.0, "%05.1f", ">", "<")
+  local buttons = string.format("%s %s %s %s",
+    controlState.button("A"),
+    controlState.button("Side"),
+    controlState.button("Brake"),
+    controlState.button("Spin")
+  )
+  local boost = controlState.boost()
+  local s = string.format(
+    "Strafe: %s\n"
+    .."Stick:  %s\n"
+    .."        %s\n"
+    .."Boost:  %s\n",
+    strafe, steer, buttons, boost
+  )
+  return s
+end
 
 
 
+-- Race timer
+
+local timer = {}
+
+local TimeStruct = {}
+function TimeStruct:new(label, offset, machineIndex)
+  -- Make an object of the "class" TimeStruct.
+  local obj = {}
+  setmetatable(obj, self)
+  self.__index = self
+  
+  obj.label = label
+  obj.frames = V(label..", frames", offset, {State2Value, IntValue})
+  obj.frameFraction = V(label..", frame fraction", offset+4, {State2Value, FloatValue})
+  obj.mins = V(label..", minutes", offset+8, {State2Value, ByteValue})
+  obj.secs = V(label..", seconds", offset+9, {State2Value, ByteValue})
+  obj.millis = V(label..", milliseconds", offset+10, {State2Value, ShortValue})
+  
+  local machineIndex = machineIndex or 0
+  if machineIndex ~= 0 then
+    obj.frames = forMachineI(obj.frames)
+    obj.frameFraction = forMachineI(obj.frameFraction)
+    obj.mins = forMachineI(obj.mins)
+    obj.secs = forMachineI(obj.secs)
+    obj.millis = forMachineI(obj.millis)
+  end
+  return obj
+end
+
+timer.total = TimeStruct:new("Total", 0x744)
+timer.currLap = TimeStruct:new("This lap", 0x6C0)
+timer.prevLap = TimeStruct:new("Prev. lap", 0x6CC)
+timer.back2Laps = TimeStruct:new("2 laps ago", 0x6D8)
+timer.back3Laps = TimeStruct:new("3 laps ago", 0x6E4)
+timer.back4Laps = TimeStruct:new("4 laps ago", 0x6F0)
+timer.back5Laps = TimeStruct:new("5 laps ago", 0x6FC)
+timer.back6Laps = TimeStruct:new("6 laps ago", 0x708)
+timer.back7Laps = TimeStruct:new("7 laps ago", 0x714)
+timer.back8Laps = TimeStruct:new("8 laps ago", 0x720)
+timer.bestLap = TimeStruct:new("Best lap", 0x72C)
+timer.sumOfFinishedLaps = TimeStruct:new("Sum of finished laps", 0x738)
+timer.prevLaps = {
+  timer.prevLap, timer.back2Laps, timer.back3Laps, timer.back4Laps,
+  timer.back5Laps, timer.back6Laps, timer.back7Laps, timer.back8Laps,
+}
+
+function timer.display(struct, labelP, withFrameFractionP)
+  -- struct is a TimeStruct object whose values we want to display.
+  -- labelP can be a string or nil (not passed), in which case
+  --   struct.label is used as the label.
+  -- withFrameFractionP can be true/false or nil (not passed).
+  local label = nil
+  if labelP then label = labelP
+  else label = struct.label end
+  
+  local withFrameFraction = nil
+  if withFrameFractionP then withFrameFraction = withFrameFractionP
+  else withFrameFraction = false end
+  
+  local s = string.format(
+    "%s: %d'%02d\"%03d", label,
+    struct.mins:get(), struct.secs:get(), struct.millis:get()
+  )
+  if withFrameFraction then
+    s = s.." + "..string.format("%.4f", struct.frameFraction:get())
+  end
+  return s
+end
+
+function timer.raceDisplay()
+  local s = nil
+  -- General state bit 16 should indicate whether the race is done.
+  if generalState1b:get()[8] == 0 then 
+    s = timer.display(timer.total)
+  else
+    s = timer.display(timer.sumOfFinishedLaps, "Final")
+  end
+  
+  s = s.."\n"..timer.display(timer.currLap)  
+  local completedLaps = lapNumber:get()
+  
+  for lapN = math.max(1,completedLaps-4), completedLaps do
+    local prevLapN = completedLaps - lapN + 1
+    s = s.."\n"..timer.display(
+      timer.prevLaps[prevLapN], string.format("Lap %d", lapN)
+    )
+  end
+  return s
+end
 
 
 
@@ -924,14 +1090,46 @@ machineStats = {
 
 
 
--- GUI layout specifications.
+-- GUI window layouts.
 
 local vars = {}
 local updateMethod = nil
-local timerInterval = nil
+local updateTimeInterval = nil
 local updateButton = nil
+local generalFontName = "Calibri"  -- alt: Arial
+local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
 
-local layout1 = {
+local layoutAddressDebug = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 1000
+    
+    window:setSize(400, 300)
+  
+    vars.label = initLabel(window, 10, 5, "")
+  end,
+  
+  update = function()
+    addressNames = {
+      "o", "refPointer", "machineStateBlocks", "machineState2Blocks",
+      "machineBaseStatsBlocks", "machineBaseStatsBlocks2",
+    }
+    local s = ""
+    
+    for _, name in pairs(addressNames) do
+      s = s..name..": "
+      vars.label:setCaption(s)
+      addrs[name] = computeAddr[name]()
+      s = s..utils.intToHexStr(addrs[name]).."\n"
+      vars.label:setCaption(s)
+    end
+    addrs.o = computeAddr.o()
+    vars.label:setCaption(s)
+  end,
+}
+
+local layoutKmhRecording = {
   
   init = function(window)
     updateMethod = "breakpoint"
@@ -974,16 +1172,15 @@ local layout1 = {
   end,
 }
 
-local layout2A = {
+local layoutEnergy = {
   
   init = function(window)
     updateMethod = "timer"
-    timerInterval = 50
+    updateTimeInterval = 50
     
     window:setSize(400, 300)
   
     vars.label = initLabel(window, 10, 5, "")
-    --shared.debugLabel = initLabel(window, 10, 220, "")
     
     vars.energies = {}
     vars.energies[0] = energy
@@ -1011,17 +1208,15 @@ local layout2A = {
   end,
 }
 
-local layout2B = {
+local layoutEnergy2 = {
   
   init = function(window)
     updateMethod = "timer"
-    timerInterval = 50
+    updateTimeInterval = 50
   
     window:setSize(650, 300)
   
     vars.label = initLabel(window, 10, 5, "", 14)
-    
-    --shared.debugLabel = initLabel(window, 10, 220, "")
     
     local trackedValues = {energy}
     for i = 1, 5 do
@@ -1040,11 +1235,11 @@ local layout2B = {
   end,
 }
 
-local layout3 = {
+local layoutOneMachineStat = {
   
   init = function(window)
     updateMethod = "timer"
-    timerInterval = 50
+    updateTimeInterval = 50
   
     window:setSize(300, 130)
   
@@ -1067,17 +1262,17 @@ local layout3 = {
 
 
 
-local layout4A = {
+local layoutMachineStats = {
   
   init = function(window)
     updateMethod = "timer"
-    timerInterval = 50
+    updateTimeInterval = 50
   
     window:setSize(550, 570)
   
     vars.label = initLabel(window, 10, 5, "", 14)
     
-    --shared.debugLabel = initLabel(window, 10, 350, "")
+    shared.debugLabel = initLabel(window, 10, 350, "AC")
 
     local trackedValues = machineStats
     local initiallyActive = {accel, maxSpeed, weight}
@@ -1093,9 +1288,9 @@ local layout4A = {
 
 
 
-local layout4B = {
+local layoutMachineStats2 = {
   
-  -- Version of layout 4 that updates the display with an update button,
+  -- Version that updates the display with an update button,
   -- instead of automatically on every frame.
   
   init = function(window)
@@ -1104,7 +1299,6 @@ local layout4B = {
     window:setSize(550, 570)
   
     vars.label = initLabel(window, 10, 5, "", 14)
-    
     --shared.debugLabel = initLabel(window, 10, 350, "")
 
     local trackedValues = machineStats
@@ -1127,23 +1321,59 @@ local layout4B = {
 
 
 
-local layout5 = {
+local layoutReplayInfo = {
   
   init = function(window)
     updateMethod = "timer"
-    timerInterval = 16
+    updateTimeInterval = 16
   
-    window:setSize(550, 800)
+    window:setSize(400, 400)
+    
+    vars.timeAndEnergyLabel = initLabel(window, 10, 10, "", 14) 
+    vars.inputsLabel = initLabel(window, 10, 200, "", 14, fixedWidthFontName)
+    --shared.debugLabel = initLabel(window, 10, 400, "ABC", 12, fixedWidthFontName)
+  end,
+  
+  update = function()
+    updateAddresses()
+    
+    vars.timeAndEnergyLabel:setCaption(
+      energy:getDisplay()
+      .."\n\n"..timer.raceDisplay()
+      -- .."\n\n"..timer.display(timer.total)
+      -- .."\n"..timer.display(timer.currLap)
+      -- .."\n"..timer.display(timer.prevLap)
+      -- .."\n"..timer.display(timer.back2Laps)
+      -- .."\n"..timer.display(timer.back3Laps)
+      -- .."\n"..timer.display(timer.back4Laps)
+      -- .."\n"..timer.display(timer.back5Laps)
+      -- .."\n"..timer.display(timer.back6Laps)
+      -- .."\n"..timer.display(timer.back7Laps)
+      -- .."\n"..timer.display(timer.back8Laps)
+      -- .."\n"..timer.display(timer.bestLap)
+      -- .."\n"..timer.display(timer.sumOfFinishedLaps)
+    )
+    
+    --vars.inputsLabel:setCaption(controlState.display())  -- Works for replays/CPUs
+    --vars.inputsLabel:setCaption(input.displayCalibrated())  -- Post calibration input
+    --vars.inputsLabel:setCaption(input.displayRaw())  -- Raw input
+  end,
+}
+
+
+
+local layoutSpeed224 = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 16
+  
+    window:setSize(550, 500)
     
     vars.mainLabel = initLabel(window, 10, 5, "", 18)
-    
     vars.velocityLabel = initLabel(window, 10, 100, "", 18)
-    vars.orientationLabel = initLabel(window, 10, 300, "", 14)
-    
-    -- TODO: Check what fixed-width font is safe to use on any system
-    vars.inputsLabel = initLabel(window, 10, 400, "", 14, "Consolas")
-    
-    --shared.debugLabel = initLabel(window, 10, 500, "ABC", 8, "Consolas")
+    vars.inputsLabel = initLabel(window, 10, 300, "", 14, fixedWidthFontName)
+    --shared.debugLabel = initLabel(window, 10, 500, "ABC", 12, fixedWidthFontName)
     
     local trackedValues = {
       speed224,
@@ -1164,20 +1394,19 @@ local layout5 = {
     local velMag = math.sqrt(velX:get()^2 + velY:get()^2 + velZ:get()^2)
     local velMagOverKmhStr = string.format("%.6f", velMag / kmh:get())
     local kmhOverSpeed224Str = string.format("%.3f", kmh:get() / speed224:get())
-    vars.velocityLabel.setCaption(table.concat({
+    vars.velocityLabel:setCaption(table.concat({
       "Vel: "..coordinatesDisplay("vel", 4, 1),
       "velMag/kmh: "..velMagOverKmhStr,
       "kmh/speed224: "..kmhOverSpeed224Str,
     }, "\n"))
-    vars.orientationLabel.setCaption("Dir: "..coordinatesDisplay("wOrient", 1, 4))
-    vars.inputsLabel.setCaption(inputDisplayRacerState())
+    vars.inputsLabel:setCaption(controlState.display())
   end,
 }
 
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layout4A
+local layout = layoutMachineStats
 
 
 
@@ -1186,11 +1415,13 @@ local layout = layout4A
 local window = createForm(true)
 -- Put it in the center of the screen.
 window:centerScreen()
+-- Or you can put it somewhere specific.
+--window:setPosition(500, 0)
 -- Set the window title.
 window:setCaption("RAM Display")
--- Customize the font.
+-- Customize the labels' default font.
 local font = window:getFont()
-font:setName("Calibri")
+font:setName(generalFontName)
 font:setSize(16)
 
 layout.init(window)
@@ -1200,5 +1431,5 @@ layout.init(window)
 
 
 dolphin.setupDisplayUpdates(
-  updateMethod, layout.update, window, timerInterval, updateButton)
+  updateMethod, layout.update, window, updateTimeInterval, updateButton)
 
