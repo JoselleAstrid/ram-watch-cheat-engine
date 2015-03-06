@@ -173,6 +173,7 @@ end
 local timer = nil
 local timerFunction = nil
 local frameCount = 0
+local updateOK = true
 
 local function getFrameCount()
   return frameCount
@@ -207,9 +208,20 @@ local function setupDisplayUpdates(
     -- re-run the script, and then close the old window to stop previous timer
     -- loops.
     timer = createTimer(window)
+    -- Time interval at which we'll periodically call a function.
     timer.setInterval(timerInterval)
     
     timerFunction = function()
+      if not updateOK then
+        -- The update function must've gotten an error before
+        -- finishing. Stop calling the update function to prevent it
+        -- from continually getting errors from here.
+        timer.destroy()
+        return
+      end
+      
+      updateOK = false
+    
       if frameCounterAddress then
         -- Only update if the game has advanced at least one frame. This way we
         -- can pause emulation and let the game stay paused without wasting too
@@ -217,6 +229,7 @@ local function setupDisplayUpdates(
         local newFrameCount = utils.readIntLE(
           getAddress("Dolphin.exe")+frameCounterAddress
         )
+        
         if newFrameCount > frameCount then
           updateFunction()
           frameCount = newFrameCount
@@ -227,11 +240,10 @@ local function setupDisplayUpdates(
         updateFunction()
       end
       
-      timer.destroy()
-      timer = createTimer(window)
-      timer.setInterval(timerInterval)
-      timer.setOnTimer(timerFunction)
+      updateOK = true
     end
+    
+    -- Start calling this function periodically.
     timer.setOnTimer(timerFunction)
   
   elseif updateMethod == "breakpoint" then

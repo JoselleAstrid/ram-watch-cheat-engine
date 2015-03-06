@@ -888,7 +888,7 @@ function timer.raceDisplay()
   s = s.."\n"..timer.display(timer.currLap)  
   local completedLaps = lapNumber:get()
   
-  for lapN = math.max(1,completedLaps-4), completedLaps do
+  for lapN = math.max(1,completedLaps-3), completedLaps do
     local prevLapN = completedLaps - lapN + 1
     s = s.."\n"..timer.display(
       timer.prevLaps[prevLapN], string.format("Lap %d", lapN)
@@ -1103,29 +1103,28 @@ local layoutAddressDebug = {
   
   init = function(window)
     updateMethod = "timer"
-    updateTimeInterval = 1000
+    updateTimeInterval = 100
     
     window:setSize(400, 300)
-  
+    
     vars.label = initLabel(window, 10, 5, "")
-  end,
   
-  update = function()
-    addressNames = {
+    vars.addressNames = {
       "o", "refPointer", "machineStateBlocks", "machineState2Blocks",
       "machineBaseStatsBlocks", "machineBaseStatsBlocks2",
     }
+  end,
+  
+  update = function()
     local s = ""
     
-    for _, name in pairs(addressNames) do
+    for _, name in pairs(vars.addressNames) do
       s = s..name..": "
       vars.label:setCaption(s)
       addrs[name] = computeAddr[name]()
       s = s..utils.intToHexStr(addrs[name]).."\n"
       vars.label:setCaption(s)
     end
-    addrs.o = computeAddr.o()
-    vars.label:setCaption(s)
   end,
 }
 
@@ -1327,10 +1326,10 @@ local layoutReplayInfo = {
     updateMethod = "timer"
     updateTimeInterval = 16
   
-    window:setSize(400, 400)
+    window:setSize(400, 450)
     
     vars.timeAndEnergyLabel = initLabel(window, 10, 10, "", 14) 
-    vars.inputsLabel = initLabel(window, 10, 200, "", 14, fixedWidthFontName)
+    vars.inputsLabel = initLabel(window, 10, 300, "", 14, fixedWidthFontName)
     --shared.debugLabel = initLabel(window, 10, 400, "ABC", 12, fixedWidthFontName)
   end,
   
@@ -1340,21 +1339,9 @@ local layoutReplayInfo = {
     vars.timeAndEnergyLabel:setCaption(
       energy:getDisplay()
       .."\n\n"..timer.raceDisplay()
-      -- .."\n\n"..timer.display(timer.total)
-      -- .."\n"..timer.display(timer.currLap)
-      -- .."\n"..timer.display(timer.prevLap)
-      -- .."\n"..timer.display(timer.back2Laps)
-      -- .."\n"..timer.display(timer.back3Laps)
-      -- .."\n"..timer.display(timer.back4Laps)
-      -- .."\n"..timer.display(timer.back5Laps)
-      -- .."\n"..timer.display(timer.back6Laps)
-      -- .."\n"..timer.display(timer.back7Laps)
-      -- .."\n"..timer.display(timer.back8Laps)
-      -- .."\n"..timer.display(timer.bestLap)
-      -- .."\n"..timer.display(timer.sumOfFinishedLaps)
     )
     
-    --vars.inputsLabel:setCaption(controlState.display())  -- Works for replays/CPUs
+    vars.inputsLabel:setCaption(controlState.display())  -- Works for replays/CPUs
     --vars.inputsLabel:setCaption(input.displayCalibrated())  -- Post calibration input
     --vars.inputsLabel:setCaption(input.displayRaw())  -- Raw input
   end,
