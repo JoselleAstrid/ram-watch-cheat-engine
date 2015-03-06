@@ -192,6 +192,8 @@ end
 local function intToHexStr(x)
   -- In: integer value
   -- Out: string of the integer's hexadecimal representation
+  if x == nil then return "nil" end
+  
   return string.format("0x%08X", x)
 end
 

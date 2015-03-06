@@ -57,17 +57,26 @@ local computeAddr = {
   refPointer = function()
     -- Pointer that we'll use for reference.
     -- Not sure what this is meant to point to exactly, but when this pointer
-    -- changes value, some other relevant addresses (like the settings
+    -- changes value, many other relevant addresses (like the settings
     -- slider value) move by the same amount as the value change.
     return addrs.o + readIntBE(addrs.o + 0x801B78A8, 4)
   end,
   
   machineStateBlocks = function()
     local pointerAddress = addrs.refPointer + 0x22779C
-    return addrs.o + readIntBE(pointerAddress, 4)
+    local pointerRead = readIntBE(pointerAddress, 4)
+    
+    if pointerRead == 0 then
+      -- A race is not going on, so this address is invalid.
+      return nil
+    else
+      return addrs.o + pointerRead
+    end
   end,
   
   machineState2Blocks = function()
+    if addrs.machineStateBlocks == nil then return nil end
+    
     local pointerAddress = addrs.machineStateBlocks - 0x20
     return addrs.o + readIntBE(pointerAddress, 4)
   end,
@@ -90,7 +99,15 @@ local function updateAddresses()
   addrs.machineState2Blocks = computeAddr.machineState2Blocks()
   addrs.machineBaseStatsBlocks = computeAddr.machineBaseStatsBlocks()
   addrs.machineBaseStatsBlocks2 = computeAddr.machineBaseStatsBlocks2()
+
+  -- It's useful to have an address where there's always a ton of zeros.
+  -- We can use this address as the result when an address computation
+  -- is invalid. Zeros are better than unreadable memory (results in
+  -- error) or garbage values.
+  -- This group of zeros should go on for 0x60000 to 0x70000 bytes.
+  addrs.zeros = addrs.o + 0xB4000
 end
+
 
 
 
@@ -154,6 +171,8 @@ local StateValue = {machineIndex = 0}
 copyFields(StateValue, {MemoryValue})
 
 function StateValue:getAddress()
+  if addrs.machineStateBlocks == nil then return addrs.zeros end
+  
   return addrs.machineStateBlocks + self.offset + (0x620 * self.machineIndex)
 end
 
@@ -194,6 +213,8 @@ local State2Value = {machineIndex = 0}
 copyFields(State2Value, {StateValue})
 
 function State2Value:getAddress()
+  if addrs.machineState2Blocks == nil then return addrs.zeros end
+
   local humans = numOfHumanRacers:get()
   if self.machineIndex <= humans then
     return addrs.machineState2Blocks + self.offset
@@ -327,6 +348,8 @@ SizeStat.extraArgs = {"specificLabels", "formulas"}
 copyFields(SizeStat, {StatWithBase})
 
 function SizeStat:getAddress(key)
+  if addrs.machineStateBlocks == nil then return addrs.zeros end
+
   if key == nil then key = 1 end
   return (addrs.machineStateBlocks
     + (0x620 * self.machineIndex) + self.offset[key])
@@ -1107,7 +1130,7 @@ local layoutAddressDebug = {
     
     window:setSize(400, 300)
     
-    vars.label = initLabel(window, 10, 5, "")
+    vars.label = initLabel(window, 10, 5, "", 14)
   
     vars.addressNames = {
       "o", "refPointer", "machineStateBlocks", "machineState2Blocks",
