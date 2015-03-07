@@ -1,4 +1,5 @@
 -- F-Zero GX
+-- Tested only on the US version so far.
 
 
 
@@ -46,20 +47,19 @@ local ValueDisplay = vdisplay.ValueDisplay
 
 -- Functions that compute some addresses.
 
-local addrs = {}
+local gameId = "GFZE01"  -- US version
+local addrs = {
+  o = dolphin.getGameStartAddress(gameId),
+}
 
 local computeAddr = {
-    
-  o = function()
-    return dolphin.getGameStartAddress()
-  end,
   
   refPointer = function()
     -- Pointer that we'll use for reference.
     -- Not sure what this is meant to point to exactly, but when this pointer
     -- changes value, many other relevant addresses (like the settings
     -- slider value) move by the same amount as the value change.
-    return addrs.o + readIntBE(addrs.o + 0x801B78A8, 4)
+    return addrs.o + readIntBE(addrs.o + 0x1B78A8, 4) - 0x80000000
   end,
   
   machineStateBlocks = function()
@@ -70,7 +70,7 @@ local computeAddr = {
       -- A race is not going on, so this address is invalid.
       return nil
     else
-      return addrs.o + pointerRead
+      return addrs.o + pointerRead - 0x80000000
     end
   end,
   
@@ -78,11 +78,11 @@ local computeAddr = {
     if addrs.machineStateBlocks == nil then return nil end
     
     local pointerAddress = addrs.machineStateBlocks - 0x20
-    return addrs.o + readIntBE(pointerAddress, 4)
+    return addrs.o + readIntBE(pointerAddress, 4) - 0x80000000
   end,
   
   machineBaseStatsBlocks = function()
-    return addrs.o + 0x81554000
+    return addrs.o + 0x1554000
   end,
   
   machineBaseStatsBlocks2 = function()
@@ -93,7 +93,6 @@ local computeAddr = {
 }
 
 local function updateAddresses()
-  addrs.o = computeAddr.o()
   addrs.refPointer = computeAddr.refPointer()
   addrs.machineStateBlocks = computeAddr.machineStateBlocks()
   addrs.machineState2Blocks = computeAddr.machineState2Blocks()
@@ -1131,17 +1130,18 @@ local layoutAddressDebug = {
     window:setSize(400, 300)
     
     vars.label = initLabel(window, 10, 5, "", 14)
+    shared.debugLabel = initLabel(window, 10, 5, "", 9)
   
-    vars.addressNames = {
-      "o", "refPointer", "machineStateBlocks", "machineState2Blocks",
+    vars.addressesToCompute = {
+      "refPointer", "machineStateBlocks", "machineState2Blocks",
       "machineBaseStatsBlocks", "machineBaseStatsBlocks2",
     }
   end,
   
   update = function()
-    local s = ""
+    local s = "o: "..utils.intToHexStr(addrs.o).."\n"
     
-    for _, name in pairs(vars.addressNames) do
+    for _, name in pairs(vars.addressesToCompute) do
       s = s..name..": "
       vars.label:setCaption(s)
       addrs[name] = computeAddr[name]()
@@ -1154,6 +1154,8 @@ local layoutAddressDebug = {
 local layoutKmhRecording = {
   
   init = function(window)
+    -- Using a breakpoint that runs on every frame should guarantee that we
+    -- get one value per frame, which is important for stat recording.
     updateMethod = "breakpoint"
     
     -- Set the display window's size.
@@ -1293,8 +1295,7 @@ local layoutMachineStats = {
     window:setSize(550, 570)
   
     vars.label = initLabel(window, 10, 5, "", 14)
-    
-    shared.debugLabel = initLabel(window, 10, 350, "AC")
+    --shared.debugLabel = initLabel(window, 10, 350, "")
 
     local trackedValues = machineStats
     local initiallyActive = {accel, maxSpeed, weight}

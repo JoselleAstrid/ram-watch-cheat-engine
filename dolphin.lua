@@ -1,80 +1,30 @@
--- Follow steps (1) through (5) below to set up this script
--- for your version of Dolphin.
+-- Dolphin emulator related code.
 
 
 
-
--- (1) Specify your Dolphin version here. Changing this is OPTIONAL if you
--- are using a version that makes step 2 unnecessary, and if you also
--- don't need step 3.
-
--- If you use a specific version of Dolphin listed here, uncomment the line
--- for that version, and comment out the rest of the version lines.
--- Then you're good to go; you can ignore the rest of the steps!
-
--- If you use a different version of Dolphin, add a line for your Dolphin
--- version here, and uncomment the rest of the version lines.
--- Then, below, follow the instructions to get gameRAMStartPointerAddress and
--- oncePerFrameAddress; and for each of these, add an elseif clause for your
--- Dolphin version.
-
--- A line is "commented out" if it has two dashes at the start. This means
--- the Lua engine will ignore the line. If you are looking at this script
--- in Cheat Engine, make sure you have View -> Syntax Highlighting checked,
--- and the comments should show with a gray color and italics.
--- To "uncomment" a commented-out line, just remove the two dashes from the
--- start of the line.
-
---local dolphinVersion = "3.5-2302-x64"
---local dolphinVersion = "4.0-2826"
---local dolphinVersion = "4.0-3599"
---local dolphinVersion = "4.0-4191"
-local dolphinVersion = "4.x"
---------------------
-
-
-
--- The following variables are memory addresses that depend on the Dolphin
--- version. Since addresses are written in hex, make sure you have the "0x"
--- before the actual number.
-
-
+-- (Configuration: MAY BE OPTIONAL depending on what you want)
 
 --------------------
--- (2) Find a pointer to the address that has the game RAM's start location.
--- This is OPTIONAL if you are using a Dolphin version whose game
--- start address is always 0x7FFF0000. This should include any version 4.0 or
--- higher, and even some later 3.x versions.
+-- (1) frameCounterAddress and oncePerFrameAddress.
+-- 
+-- These variables are memory addresses that depend on the exact
+-- Dolphin version, which is why you have to find/configure them yourself.
+
+-- Each variable enables some optional functionality:
 --
--- Follow this: http://tasvideos.org/forum/t/13462 tutorial to get a
--- "pointerscan result". Doubleclick on the Address column and enter the address
--- after the ' "Dolphin.exe"+ ' (don't forget the 0x).
---
--- If this address doesn't work consistently, follow the tutorial again
--- and try picking a different address.
-
-local gameRAMStartPointerAddress = nil
-if dolphinVersion == "3.5-2302-x64" then
-  gameRAMStartPointerAddress = 0x04961818
-end
---------------------
-
---------------------
--- (3) This step is about defining frameCounterAddress and oncePerFrameAddress.
--- These are OPTIONAL depending on what Lua script functions you are
--- interested in:
-
 -- frameCounterAddress
 -- If your Lua script is refreshed based on a Cheat
 -- Engine timer, defining this lets you reduce CPU usage when emulation
 -- is paused or running slowly.
-
+--
 -- oncePerFrameAddress
 -- Defining this is needed if your Lua script is
 -- refreshed on a breakpoint. Using breakpoints ensures that the Lua script
 -- refreshes exactly once per game frame, but breakpoints also hurt
 -- emulation performance.
 
+-- How to find the addresses:
+--
 -- Start your game in Dolphin, then pause the emulation. Now in Cheat Engine,
 -- start a new scan with a Scan Type of "Unknown initial value", and a Value
 -- Type of "4 Bytes". You shouldn't see any scan results yet; that's normal.
@@ -114,33 +64,49 @@ end
 -- Again, look at the top of the dialog to find "Dolphin.exe+" followed by a
 -- hex address. Use that hex address as the *oncePerFrameAddress*.
 
-local frameCounterAddress = nil
-if dolphinVersion == "3.5-2302-x64" then
-  -- TODO
-  frameCounterAddress = nil
-elseif dolphinVersion == "4.0-2826" then
-  frameCounterAddress = 0x00C18D88
-elseif dolphinVersion == "4.0-3599" then
-  frameCounterAddress = 0x00C30198
-elseif dolphinVersion == "4.0-4191" then
-  frameCounterAddress = 0x00C3C838
-end
+-- Since addresses are written in hex, make sure you have the "0x"
+-- before the actual number.
+--
+-- Example values:
+-- Dolphin 4.0-2826:
+-- local frameCounterAddress = 0x00C18D88
+-- local oncePerFrameAddress = 0x004AD770
+-- Dolphin 4.0-4191:
+-- local frameCounterAddress = 0x00C3C838
+-- local oncePerFrameAddress = 0x004AD2DB
 
+local frameCounterAddress = nil
 local oncePerFrameAddress = nil
-if dolphinVersion == "3.5-2302-x64" then
-  oncePerFrameAddress = 0x00425671
-elseif dolphinVersion == "4.0-2826" then
-  oncePerFrameAddress = 0x004AD770
-elseif dolphinVersion == "4.0-3599" then
-  oncePerFrameAddress = 0x004A683B
-elseif dolphinVersion == "4.0-4191" then
-  oncePerFrameAddress = 0x004AD2DB
-end
+
 --------------------
 
--- If you got this far, you're done setting up the script for your
--- version of Dolphin! The next step is to make (or modify) a game-specific
--- script to suit your needs.
+-- (2) constantGameStartAddress
+--
+-- Set to nil (default) to use a safe but slow-ish scan for gameStartAddress.
+-- It's only slow when you first Execute your script; once it's
+-- running, that's not an issue anymore.
+-- 
+-- If you're bothered by the slowness of executing the script, you can set
+-- this to a constant address number if you KNOW that's the game start address.
+-- This way the slow scan will be skipped.
+-- Of course, you might also use this if the scan just gives you the wrong
+-- address for your Dolphin version (always a possibility).
+--
+-- Tips:
+-- - If your version is 3.5-0 to 4.0-4191 (roughly), 0xFFFF0000 should work.
+-- However, versions before 3.5-2302 (roughly) will only work this way if
+-- it's the first time you've run a game since starting Dolphin. If you close
+-- a game and start it up again, this address will move!
+-- - Starting around 4.0-5702 (roughly) the working address seems to be
+-- 0x2FFFF0000.
+
+local constantGameStartAddress = nil
+
+--------------------
+
+-- If you've set up the above values, you're done setting up this
+-- script for your version of Dolphin! The next step is to make (or modify)
+-- a game-specific script to suit your needs.
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -154,18 +120,55 @@ package.loaded.utils = nil
 local utils = require "utils"
 
 local readIntLE = utils.readIntLE
-
-
-
-
-local function getGameStartAddress()
-  -- Get the game's start address. We'll use this as a base for all
-  -- other addresses.
-  if gameRAMStartPointerAddress == nil then
-    return 0x7FFF0000
-  end
   
-  return readIntLE(getAddress("Dolphin.exe")+gameRAMStartPointerAddress, 4)
+  
+
+local function getGameStartAddress(gameId)
+  if constantGameStartAddress then
+    return constantGameStartAddress
+  else
+    local memScan = createMemScan()
+    memScan.firstScan(
+      soExactValue,  -- scan option
+      vtString,  -- variable type
+      0,  -- rounding type
+      gameId,  -- value to scan for
+      "",  -- input2 (only used for certain scan options)
+      0x0, 0xFFFFFFFFFFFFFFFF,  -- first and last address to look through
+      "*X-C+W",  -- protection flags
+      fsmNotAligned,  -- alignment type; not needed if units are 1 byte
+      "1",  -- alignment param (only used if the above is NOT fsmNotAligned)
+      false,  -- is hexadecimal input
+      false,  -- is not a binary string
+      false,  -- is unicode scan
+      true  -- is case sensitive
+    )
+    memScan.waitTillDone()
+    local foundList = createFoundList(memScan)
+    foundList.initialize()
+    local addrsEndingIn0000 = {}
+    
+    for n = 1, foundList.Count do
+      local address = foundList.Address[n]
+      if string.sub(address, -4) == "0000" then
+        table.insert(addrsEndingIn0000, address)
+      end
+    end
+    
+    -- The game start address we want should be the 3rd-to-last scan result
+    -- ending in 0000.
+    -- This means the result whose address is 2nd-last numerically. For some
+    -- reason, doing a scan with Lua always gives a final scan result of 00000000.
+    -- Other than that, the results are in numerical order of address.
+    --
+    -- In Dolphin, there's always 3 or 4 copies of each variable in game memory.
+    -- The 2nd-last copy is the only one that shows results when you right-click
+    -- and select "find out what writes to this address". Sometimes the 2nd-last
+    -- copy is also the only one where something happens if you manually edit it.
+    -- So it seems to be the most useful copy, which is why we use it.
+    foundList.destroy()
+    return tonumber("0x"..addrsEndingIn0000[#addrsEndingIn0000 - 2])
+  end
 end
 
 
@@ -213,7 +216,7 @@ local function setupDisplayUpdates(
     
     timerFunction = function()
       if not updateOK then
-        -- The update function must've gotten an error before
+        -- The previous update call must've gotten an error before
         -- finishing. Stop calling the update function to prevent it
         -- from continually getting errors from here.
         timer.destroy()
@@ -255,7 +258,15 @@ local function setupDisplayUpdates(
     -- If the oncePerFrameAddress was chosen correctly, the
     -- following function should run exactly once every frame.
     function debugger_onBreakpoint()
+      -- Check if the previous update call got an error. If so, stop calling
+      -- the update function so the user isn't bombarded with errors
+      -- once per frame.
+      if not updateOK then return 1 end
+    
+      updateOK = false
       updateFunction()
+      updateOK = true
+      
       return 1
     end
     
