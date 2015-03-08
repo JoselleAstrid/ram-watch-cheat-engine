@@ -16,6 +16,9 @@
 -- If your Lua script is refreshed based on a Cheat
 -- Engine timer, defining this lets you reduce CPU usage when emulation
 -- is paused or running slowly.
+-- Additionally, if you want to display something like the change in your
+-- position between frames n and n+1, then you might need to know Dolphin's
+-- frame count to report it accurately.
 --
 -- oncePerFrameAddress
 -- Defining this is needed if your Lua script is
@@ -264,7 +267,16 @@ local function setupDisplayUpdates(
       if not updateOK then return 1 end
     
       updateOK = false
+    
+      -- Update the frameCount in case the layout's update code is using it.
+      if frameCounterAddress then
+        frameCount = utils.readIntLE(
+          getAddress("Dolphin.exe")+frameCounterAddress
+        )
+      end
+      
       updateFunction()
+      
       updateOK = true
       
       return 1
