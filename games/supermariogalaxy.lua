@@ -1,4 +1,5 @@
 -- Super Mario Galaxy
+-- Tested only on the US version so far.
 
 
 
@@ -9,10 +10,14 @@
 package.loaded.shared = nil
 package.loaded.utils = nil
 package.loaded.dolphin = nil
+package.loaded.valuetypes = nil
+package.loaded.valuedisplay = nil
 
 local shared = require "shared"
 local utils = require "utils"
 local dolphin = require "dolphin"
+local vtypes = require "valuetypes"
+local vdisplay = require "valuedisplay"
 
 local readIntBE = utils.readIntBE
 local readFloatBE = utils.readFloatBE
@@ -21,244 +26,328 @@ local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
 local StatRecorder = utils.StatRecorder 
 
+local V = vtypes.V
+local copyFields = vtypes.copyFields
+local MemoryValue = vtypes.MemoryValue
+local FloatValue = vtypes.FloatValue
+local IntValue = vtypes.IntValue
+local ShortValue = vtypes.ShortValue
+local ByteValue = vtypes.ByteValue
+local SignedIntValue = vtypes.SignedIntValue
+local StringValue = vtypes.StringValue
+local BinaryValue = vtypes.BinaryValue
+local addAddressToList = vtypes.addAddressToList
+
+local ValueDisplay = vdisplay.ValueDisplay
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 
 
--- Data structure for RAM values we care about.
+-- Functions that compute some addresses.
 
-local values = {}
+local gameId = "RMGE01"  -- US version
+local addrs = {
+  o = dolphin.getGameStartAddress(gameId),
+}
 
-
-
--- Computing RAM values.
-
-local compute = {
-    
-  o = function()
-    values.o = dolphin.getGameStartAddress()
-  end,
-  
-  stageTime = function()
-    -- Unlike SMG2, SMG1 does not exactly have an in-game timer. However, this
-    -- address seems to be the next best thing.
-    -- It counts up by 1 per frame starting from the level-beginning cutscenes.
-    -- It also pauses for a few frames when you get the star.
-    -- It resets to 0 if you die.
-    local address = 0x809ADE58
-    values.stageTimeFrames = readIntBE(address + values.o, 4)
-  end,
+local computeAddr = {
   
   refPointer = function()
     -- Pointer that we'll use for reference.
     -- Not sure what this is meant to point to exactly, but when this pointer
     -- changes value, some other relevant addresses (like pos and vel)
     -- move by the same amount as the value change.
-    local address = 0x80F8EF88
-    values.refPointer = readIntBE(address + values.o, 4)
+    return addrs.o + readIntBE(addrs.o + 0xF8EF88, 4) - 0x80000000
   end,
   
-  position = function()
-    local posStartAddress = values.o + values.refPointer + 0x3EEC
-    values.posXprev = values.posX
-    values.posYprev = values.posY
-    values.posZprev = values.posZ
+  posBlock = function()
+    return addrs.refPointer + 0x3EEC
+  end
+}
+
+local function updateAddresses()
+  addrs.refPointer = computeAddr.refPointer()
+  addrs.posBlock = computeAddr.posBlock()
+
+  -- It's useful to have an address where there's always a ton of zeros.
+  -- We can use this address as the result when an address computation
+  -- is invalid. Zeros are better than unreadable memory (results in
+  -- error) or garbage values.
+  -- This group of zeros should go on for 0x20000 to 0x30000 bytes.
+  addrs.zeros = addrs.o + 0x626000
+end
+
+
+
+-- SMG1 specific classes and their supporting functions.
+
+
+
+-- Values at static addresses (from the beginning of the game memory).
+local StaticValue = {}
+
+copyFields(StaticValue, {MemoryValue})
+
+function StaticValue:getAddress()
+  return addrs.o + self.offset
+end
+
+
+
+-- Values that are a constant offset from a certain reference pointer.
+local RefValue = {}
+
+copyFields(RefValue, {MemoryValue})
+
+function RefValue:getAddress()
+  return addrs.refPointer + self.offset
+end
+
+
+
+-- Values that are a constant small offset from the position values' location.
+local PosBlockValue = {}
+
+copyFields(PosBlockValue, {MemoryValue})
+
+function PosBlockValue:getAddress()
+  return addrs.posBlock + self.offset
+end
+
+
+  
+-- Unlike SMG2, SMG1 does not exactly have an in-game timer. However, this
+-- address seems to be the next best thing.
+-- It counts up by 1 per frame starting from the level-beginning cutscenes.
+-- It also pauses for a few frames when you get the star.
+-- It resets to 0 if you die.
+local stageTimeFrames = V("Stage time, frames", 0x9ADE58, {StaticValue, IntValue})
+  
+local function stageTimeDisplay()
+  local frames = stageTimeFrames:get()
+
+  local centis = math.floor((frames % 60) * (100/60))
+  local secs = math.floor(frames / 60) % 60
+  local mins = math.floor(math.floor(frames / 60) / 60)
+  
+  local stageTimeStr = string.format("%d:%02d.%02d",
+    mins, secs, centis
+  )
+  local display = string.format("Time: %s | %d",
+    stageTimeStr, frames
+  )
+  return display
+end
+  
+
+
+local pos = {}
+pos.X = V("Pos X", 0x0, {PosBlockValue, FloatValue})
+pos.Y = V("Pos Y", 0x4, {PosBlockValue, FloatValue})
+pos.Z = V("Pos Z", 0x8, {PosBlockValue, FloatValue})
+
+function pos.display(beforeDecimal, afterDecimal)
+  local beforeDecimal = beforeDecimalP
+  local afterDecimal = afterDecimalP
+  if beforeDecimal == nil then beforeDecimal = 5 end 
+  if afterDecimal == nil then afterDecimal = 1 end 
+  
+  local format = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
     
-    local posXtemp = readFloatBE(posStartAddress, 4)
-    if posXtemp ~= nil then
-      values.posX = posXtemp
-      values.posY = readFloatBE(posStartAddress+0x4, 4)
-      values.posZ = readFloatBE(posStartAddress+0x8, 4)
-    else
-      -- We seem to be reading a non-readable address; perhaps the pointer
-      -- is temporarily invalid. This will happen in SMG2 when switching
-      -- between Mario and Luigi on the Starship.
-      values.posX = nil
-      values.posY = nil
-      values.posZ = nil
+  return string.format(
+    "XYZ Pos: %s | %s | %s",
+    string.format(format, pos.X:get()),
+    string.format(format, pos.Y:get()),
+    string.format(format, pos.Z:get())
+  )
+end
+
+
+local Velocity = {}
+
+function Velocity:new(coordinates)
+  -- coordinates - examples: "X" "Y" "XZ" "XYZ" 
+
+  -- Make an object of the "class" Velocity.
+  local obj = {}
+  setmetatable(obj, self)
+  self.__index = self
+  
+  obj.lastUpdateFrame = dolphin.getFrameCount()
+  obj.numCoordinates = string.len(coordinates)
+  if obj.numCoordinates == 1 then obj.label = "Vel "..coordinates
+  else obj.label = "Speed "..coordinates end
+  
+  obj.posObjects = {}
+  for char in coordinates:gmatch"." do
+    table.insert(obj.posObjects, pos[char])
+  end
+  obj.value = 0.0
+  
+  return obj
+end
+  
+function Velocity:update()
+  local currentFrame = dolphin.getFrameCount()
+  if self.lastUpdateFrame == currentFrame then return end
+  self.lastUpdateFrame = currentFrame
+
+  -- Update prev and curr position
+  self.prevPos = self.currPos
+  self.currPos = {}
+  for _, posObject in pairs(self.posObjects) do
+    table.insert(self.currPos, posObject:get())
+  end
+  
+  local s = ""
+  for _, v in pairs(self.currPos) do s = s..tostring(v) end
+  
+  -- Update velocity value
+  
+  if self.prevPos == nil then
+    self.value = 0.0
+    return
+  end
+  
+  if self.numCoordinates == 1 then
+    self.value = self.currPos[1] - self.prevPos[1]
+  else
+    local sumOfSquaredDiffs = 0.0
+    for n = 1, self.numCoordinates do
+      local diff = self.currPos[n] - self.prevPos[n] 
+      sumOfSquaredDiffs = sumOfSquaredDiffs + diff*diff
     end
-  end,
+    self.value = math.sqrt(sumOfSquaredDiffs)
+  end
+end
 
-  velocity = function()
-    -- Note on these velocity values: not all kinds of movement are covered.
-    -- For example, launch stars and riding moving platforms aren't
-    -- accounted for.
-    -- So it may be preferable to use displacement instead of velocity, since
-    -- displacement is calculated from the position values, which seem more
-    -- generally applicable.
-    
-    local velStartAddress = values.o + values.refPointer + 0x3F64
-    
-    values.velX = readFloatBE(velStartAddress, 4)
-    values.velY = readFloatBE(velStartAddress+0x4, 4)
-    values.velZ = readFloatBE(velStartAddress+0x8, 4)
-    values.velXZ = math.sqrt(
-      values.velX*values.velX + values.velZ*values.velZ
-    )
-  end,
+function Velocity:display(beforeDecimalP, afterDecimalP, withoutLabel)
+  self:update()
 
-  displacement = function()
-    -- Similar to velocity, except that it takes the difference between
-    -- previous and current positions, rather than taking a velocity value
-    -- from memory. Displacement is better at covering all kinds of movement,
-    -- including launch stars and moving platforms.
+  local beforeDecimal = beforeDecimalP
+  local afterDecimal = afterDecimalP
+  if beforeDecimal == nil then beforeDecimal = 3 end 
+  if afterDecimal == nil then afterDecimal = 1 end 
   
-    if values.posX ~= nil and values.posXprev ~= nil then
-      local dispX = values.posX - values.posXprev
-      local dispZ = values.posZ - values.posZprev
-      values.dispY = values.posY - values.posYprev
-      values.dispXZ = math.sqrt(
-        dispX*dispX + dispZ*dispZ
-      )
-      values.dispXYZ = math.sqrt(
-        dispX*dispX + values.dispY*values.dispY + dispZ*dispZ
-      )
-    else
-      values.dispY = nil
-      values.dispXZ = nil
-      values.dispXYZ = nil
-    end
-  end,
-}
-
-
-
--- Displaying RAM values.
-
-local keysToLabels = {
-  dispY = "Vel Y",
-  dispXZ = "Speed XZ",
-  dispXYZ = "Speed XYZ",
-}
-
-local getStr = {
+  local valueStr = nil
+  if self.numCoordinates == 1 then
+    local format = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
+    valueStr = string.format(format, self.value)
+  else
+    local format = "%0"..(beforeDecimal+afterDecimal+1).."."..afterDecimal.."f"
+    valueStr = string.format(format, self.value)
+  end
   
-  stageTime = function()
-    local centis = math.floor((values.stageTimeFrames % 60) * (100/60))
-    local secs = math.floor(values.stageTimeFrames / 60) % 60
-    local mins = math.floor(math.floor(values.stageTimeFrames / 60) / 60)
-    
-    local stageTimeStr = string.format("%d:%02d.%02d",
-      mins, secs, centis
-    )
-    local stageTimeDisplay = string.format("Time: %s | %d",
-      stageTimeStr, values.stageTimeFrames
-    )
-    return stageTimeDisplay
-  end,
-  
-  flt = function(key, precision)
-    local label = keysToLabels[key] 
-    return string.format(
-      "%s: %s",
-      label,
-      floatToStr(values[key], precision)
-    )
-  end,
-  
-  position = function(precision)
-    return string.format(
-      "XYZ Pos: %s | %s | %s",
-      floatToStr(values.posX, precision),
-      floatToStr(values.posY, precision),
-      floatToStr(values.posZ, precision)
-    )
-  end,
-}
+  if withoutLabel then return valueStr
+  else return self.label..": "..valueStr end
+end
+
+
+
+-- Base velocity: not all kinds of movement are covered.
+-- For example, launch stars and riding moving platforms aren't
+-- accounted for.
+-- So it is usually preferable to subtract positions (as the Velocity
+-- class does) instead of using this.
+local baseVelX = V("Base Vel X", 0x78, {PosBlockValue, FloatValue})
+local baseVelY = V("Base Vel Y", 0x7C, {PosBlockValue, FloatValue})
+local baseVelZ = V("Base Vel Z", 0x80, {PosBlockValue, FloatValue})
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 
 
--- GUI layout specifications.
+-- GUI window layouts.
 
-local statRecorder = {}
+local vars = {}
+local updateMethod = nil
+local updateTimeInterval = nil
+local updateButton = nil
+local generalFontName = "Calibri"  -- alt: Arial
+local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
 
-local layoutA = {
-  label1 = nil,
+local layoutStageTime = {
   
   init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 16
+    
     -- Set the display window's size.
     window:setSize(400, 100)
   
     -- Add a blank label to the window at position (10,5). In the update
-    -- function, which is called on every frame, we'll update the label text.
-    label1 = initLabel(window, 10, 5, "")
+    -- function, which is called regularly as the game runs, we'll update
+    -- the label text.
+    vars.label = initLabel(window, 10, 5, "")
   end,
   
   update = function()
-    compute.o()
-    compute.stageTime()
-    label1:setCaption(getStr.stageTime())
+    updateAddresses()
+    
+    vars.label:setCaption(stageTimeDisplay())
   end,
 }
 
-local layoutB = {
-  label1 = nil,
+local layoutVelocity = {
   
   init = function(window)
-    window:setSize(500, 200)
-    label1 = initLabel(window, 10, 5, "")
+    updateMethod = "breakpoint"
     
-    --shared.debugLabel = initLabel(window, 5, 180, "")
+    window:setSize(500, 200)
+    
+    vars.label = initLabel(window, 10, 5, "", 13, fixedWidthFontName)
+    --shared.debugLabel = initLabel(window, 20, 165, "DEBUG")
+    
+    vars.dispY = Velocity:new("Y")
+    vars.dispXZ = Velocity:new("XZ")
+    vars.dispXYZ = Velocity:new("XYZ")
   end,
   
   update = function()
-    compute.o()
-    compute.refPointer()
-    compute.stageTime()
-    compute.position()
-    compute.displacement()
-    label1:setCaption(
-      table.concat(
-        {
-          getStr.stageTime(),
-          getStr.flt("dispY", 3),
-          getStr.flt("dispXZ", 3),
-          getStr.flt("dispXYZ", 3),
-          getStr.position(1),
-        },
-        "\n"
-      )
+    updateAddresses()
+    
+    vars.label:setCaption(
+      table.concat({
+        stageTimeDisplay(),
+        vars.dispY:display(),
+        vars.dispXZ:display(),
+        vars.dispXYZ:display(),
+        pos.display(),
+      }, "\n")
     )
   end,
 }
 
-local layoutC = {
-  label1 = nil,
+local layoutDispYRecording = {
   
   init = function(window)
+    updateMethod = "breakpoint"
+    
     window:setSize(400, 130)
   
-    label1 = initLabel(window, 10, 5, "")
-    
-    statRecorder = StatRecorder:new(window, 90)
-    
+    vars.label = initLabel(window, 10, 5, "", 16, fixedWidthFontName)
     --shared.debugLabel = initLabel(window, 200, 5, "")
+    
+    vars.dispY = Velocity:new("Y")
+    vars.statRecorder = StatRecorder:new(window, 90)
   end,
   
   update = function()
-    compute.o()
-    compute.refPointer()
-    compute.stageTime()
-    compute.position()
-    compute.displacement()
+    updateAddresses()
     
-    label1:setCaption(
-      table.concat(
-        {
-          getStr.stageTime(),
-          getStr.flt("dispY", 3),
-        },
-        "\n"
-      )
+    vars.label:setCaption(
+      table.concat({
+        stageTimeDisplay(),
+        vars.dispY:display(),
+      }, "\n")
     )
     
-    if statRecorder.currentlyTakingStats then
-      local s = floatToStr(values.dispY, 6)
-      statRecorder:takeStat(s)
+    if vars.statRecorder.currentlyTakingStats then
+      local s = vars.dispY:display(1, 10, true)
+      vars.statRecorder:takeStat(s)
     end
   end,
 }
@@ -266,7 +355,7 @@ local layoutC = {
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layoutA
+local layout = layoutVelocity
 
 
 
@@ -279,7 +368,7 @@ window:centerScreen()
 window:setCaption("RAM Display")
 -- Customize the font.
 local font = window:getFont()
-font:setName("Calibri")
+font:setName(generalFontName)
 font:setSize(16)
 
 layout.init(window)
@@ -288,21 +377,6 @@ layout.init(window)
 --------------------------------------------------------------------------------
 
 
-
--- This sets a breakpoint at a particular instruction which should be
--- called exactly once every frame.
-
-debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-
--- If all goes well, everything in the following function should run
--- exactly once every frame. 
-
-function debugger_onBreakpoint()
-  
-  layout.update()
-
-  return 1
-
-end
+dolphin.setupDisplayUpdates(
+  updateMethod, layout.update, window, updateTimeInterval, updateButton)
 
