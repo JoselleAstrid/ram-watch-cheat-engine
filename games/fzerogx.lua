@@ -834,7 +834,7 @@ end
 local timer = {}
 
 local TimeStruct = {}
-function TimeStruct:new(label, offset, machineIndex)
+function TimeStruct:new(label, offset, machineIndexP)
   -- Make an object of the "class" TimeStruct.
   local obj = {}
   setmetatable(obj, self)
@@ -847,7 +847,9 @@ function TimeStruct:new(label, offset, machineIndex)
   obj.secs = V(label..", seconds", offset+9, {State2Value, ByteValue})
   obj.millis = V(label..", milliseconds", offset+10, {State2Value, ShortValue})
   
-  local machineIndex = machineIndex or 0
+  local machineIndex = machineIndexP
+  if machineIndex == nil then machineIndex = 0 end
+  
   if machineIndex ~= 0 then
     obj.frames = forMachineI(obj.frames)
     obj.frameFraction = forMachineI(obj.frameFraction)
