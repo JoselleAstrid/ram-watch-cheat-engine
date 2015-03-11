@@ -89,7 +89,7 @@ local oncePerFrameAddress = nil
 -- It's only slow when you first Execute your script; once it's
 -- running, that's not an issue anymore.
 -- 
--- If you're bothered by the slowness of executing the script, you can set
+-- If you're bothered by the slowness of the initial scan, you can set
 -- this to a constant address number if you KNOW that's the game start address.
 -- This way the slow scan will be skipped.
 -- Of course, you might also use this if the scan just gives you the wrong
@@ -178,10 +178,20 @@ end
 
 local timer = nil
 local timerFunction = nil
-local frameCount = 0
+local frameCount = nil
 local updateOK = true
 
+local function updateFrameCount()
+  frameCount = utils.readIntLE(getAddress("Dolphin.exe")+frameCounterAddress)
+end
+
 local function getFrameCount()
+  -- This function lets game-specific modules get the Dolphin frame count.
+  -- 
+  if not frameCounterAddress then
+    error("This layout uses the Dolphin frame counter, so you need to set"
+          .." frameCounterAddress in dolphin.lua to make it work.")
+  end
   return frameCount
 end
 
@@ -232,13 +242,11 @@ local function setupDisplayUpdates(
         -- Only update if the game has advanced at least one frame. This way we
         -- can pause emulation and let the game stay paused without wasting too
         -- much CPU.
-        local newFrameCount = utils.readIntLE(
-          getAddress("Dolphin.exe")+frameCounterAddress
-        )
+        local lastUpdateCheckFrame = frameCount
+        updateFrameCount()
         
-        if newFrameCount > frameCount then
+        if lastUpdateCheckFrame ~= frameCount then
           updateFunction()
-          frameCount = newFrameCount
         end
       else
         -- If we have no way to count frames, then just update
@@ -254,6 +262,11 @@ local function setupDisplayUpdates(
   
   elseif updateMethod == "breakpoint" then
   
+    if oncePerFrameAddress == nil then
+      error("This layout uses breakpoint updates, so you need to set"
+            .." oncePerFrameAddress in dolphin.lua to make it work.")
+    end
+  
     -- This sets a breakpoint at a particular Dolphin instruction which
     -- should be called exactly once every frame.
     debug_setBreakpoint(getAddress("Dolphin.exe")+oncePerFrameAddress)
@@ -268,11 +281,9 @@ local function setupDisplayUpdates(
     
       updateOK = false
     
-      -- Update the frameCount in case the layout's update code is using it.
       if frameCounterAddress then
-        frameCount = utils.readIntLE(
-          getAddress("Dolphin.exe")+frameCounterAddress
-        )
+        -- Update the frameCount in case the layout's update code is using it.
+        updateFrameCount()
       end
       
       updateFunction()
