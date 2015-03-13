@@ -153,7 +153,7 @@ local function forMachineI(stateValueObj, machineIndex)
   local newObj = {machineIndex = machineIndex}
   setmetatable(newObj, stateValueObj)
   stateValueObj.__index = stateValueObj
-
+  
   return newObj
 end
 
@@ -266,8 +266,8 @@ function StatWithBase:getBaseAddressGeneral(which, baseOffset)
 
   local thisMachineId = forMachineI(machineId, self.machineIndex):get()
   
-  if thisMachineId == 50 then
-    -- Custom machine.
+  if thisMachineId >= 50 then
+    -- Custom machine. (50 for P1's, 51 for P2's...)
     -- 
     -- Note: it's possible that more than one custom part has a nonzero
     -- base value here. (Check with #self.customPartsWithBase == 1)
@@ -282,6 +282,7 @@ function StatWithBase:getBaseAddressGeneral(which, baseOffset)
     -- manipulate the other two parts):
     -- 2660 to 1660 weight: change Dread Hammer's weight from 1440 to 440
     -- 2660 to 660 weight: change Dread Hammer's weight from 1440 to -560
+    
     local idOfCustomPartWithBase = forMachineI(
       customPartIds[self.customPartsWithBase[1]], self.machineIndex):get()
       
@@ -1210,7 +1211,7 @@ local layoutAddressDebug = {
     window:setSize(400, 300)
     
     vars.label = initLabel(window, 10, 5, "", 14)
-    shared.debugLabel = initLabel(window, 10, 5, "", 9)
+    --shared.debugLabel = initLabel(window, 10, 5, "", 9)
   
     vars.addressesToCompute = {
       "refPointer", "machineStateBlocks", "machineState2Blocks",
@@ -1345,21 +1346,27 @@ local layoutOneMachineStat = {
     updateMethod = "timer"
     updateTimeInterval = 50
   
-    window:setSize(300, 130)
+    window:setSize(500, 160)
   
-    vars.label = initLabel(window, 10, 5, "")
+    vars.label = initLabel(window, 10, 5, "", 14)
+    --shared.debugLabel = initLabel(window, 10, 130, "", 10)
+    
+    vars.stat = maxSpeed
+    vars.statRival1 = forMachineI(vars.stat, 1)
   end,
   
   update = function()
     updateAddresses()
     vars.label:setCaption(
-      table.concat(
-        {
-          turning2:getDisplay(turning2:getLabel().." (B)", turning2:getBase()),
-          turning2:getDisplay(),
-        },
-        "\n"
-      )
+      table.concat({
+        vars.stat:getDisplay(vars.stat:getLabel().." (B)", vars.stat:getBase()),
+        vars.stat:getDisplay(),
+        vars.statRival1:getDisplay(
+          vars.statRival1:getLabel().." (B)",
+          vars.statRival1:getBase()
+        ),
+        vars.statRival1:getDisplay(),
+      }, "\n")
     )
   end,
 }
