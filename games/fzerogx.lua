@@ -1021,7 +1021,7 @@ local trackCollision = V(
   {baseOffset=0x9C, customPartsWithBase={1}}
 )
 local turnDecel = NewMachineStatFloat("Turn decel", 0x238, 0x3C, {3})
-local turning1 = NewMachineStatFloat("Turn resistance", 0x10, 0x18, {1})
+local turning1 = NewMachineStatFloat("Turn tension", 0x10, 0x18, {1})
 local turning2 = NewMachineStatFloat("Turn movement", 0x14, 0x20, {2})
 local turning3 = NewMachineStatFloat("Turn reaction", 0x20, 0x2C, {1})
 local weight = NewMachineStatFloat("Weight", 0x8, 0x4, {1,2,3})
