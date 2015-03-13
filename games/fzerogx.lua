@@ -48,19 +48,35 @@ local ValueDisplay = vdisplay.ValueDisplay
 -- Functions that compute some addresses.
 
 local gameId = "GFZE01"  -- US version
-local addrs = {
-  o = dolphin.getGameStartAddress(gameId),
-}
+local addrs = {}
+addrs.o = dolphin.getGameStartAddress(gameId)
 
-local computeAddr = {
+-- Pointer that we'll use for reference.
+-- Not sure what this is meant to point to exactly, but when this pointer
+-- changes value, many other relevant addresses (like the settings
+-- slider value) move by the same amount as the value change.
+addrs.refPointer = addrs.o + readIntBE(addrs.o + 0x1B78A8, 4) - 0x80000000
+
+addrs.machineBaseStatsBlocks = addrs.o + 0x1554000
+addrs.machineBaseStatsBlocksCustom = addrs.o + 0x1555F04
   
-  refPointer = function()
-    -- Pointer that we'll use for reference.
-    -- Not sure what this is meant to point to exactly, but when this pointer
-    -- changes value, many other relevant addresses (like the settings
-    -- slider value) move by the same amount as the value change.
-    return addrs.o + readIntBE(addrs.o + 0x1B78A8, 4) - 0x80000000
-  end,
+-- A duplicate of the base stats block. We'll use this as a backup of the
+-- original values, when playing with the values in the primary block.
+addrs.machineBaseStatsBlocks2 = addrs.refPointer + 0x195584
+addrs.machineBaseStatsBlocks2Custom = addrs.refPointer + 0x1B3A54
+
+-- It's useful to have an address where there's always a ton of zeros.
+-- We can use this address as the result when an address computation
+-- is invalid. Zeros are better than unreadable memory (results in
+-- error) or garbage values.
+-- This group of zeros should go on for 0x60000 to 0x70000 bytes.
+addrs.zeros = addrs.o + 0xB4000
+  
+
+
+-- These addresses can change as the game runs, so we specify them as
+-- functions that can be run continually.
+local computeAddr = {
   
   machineStateBlocks = function()
     local pointerAddress = addrs.refPointer + 0x22779C
@@ -80,31 +96,11 @@ local computeAddr = {
     local pointerAddress = addrs.machineStateBlocks - 0x20
     return addrs.o + readIntBE(pointerAddress, 4) - 0x80000000
   end,
-  
-  machineBaseStatsBlocks = function()
-    return addrs.o + 0x1554000
-  end,
-  
-  machineBaseStatsBlocks2 = function()
-    -- A duplicate of the base stats block. We'll use this as a backup of the
-    -- original values, when playing with the values in the primary block.
-    return addrs.refPointer + 0x195584
-  end,
 }
 
 local function updateAddresses()
-  addrs.refPointer = computeAddr.refPointer()
   addrs.machineStateBlocks = computeAddr.machineStateBlocks()
   addrs.machineState2Blocks = computeAddr.machineState2Blocks()
-  addrs.machineBaseStatsBlocks = computeAddr.machineBaseStatsBlocks()
-  addrs.machineBaseStatsBlocks2 = computeAddr.machineBaseStatsBlocks2()
-
-  -- It's useful to have an address where there's always a ton of zeros.
-  -- We can use this address as the result when an address computation
-  -- is invalid. Zeros are better than unreadable memory (results in
-  -- error) or garbage values.
-  -- This group of zeros should go on for 0x60000 to 0x70000 bytes.
-  addrs.zeros = addrs.o + 0xB4000
 end
 
 
@@ -226,24 +222,99 @@ end
 
 
 
+local CustomPartId = {machineIndex = 0}
+copyFields(CustomPartId, {RefValue, ByteValue})
+function CustomPartId:getAddress()
+  -- Player 2's custom part IDs are 0x81C0 later than P1's, and then P3's IDs
+  -- are 0x81C0 later than that, and so on.
+  return addrs.refPointer + self.offset + (0x81C0 * self.machineIndex)
+end
+
+local customBodyId = V("Custom body ID", 0x1C7588, {CustomPartId})
+local customCockpitId = V("Custom cockpit ID", 0x1C7590, {CustomPartId})
+local customBoosterId = V("Custom booster ID", 0x1C7598, {CustomPartId})
+local customPartIds = {customBodyId, customCockpitId, customBoosterId}
+
+
+
 local StatWithBase = {}
 
-StatWithBase.extraArgs = {"baseOffset"}
+StatWithBase.extraArgs = {
+  -- Base stat's offset from the start of a base-stats block
+  "baseOffset",
+  -- Which custom part types have a nonzero base value for this particular
+  -- stat; 1 = body, 2 = cockpit, 3 = booster. Example values: {1} {3} {1,2} 
+  "customPartsWithBase",
+}
 copyFields(StatWithBase, {StateValue})
 
+function StatWithBase:getBaseAddressGeneral(which, baseOffset)
+  -- which - 1 for the primary base stats block (changing this mid-race
+  --   changes the machine performance), 2 for the second base stats block.
+  -- baseOffset - offset of this particular stat from the start of the base
+  --   stats block. (This parameter exists for ease of use with SizeStat)
+  
+  local startNonCustom = nil
+  local startCustom = nil
+  if which == 1 then
+    startNonCustom = addrs.machineBaseStatsBlocks
+    startCustom = addrs.machineBaseStatsBlocksCustom
+  else  -- 2
+    startNonCustom = addrs.machineBaseStatsBlocks2
+    startCustom = addrs.machineBaseStatsBlocks2Custom
+  end
+
+  local thisMachineId = forMachineI(machineId, self.machineIndex):get()
+  
+  if thisMachineId == 50 then
+    -- Custom machine.
+    -- 
+    -- Note: it's possible that more than one custom part has a nonzero
+    -- base value here. (Check with #self.customPartsWithBase == 1)
+    -- Weight and Body are the only stats where this is true. 
+    -- 
+    -- But handling this properly seems to take a fair bit of extra work,
+    -- so no matter what we'll just get one nonzero base value.
+    -- 
+    -- That's still enough to fully manipulate the stats; it'll just be a bit
+    -- unintuitive. e.g. to change Gallant Star-G4's weight, you have to
+    -- manipulate Dread Hammer's weight (the interface doesn't let you
+    -- manipulate the other two parts):
+    -- 2660 to 1660 weight: change Dread Hammer's weight from 1440 to 440
+    -- 2660 to 660 weight: change Dread Hammer's weight from 1440 to -560
+    local idOfCustomPartWithBase = forMachineI(
+      customPartIds[self.customPartsWithBase[1]], self.machineIndex):get()
+      
+    -- In the second base stats block, there's some extra bytes before the
+    -- cockpit part stats, and again before the booster part stats.
+    -- extraBytes accounts for this.
+    local extraBytes = 0
+    if which == 2 then
+      if idOfCustomPartWithBase > 49 then extraBytes = 24 + 16
+      elseif idOfCustomPartWithBase > 24 then extraBytes = 24
+      end
+    end
+    
+    return (startCustom
+      + (0xB4 * idOfCustomPartWithBase) + extraBytes + baseOffset)
+    
+  else
+    -- Non-custom machine.
+    return (startNonCustom
+      + (0xB4 * thisMachineId) + baseOffset)
+      
+  end
+end
+
 function StatWithBase:getBaseAddress()
-  local thisMachineId = forMachineI(machineId, self.machineIndex)
-  return (addrs.machineBaseStatsBlocks
-    + (0xB4 * thisMachineId:get()) + self.baseOffset)
+  return self:getBaseAddressGeneral(1, self.baseOffset)
 end
 function StatWithBase:getBase()
   return self:read(self:getBaseAddress())
 end
 
 function StatWithBase:getBase2Address()
-  local thisMachineId = forMachineI(machineId, self.machineIndex)
-  return (addrs.machineBaseStatsBlocks2
-    + (0xB4 * thisMachineId:get()) + self.baseOffset)
+  return self:getBaseAddressGeneral(2, self.baseOffset)
 end
 function StatWithBase:getBase2()
   return self:read(self:getBase2Address())
@@ -359,9 +430,7 @@ end
   
 function SizeStat:getBaseAddress(key)
   if key == nil then key = 1 end
-  local thisMachineId = forMachineI(machineId, self.machineIndex)
-  return (addrs.machineBaseStatsBlocks
-    + (0xB4 * thisMachineId:get()) + self.baseOffset[key])
+  return self:getBaseAddressGeneral(1, self.baseOffset[key])
 end
 function SizeStat:getBase(key)
   return self:read(self:getBaseAddress(key))
@@ -369,9 +438,7 @@ end
   
 function SizeStat:getBase2Address(key)
   if key == nil then key = 1 end
-  local thisMachineId = forMachineI(machineId, self.machineIndex)
-  return (addrs.machineBaseStatsBlocks2
-    + (0xB4 * thisMachineId:get()) + self.baseOffset[key])
+  return self:getBaseAddressGeneral(2, self.baseOffset[key])
 end
 function SizeStat:getBase2(key)
   return self:read(self:getBase2Address(key))
@@ -925,50 +992,55 @@ end
 
 -- Machine stats
 
-local function NewMachineStatFloat(label, offset, baseOffset)
+local function NewMachineStatFloat(label, offset, baseOffset, customPartsWithBase)
   return V(
-    label, offset, {StatTiedToBase, FloatStat}, {baseOffset=baseOffset}
+    label, offset, {StatTiedToBase, FloatStat},
+    {baseOffset=baseOffset, customPartsWithBase=customPartsWithBase}
   )
 end
 
-local accel = NewMachineStatFloat("Accel", 0x220, 0x8)
-local body = NewMachineStatFloat("Body", 0x30, 0x44)
-local boostInterval = NewMachineStatFloat("Boost interval", 0x234, 0x38)
-local boostStrength = NewMachineStatFloat("Boost strength", 0x230, 0x34)
-local cameraReorienting = NewMachineStatFloat("Cam. reorienting", 0x34, 0x4C)
-local cameraRepositioning = NewMachineStatFloat("Cam. repositioning", 0x38, 0x50)
-local drag = NewMachineStatFloat("Drag", 0x23C, 0x40)
-local driftAccel = NewMachineStatFloat("Drift accel", 0x2C, 0x1C) 
-local grip1 = NewMachineStatFloat("Grip 1", 0xC, 0x10)
-local grip2 = NewMachineStatFloat("Grip 2", 0x24, 0x30)
-local grip3 = NewMachineStatFloat("Grip 3", 0x28, 0x14)
-local maxSpeed = NewMachineStatFloat("Max speed", 0x22C, 0xC)
+local accel = NewMachineStatFloat("Accel", 0x220, 0x8, {3})
+local body = NewMachineStatFloat("Body", 0x30, 0x44, {1,2})
+local boostInterval = NewMachineStatFloat("Boost interval", 0x234, 0x38, {3})
+local boostStrength = NewMachineStatFloat("Boost strength", 0x230, 0x34, {3})
+local cameraReorienting = NewMachineStatFloat("Cam. reorienting", 0x34, 0x4C, {2})
+local cameraRepositioning = NewMachineStatFloat("Cam. repositioning", 0x38, 0x50, {2})
+local drag = NewMachineStatFloat("Drag", 0x23C, 0x40, {3})
+local driftAccel = NewMachineStatFloat("Drift accel", 0x2C, 0x1C, {3}) 
+local grip1 = NewMachineStatFloat("Grip 1", 0xC, 0x10, {1})
+local grip2 = NewMachineStatFloat("Grip 2", 0x24, 0x30, {2})
+local grip3 = NewMachineStatFloat("Grip 3", 0x28, 0x14, {1})
+local maxSpeed = NewMachineStatFloat("Max speed", 0x22C, 0xC, {3})
 local obstacleCollision = V(
   "Obstacle collision", 0x584, {StateValue, FloatStat}, nil
 )
-local strafe = NewMachineStatFloat("Strafe", 0x1C, 0x28)
-local strafeTurn = NewMachineStatFloat("Strafe turn", 0x18, 0x24)
+local strafe = NewMachineStatFloat("Strafe", 0x1C, 0x28, {1})
+local strafeTurn = NewMachineStatFloat("Strafe turn", 0x18, 0x24, {2})
 local trackCollision = V(
-  "Track collision", 0x588, {StatWithBase, FloatStat}, {baseOffset=0x9C}
+  "Track collision", 0x588, {StatWithBase, FloatStat},
+  {baseOffset=0x9C, customPartsWithBase={1}}
 )
-local turnDecel = NewMachineStatFloat("Turn decel", 0x238, 0x3C)
-local turning1 = NewMachineStatFloat("Turn resistance", 0x10, 0x18)
-local turning2 = NewMachineStatFloat("Turn movement", 0x14, 0x20)
-local turning3 = NewMachineStatFloat("Turn reaction", 0x20, 0x2C)
-local weight = NewMachineStatFloat("Weight", 0x8, 0x4)
+local turnDecel = NewMachineStatFloat("Turn decel", 0x238, 0x3C, {3})
+local turning1 = NewMachineStatFloat("Turn resistance", 0x10, 0x18, {1})
+local turning2 = NewMachineStatFloat("Turn movement", 0x14, 0x20, {2})
+local turning3 = NewMachineStatFloat("Turn reaction", 0x20, 0x2C, {1})
+local weight = NewMachineStatFloat("Weight", 0x8, 0x4, {1,2,3})
 local unknown48 = V(
-  "Unknown 48", 0x477, {StatTiedToBase, ByteValue}, {baseOffset=0x48}
+  "Unknown 48", 0x477, {StatTiedToBase, ByteValue},
+  {baseOffset=0x48, customPartsWithBase={2}}
 )
 
 -- Actual is state bit 1; base is 0x49 / 2
 local unknown49a = V(
   "Unknown 49a", 0x0, {BinaryValueTiedToBase},
-  {baseOffset=0x49, binarySize=1, binaryStartBit=7, baseBinaryStartBit=1}
+  {baseOffset=0x49, customPartsWithBase={2},
+   binarySize=1, binaryStartBit=7, baseBinaryStartBit=1}
 )
 -- Actual is state bit 24; base is 0x49 % 2
 local unknown49b = V(
   "Drift camera", 0x2, {BinaryValueTiedToBase},
-  {baseOffset=0x49, binarySize=1, binaryStartBit=0, baseBinaryStartBit=0}
+  {baseOffset=0x49, customPartsWithBase={2},
+   binarySize=1, binaryStartBit=0, baseBinaryStartBit=0}
 )
 
 local frontWidth = V(
@@ -977,6 +1049,7 @@ local frontWidth = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x54, 0x60, 0x84, 0x90},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, front width, right",
       "Tilt, front width, left",
@@ -997,6 +1070,7 @@ local frontHeight = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x58, 0x64, 0x88, 0x94},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, front height, right",
       "Tilt, front height, left",
@@ -1017,6 +1091,7 @@ local frontLength = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x5C, 0x68, 0x8C, 0x98},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, front length, right",
       "Tilt, front length, left",
@@ -1037,6 +1112,7 @@ local backWidth = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x6C, 0x78, 0x9C, 0xA8},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, back width, right",
       "Tilt, back width, left",
@@ -1062,6 +1138,7 @@ local backHeight = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x70, 0x7C, 0xA0, 0xAC},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, back height, right",
       "Tilt, back height, left",
@@ -1082,6 +1159,7 @@ local backLength = V(
   {SizeStat, FloatStat},
   {
     baseOffset={0x74, 0x80, 0xA4, 0xB0},
+    customPartsWithBase={1},
     specificLabels={
       "Tilt, back length, right",
       "Tilt, back length, left",
