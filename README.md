@@ -28,8 +28,6 @@ Included here are examples for a few Dolphin emulator games, and a PC game.
 
 ### Running for the first time
 
-If you are using this for a Dolphin game: Open `dolphin.lua` that you downloaded from this repository, and edit it according to the steps in that file's comments. Depending on your needs, it may be useful to download a specific version of Dolphin listed in `dolphin.lua`. You can download specific versions here: https://dolphin-emu.org/download/list/master/1/
-
 Start up Cheat Engine. In the Cheat Engine menu, go to Table -> Show Cheat Table Lua Script. Paste the following script in there:
 
     local name = "sample"
@@ -54,6 +52,8 @@ You need to edit the first two lines of this script:
 Start up the game you want to RAM watch. For Dolphin, this means starting Dolphin and then starting the game of your choice. Then in Cheat Engine, open your game's process (e.g. Dolphin.exe).
 
 Now, click the Execute Script button at the bottom of the Lua script window. If all went well, a little window should appear, displaying RAM values from the game. (If it's a Dolphin game and you have it paused, you will have to advance at least one frame for the values to display.)
+
+If you get an error, check the error message. If it says "you need to set ... in dolphin.lua" then open the `dolphin.lua` file that you downloaded from this repository, and set the value(s) you need according to the steps in that file's comments.
 
 ### Saving a Cheat Table for next session
 
@@ -80,7 +80,8 @@ Tips if (more like when) your script isn't working as expected:
 
 ### Common issues
 
-* The scripts may be prone to errors while the Dolphin game is just starting up. If you need to restart a Dolphin game for whatever reason and you don't want the script to get an error, first use the previous tip of deactivating the Lua script by re-selecting Dolphin.exe in Cheat Engine. Then, once your game has reached the title screen or something, try executing the script again.
+* The Dolphin game scripts may be prone to errors while the Dolphin game is just starting up. If you need to restart a Dolphin game for whatever reason and you don't want the script to get an error, first use the previous tip of deactivating the Lua script by re-selecting Dolphin.exe in Cheat Engine. Then, once your game has reached the title screen or something, try executing the script again.
+* If you're having trouble getting any Dolphin memory values to show properly, it's possible that the script can't find the game start address for your version of Dolphin. Try a different Dolphin version and see if that works fine. If a certain Dolphin version doesn't seem to work, feel free to post a GitHub issue here saying so.
 
 
 # Performance note
