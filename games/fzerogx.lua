@@ -1002,7 +1002,7 @@ end
 
 local accel = NewMachineStatFloat("Accel", 0x220, 0x8, {3})
 local body = NewMachineStatFloat("Body", 0x30, 0x44, {1,2})
-local boostInterval = NewMachineStatFloat("Boost interval", 0x234, 0x38, {3})
+local boostDuration = NewMachineStatFloat("Boost duration", 0x234, 0x38, {3})
 local boostStrength = NewMachineStatFloat("Boost strength", 0x230, 0x34, {3})
 local cameraReorienting = NewMachineStatFloat("Cam. reorienting", 0x34, 0x4C, {2})
 local cameraRepositioning = NewMachineStatFloat("Cam. repositioning", 0x38, 0x50, {2})
@@ -1179,7 +1179,7 @@ local backLength = V(
 
 
 machineStats = {
-  accel, body, boostInterval, boostStrength,
+  accel, body, boostDuration, boostStrength,
   cameraReorienting, cameraRepositioning, drag, driftAccel,
   grip1, grip2, grip3, maxSpeed, obstacleCollision,
   strafeTurn, strafe, trackCollision, turnDecel,
