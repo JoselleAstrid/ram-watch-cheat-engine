@@ -601,7 +601,7 @@ local function getDirectionChange(oldDir, newDir)
     return newDir - oldDir
   end
 end
-local lastVelocityDirUpdate = dolphin.getFrameCount()
+local lastVelocityDirUpdate = nil
 local lastVelocityDir = 0
 local velocityDirChangeStr = ""
 local function XZvelocityDirDisplay()
@@ -629,7 +629,7 @@ local function XZvelocityDirDisplay()
   local s = "Moving: " .. degreesStr .. " " .. velocityDirChangeStr
   return s
 end
-local lastOrientationUpdate = dolphin.getFrameCount()
+local lastOrientationUpdate = nil
 local lastOrientation = 0
 local orientationChangeStr = ""
 local function XZorientationDisplay()
