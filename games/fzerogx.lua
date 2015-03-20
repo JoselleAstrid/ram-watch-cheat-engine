@@ -1,5 +1,6 @@
 -- F-Zero GX
--- Tested only on the US version so far.
+-- US version
+local gameId = "GFZE01"
 
 
 
@@ -47,7 +48,6 @@ local ValueDisplay = vdisplay.ValueDisplay
 
 -- Functions that compute some addresses.
 
-local gameId = "GFZE01"  -- US version
 local addrs = {}
 addrs.o = dolphin.getGameStartAddress(gameId)
 
