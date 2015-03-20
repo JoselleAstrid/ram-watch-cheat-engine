@@ -873,10 +873,9 @@ function controlState.boost()
   else return "   "
   end
 end
-function controlState.display()
+function controlState.display(narrow)
   local steerX = displayAnalog(controlSteerX:get()*100.0, "%05.1f", ">", "<")
   local steerY = displayAnalog(controlSteerY:get()*100.0, "%05.1f", "^", "v")
-  local steer = steerX .. "   " .. steerY
   local strafe = displayAnalog(controlStrafe:get()*100.0, "%05.1f", ">", "<")
   local buttons = string.format("%s %s %s %s",
     controlState.button("A"),
@@ -885,14 +884,25 @@ function controlState.display()
     controlState.button("Spin")
   )
   local boost = controlState.boost()
-  local s = string.format(
-    "Strafe: %s\n"
-    .."Stick:  %s\n"
-    .."        %s\n"
-    .."Boost:  %s\n",
-    strafe, steer, buttons, boost
-  )
-  return s
+  
+  if narrow then
+    -- Use less horizontal space
+    return string.format(
+      "Strafe:\n%s\n"
+      .."Stick:\n%s %s\n"
+      .."  %s\n"
+      .."Boost:\n%s\n",
+      strafe, steerX, steerY, buttons, boost
+    )
+  else
+    return string.format(
+      "Strafe: %s\n"
+      .."Stick:  %s   %s\n"
+      .."        %s\n"
+      .."Boost:  %s\n",
+      strafe, steerX, steerY, buttons, boost
+    )
+  end
 end
 
 
@@ -1213,7 +1223,7 @@ local layoutAddressDebug = {
     vars.label = initLabel(window, 10, 5, "", 14)
     --shared.debugLabel = initLabel(window, 10, 5, "", 9)
   
-    vars.addressesToCompute = {
+    vars.addresses = {
       "refPointer", "machineStateBlocks", "machineState2Blocks",
       "machineBaseStatsBlocks", "machineBaseStatsBlocks2",
     }
@@ -1222,10 +1232,12 @@ local layoutAddressDebug = {
   update = function()
     local s = "o: "..utils.intToHexStr(addrs.o).."\n"
     
-    for _, name in pairs(vars.addressesToCompute) do
+    for _, name in pairs(vars.addresses) do
       s = s..name..": "
       vars.label:setCaption(s)
-      addrs[name] = computeAddr[name]()
+      if computeAddr[name] ~= nil then
+        addrs[name] = computeAddr[name]()
+      end
       s = s..utils.intToHexStr(addrs[name]).."\n"
       vars.label:setCaption(s)
     end
@@ -1437,10 +1449,10 @@ local layoutReplayInfo = {
     updateMethod = "timer"
     updateTimeInterval = 16
   
-    window:setSize(400, 450)
+    window:setSize(400, 480)
     
     vars.timeAndEnergyLabel = initLabel(window, 10, 10, "", 14) 
-    vars.inputsLabel = initLabel(window, 10, 300, "", 14, fixedWidthFontName)
+    vars.inputsLabel = initLabel(window, 10, 270, "", 13, fixedWidthFontName)
     --shared.debugLabel = initLabel(window, 10, 400, "ABC", 12, fixedWidthFontName)
   end,
   
