@@ -17,9 +17,11 @@ Included here are examples for a few Dolphin emulator games, and a PC game.
 
 * Cheat Engine, a software that lets you read, scan, and manipulate memory values of running programs: http://www.cheatengine.org/
 
-  * Go to the download page to find two different download options: an installer with a software recommendation, or a non-installable version. Of course, the latter will make things easier.
+  * If you want a non-installable version of Cheat Engine (which also skips the recommendation of other software), go to the "Downloads" link on the left menu and find the appropriate download link.
 
-  * These scripts have mainly been tested with Cheat Engine 6.3 (64-bit version). If you have problems getting the scripts to work on later versions, feel free to post a GitHub issue here.
+  * These Lua scripts are meant to work with Cheat Engine 6.3 or later. If you have problems getting the scripts to work on any version from 6.3 or later, feel free to post a GitHub issue here.
+
+  * As of 2015/03/19, Google Chrome may warn you about the website containing "harmful programs" when you download Cheat Engine, but there is no such threat to my knowledge.
 
 * A code editor that supports Lua syntax highlighting. I personally use JEdit or Notepad++.
 
