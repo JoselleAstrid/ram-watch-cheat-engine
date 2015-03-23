@@ -1,82 +1,15 @@
--- Dolphin emulator related code.
+-- Dolphin emulator related code and configuration.
 
 
 
--- (Configuration: MAY BE OPTIONAL depending on what you want)
+-- CONFIGURATION
 
 --------------------
 -- (1) frameCounterAddress and oncePerFrameAddress.
 -- 
--- These variables are memory addresses that depend on the exact
--- Dolphin version, which is why you have to find/configure them yourself.
-
--- Each variable enables some optional functionality:
---
--- frameCounterAddress
--- If your Lua script is refreshed based on a Cheat
--- Engine timer, defining this lets you reduce CPU usage when emulation
--- is paused or running slowly.
--- Additionally, if you want to display something like the change in your
--- position between frames n and n+1, then you might need to know Dolphin's
--- frame count to report it accurately.
---
--- oncePerFrameAddress
--- Defining this is needed if your Lua script is
--- refreshed on a breakpoint. Using breakpoints ensures that the Lua script
--- refreshes exactly once per game frame, but breakpoints also hurt
--- emulation performance.
-
--- How to find the addresses:
---
--- Start your game in Dolphin, then pause the emulation. Now in Cheat Engine,
--- start a new scan with a Scan Type of "Unknown initial value", and a Value
--- Type of "4 Bytes". You shouldn't see any scan results yet; that's normal.
---
--- Now go to Dolphin and advance your game by 5 frames. Go back to
--- Cheat Engine, change the Scan Type to "Increased value by ...", type 5
--- in the Value box, and click Next Scan. Repeat this process a couple
--- more times, possibly using larger numbers of frames as well. Eventually the
--- results should be narrowed down a fair bit.
---
--- Now pick an address from the results list. Try to get a green address, as
--- that is a static address which should not change as long as you're using
--- the same Dolphin version. Double-click this address to add it to the bottom
--- box.
---
--- Right-click that entry and choose "Disassemble this memory region".
--- Look near the top of the Memory Viewer dialog and you should see
--- "Dolphin.exe+" followed by a hex address. Use that hex address as the
--- *frameCounterAddress*. (If you don't see Dolphin.exe, but rather some kind
--- of DLL, try a different address from the scan you did previously.)
---
--- If you can't fully read the hex address because the bottom is cut off,
--- look back at the previous dialog; the first thing in the "Instruction"
--- column is a hex address. Hopefully, the last 5 digits of this
--- address should match the last 5 digits of the frameCounterAddress!
---
--- Now, close the memory viewer and then double-click the address to add it
--- to the bottom box. Right-click the address in the bottom box, and choose
--- "Find out what writes to this address". Choose Yes if you get a
--- Confirmation dialog.
---
--- Now advance your Dolphin game by 5 frames again. Hopefully an entry will
--- appear in the dialog that just popped up, with the number 5 in the Count
--- column (if not, try a different address). Click the Stop button.
---
--- Right-click that entry and choose "Show this address in the disassembler".
--- Again, look at the top of the dialog to find "Dolphin.exe+" followed by a
--- hex address. Use that hex address as the *oncePerFrameAddress*.
-
--- Since addresses are written in hex, make sure you have the "0x"
--- before the actual number.
---
--- Example values:
--- Dolphin 4.0-2826:
--- local frameCounterAddress = 0x00C18D88
--- local oncePerFrameAddress = 0x004AD770
--- Dolphin 4.0-4191:
--- local frameCounterAddress = 0x00C3C838
--- local oncePerFrameAddress = 0x004AD2DB
+-- REQUIRED for some layouts, OPTIONAL for other layouts.
+-- Information on setting these variables (and whether you need to):
+-- https://github.com/yoshifan/ram-watch-cheat-engine/wiki/Finding-frameCounterAddress-and-oncePerFrameAddress
 
 local frameCounterAddress = nil
 local oncePerFrameAddress = nil
@@ -85,31 +18,33 @@ local oncePerFrameAddress = nil
 
 -- (2) constantGameStartAddress
 --
--- Set to nil (default) to use a safe but slow-ish scan for gameStartAddress.
--- It's only slow when you first Execute your script; once it's
--- running, that's not an issue anymore.
--- 
--- If you're bothered by the slowness of the initial scan, you can set
--- this to a constant address number if you KNOW that's the game start address.
--- This way the slow scan will be skipped.
--- Of course, you might also use this if the scan just gives you the wrong
--- address for your Dolphin version (always a possibility).
+-- OPTIONAL.
+-- Normally, right after clicking Execute Script, there is a slow-ish scan
+-- to find the game start address. This scan will happen as long as
+-- constantGameStartAddress is nil (default).
+--
+-- If you're bothered by the slowness of the initial scan, and you KNOW the
+-- game start address for your version of Dolphin, you can set that as
+-- constantGameStartAddress below. This way the slow scan will be skipped.
+--
+-- You might also use constantGameStartAddress if the scan just doesn't get
+-- the correct address for your Dolphin version (always a possibility...
+-- the address scheme has changed at least twice over the Dolphin versions
+-- I've tested).
 --
 -- Tips:
 -- - If your version is 3.5-0 to 4.0-4191 (roughly), 0xFFFF0000 should work.
 -- However, versions before 3.5-2302 (roughly) will only work this way if
 -- it's the first time you've run a game since starting Dolphin. If you close
 -- a game and start it up again, this address will move!
--- - Starting around 4.0-5702 (roughly) the working address seems to be
+-- - Starting around 4.0-4808 (roughly) the working address seems to be
 -- 0x2FFFF0000.
 
 local constantGameStartAddress = nil
 
 --------------------
 
--- If you've set up the above values, you're done setting up this
--- script for your version of Dolphin! The next step is to make (or modify)
--- a game-specific script to suit your needs.
+-- End of CONFIGURATION
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -149,8 +84,8 @@ local function getGameStartAddress(gameId)
     memScan.waitTillDone()
     local foundList = createFoundList(memScan)
     foundList.initialize()
-    local addrsEndingIn0000 = {}
     
+    local addrsEndingIn0000 = {}
     for n = 1, foundList.Count do
       local address = foundList.Address[n]
       if string.sub(address, -4) == "0000" then
@@ -158,13 +93,55 @@ local function getGameStartAddress(gameId)
       end
     end
     
-    -- The game start address we want should be the 3rd-to-last scan result
-    -- ending in 0000.
-    -- This means the result whose address is 2nd-last numerically. For some
-    -- reason, doing a scan with Lua always gives a final scan result of 00000000.
-    -- Other than that, the results are in numerical order of address.
+    -- For some reason, doing a scan with Lua always gives a final scan result
+    -- of 00000000. Even if there are no other results.
+    -- So we check for no actual results with <= 1.
+    if foundList.Count <= 1 then
+      -- For any newline we also have 2 spaces before it, because the Lua
+      -- Engine eats newlines for any errors after the first one.
+      local s = string.format(
+          "Couldn't find the expected game ID (%s) in memory."
+        .." Please confirm that:"
+        .."  \n1. Your game's ID matches what the script expects (%s)."
+        .." To check this, right-click the game in the Dolphin game list,"
+        .." select Properties, and check the title bar of the pop-up window."
+        .." If it doesn't match, you may have the wrong game version."
+        .."  \n2. In Cheat Engine's Edit menu, Settings, Scan Settings, you"
+        .." have MEM_MAPPED checked.",
+        gameId, gameId
+      )
+      error(s)
+    elseif #addrsEndingIn0000 < 3 then
+      local foundAddressStrs = {}
+      for n = 1, foundList.Count do
+        local address = foundList.Address[n]
+        table.insert(foundAddressStrs, "0x"..address)
+      end
+      local allFoundAddressesStr = table.concat(foundAddressStrs, "  \n")
+      
+      local s = string.format(
+          "Couldn't find the game ID (%s) in a usable memory location."
+        .." Please confirm that:"
+        .."  \n1. The Dolphin game is already running when you execute"
+        .." this script. "
+        .."  \n2. In Cheat Engine's Edit menu, Settings, Scan Settings, you"
+        .." have MEM_MAPPED checked."
+        .."  \n3. You are using 64-bit Dolphin. This Lua script currently doesn't"
+        .." support 32-bit."
+        .."  \nFYI, these are the scan results:"
+        .."  \n%s",
+        gameId, allFoundAddressesStr
+      )
+      error(s)
+    end
+    
+    -- The game start address we want should be the 2nd-last actual scan
+    -- result ending in 0000.
+    -- Again, due to the 00000000 non-result at the end, we actually look at
+    -- the 3rd-last item.
     --
-    -- In Dolphin, there's always 3 or 4 copies of each variable in game memory.
+    -- In 64-bit Dolphin, there's always 3 or 4 copies of each variable in
+    -- game memory.
     -- The 2nd-last copy is the only one that shows results when you right-click
     -- and select "find out what writes to this address". Sometimes the 2nd-last
     -- copy is also the only one where something happens if you manually edit it.
