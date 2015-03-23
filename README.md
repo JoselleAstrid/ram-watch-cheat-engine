@@ -55,7 +55,7 @@ Start up the game you want to RAM watch. For Dolphin, this means starting Dolphi
 
 Now, click the Execute Script button at the bottom of the Lua script window. If all went well, a little window should appear, displaying RAM values from the game. (If it's a Dolphin game and you have it paused, you will have to advance at least one frame for the values to display.)
 
-If you get an error, check the error message. If it says "you need to set ... in dolphin.lua" then open the `dolphin.lua` file that you downloaded from this repository, and set the value(s) you need according to the steps in that file's comments.
+If you get an error, check the error message. (Note: The latest Lua error appears BELOW previous errors in the Lua Engine window.) The error message may have suggestions for you to fix the situation. For example, it may tell you to specify an address in `dolphin.lua`.
 
 ### Saving a Cheat Table for next session
 
@@ -65,9 +65,11 @@ Note: Cheat Engine sometimes crashes when you are trying to open a cheat table. 
 
 ### Trying different GUI layouts
 
-In each game script, there's a line that says `*** CHOOSE YOUR LAYOUT HERE ***`. Above that line are the details for each layout, and below that line you can specify which GUI layout you want to use. For example, `sample.lua` has `layoutA` and `layoutB`.
+In each game-specific script (such as `fzerogx.lua` for F-Zero GX), there's a line that says `*** CHOOSE YOUR LAYOUT HERE ***`.
 
-Try editing this line of code to specify a different layout, then save your changes. Go back to Cheat Engine and click Execute Script again. A new window should appear with the new layout. (You can now close the old window, as it's no longer in use.)
+Above that line you can find the names of the various layouts; for example, `sample.lua` has `layoutA` and `layoutB`.
+
+Below that line you can specify which display layout you want to use. Try editing this line of code to specify a different layout, then save your changes. Go back to Cheat Engine and click Execute Script again. A new window should appear with the new layout. (You can now close the old window, as it's no longer in use.)
 
 Some of the example layouts include a button that lets you take RAM values to a `stats.txt` file. This file will be in one of two places: (A) The same directory as the cheat table you have open, or (B) The same directory as the Cheat Engine .exe file, if you don't have a cheat table open. The file will contain one value per line, with one value taken per frame. You can copy the entire file's contents and paste into a spreadsheet column for further analysis.
 
