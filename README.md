@@ -20,8 +20,10 @@ Included here are examples for a few Dolphin emulator games, and a PC game.
   * If you want a non-installable version of Cheat Engine (which also skips the recommendation of other software), go to the "Downloads" link on the left menu and find the appropriate download link.
 
   * These Lua scripts are meant to work with Cheat Engine 6.3 or later. If you have problems getting the scripts to work on any version from 6.3 or later, feel free to post a GitHub issue here.
-
-  * As of 2015/03/19, Google Chrome may warn you about the website containing "harmful programs" when you download Cheat Engine, but there is no such threat to my knowledge.
+  
+  * As of 2015/03/23, there is no Mac version of this program.
+ 
+* (If you're using this for a Dolphin game) A 64-bit version of the Dolphin emulator.
 
 * A code editor that supports Lua syntax highlighting. I personally use JEdit or Notepad++.
 
