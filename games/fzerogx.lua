@@ -46,24 +46,16 @@ local ValueDisplay = vdisplay.ValueDisplay
 
 
 
--- Functions that compute some addresses.
-
 local addrs = {}
-addrs.o = dolphin.getGameStartAddress(gameId)
 
--- Pointer that we'll use for reference.
--- Not sure what this is meant to point to exactly, but when this pointer
--- changes value, many other relevant addresses (like the settings
--- slider value) move by the same amount as the value change.
-addrs.refPointer = addrs.o + readIntBE(addrs.o + 0x1B78A8, 4) - 0x80000000
+
+-- Addresses that should stay constant for the most part (as long as the
+-- game start address is constant).
+
+addrs.o = dolphin.getGameStartAddress(gameId)
 
 addrs.machineBaseStatsBlocks = addrs.o + 0x1554000
 addrs.machineBaseStatsBlocksCustom = addrs.o + 0x1555F04
-  
--- A duplicate of the base stats block. We'll use this as a backup of the
--- original values, when playing with the values in the primary block.
-addrs.machineBaseStatsBlocks2 = addrs.refPointer + 0x195584
-addrs.machineBaseStatsBlocks2Custom = addrs.refPointer + 0x1B3A54
 
 -- It's useful to have an address where there's always a ton of zeros.
 -- We can use this address as the result when an address computation
@@ -74,9 +66,32 @@ addrs.zeros = addrs.o + 0xB4000
   
 
 
--- These addresses can change as the game runs, so we specify them as
+-- These addresses can change more frequently, so we specify them as
 -- functions that can be run continually.
+
 local computeAddr = {
+
+  refPointer = function()
+    -- Pointer that we'll use for reference.
+    -- Not sure what this is meant to point to exactly, but when this pointer
+    -- changes value, many other relevant addresses (like the settings
+    -- slider value) move by the same amount as the value change.
+    --
+    -- This pointer doesn't change during the game, but it is different
+    -- between different runs of the game. So it can change if you close the
+    -- game and restart it, or load a state from a different run of the game.
+    return addrs.o + readIntBE(addrs.o + 0x1B78A8, 4) - 0x80000000
+  end,
+  
+  machineBaseStatsBlocks2 = function()
+    -- A duplicate of the base stats block. We'll use this as a backup of the
+    -- original values, when playing with the values in the primary block.
+    return addrs.refPointer + 0x195584
+  end,
+  
+  machineBaseStatsBlocks2Custom = function()
+    return addrs.refPointer + 0x1B3A54
+  end,
   
   machineStateBlocks = function()
     local pointerAddress = addrs.refPointer + 0x22779C
@@ -99,6 +114,9 @@ local computeAddr = {
 }
 
 local function updateAddresses()
+  addrs.refPointer = computeAddr.refPointer()
+  addrs.machineBaseStatsBlocks2 = computeAddr.machineBaseStatsBlocks2()
+  addrs.machineBaseStatsBlocks2Custom = computeAddr.machineBaseStatsBlocks2Custom()
   addrs.machineStateBlocks = computeAddr.machineStateBlocks()
   addrs.machineState2Blocks = computeAddr.machineState2Blocks()
 end
@@ -1224,14 +1242,13 @@ local layoutAddressDebug = {
     --shared.debugLabel = initLabel(window, 10, 5, "", 9)
   
     vars.addresses = {
-      "refPointer", "machineStateBlocks", "machineState2Blocks",
+      "o", "refPointer", "machineStateBlocks", "machineState2Blocks",
       "machineBaseStatsBlocks", "machineBaseStatsBlocks2",
     }
   end,
   
   update = function()
-    local s = "o: "..utils.intToHexStr(addrs.o).."\n"
-    
+    local s = ""
     for _, name in pairs(vars.addresses) do
       s = s..name..": "
       vars.label:setCaption(s)
