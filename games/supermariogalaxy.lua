@@ -1,5 +1,6 @@
 -- Super Mario Galaxy
--- Tested only on the US version so far.
+-- US version
+local gameId = "RMGE01"
 
 
 
@@ -45,12 +46,25 @@ local ValueDisplay = vdisplay.ValueDisplay
 
 
 
--- Functions that compute some addresses.
+local addrs = {}
 
-local gameId = "RMGE01"  -- US version
-local addrs = {
-  o = dolphin.getGameStartAddress(gameId),
-}
+
+-- Addresses that should stay constant for the most part (as long as the
+-- game start address is constant).
+ 
+addrs.o = dolphin.getGameStartAddress(gameId)
+
+-- It's useful to have an address where there's always a ton of zeros.
+-- We can use this address as the result when an address computation
+-- is invalid. Zeros are better than unreadable memory (results in
+-- error) or garbage values.
+-- This group of zeros should go on for 0x20000 to 0x30000 bytes.
+addrs.zeros = addrs.o + 0x626000
+
+
+
+-- These addresses can change more frequently, so we specify them as
+-- functions that can be run continually.
 
 local computeAddr = {
   
@@ -59,6 +73,10 @@ local computeAddr = {
     -- Not sure what this is meant to point to exactly, but when this pointer
     -- changes value, some other relevant addresses (like pos and vel)
     -- move by the same amount as the value change.
+    --
+    -- This pointer value changes whenever you load a different area.
+    -- Also, it's invalid during transition screens and before the
+    -- title screen. 
     return addrs.o + readIntBE(addrs.o + 0xF8EF88, 4) - 0x80000000
   end,
   
@@ -70,13 +88,6 @@ local computeAddr = {
 local function updateAddresses()
   addrs.refPointer = computeAddr.refPointer()
   addrs.posBlock = computeAddr.posBlock()
-
-  -- It's useful to have an address where there's always a ton of zeros.
-  -- We can use this address as the result when an address computation
-  -- is invalid. Zeros are better than unreadable memory (results in
-  -- error) or garbage values.
-  -- This group of zeros should go on for 0x20000 to 0x30000 bytes.
-  addrs.zeros = addrs.o + 0x626000
 end
 
 
@@ -255,6 +266,129 @@ local baseVelX = V("Base Vel X", 0x78, {PosBlockValue, FloatValue})
 local baseVelY = V("Base Vel Y", 0x7C, {PosBlockValue, FloatValue})
 local baseVelZ = V("Base Vel Z", 0x80, {PosBlockValue, FloatValue})
 
+
+
+-- Inputs and spin state.
+
+local buttons1 = V("Buttons 1", 0x61D342, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+local buttons2 = V("Buttons 2", 0x61D343, {StaticValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7})
+
+local function buttonDisp(button)
+  local value = nil
+  if button == "H" then  -- Home
+    value = buttons1:get()[1]
+  elseif button == "C" then
+    value = buttons1:get()[2]
+  elseif button == "Z" then
+    value = buttons1:get()[3]
+  elseif button == "A" then
+    value = buttons1:get()[5]
+  elseif button == "B" then
+    value = buttons1:get()[6]
+  elseif button == "+" then
+    value = buttons2:get()[4]
+  elseif button == "^" then
+    value = buttons2:get()[5]
+  elseif button == "v" then
+    value = buttons2:get()[6]
+  elseif button == ">" then
+    value = buttons2:get()[7]
+  elseif button == "<" then
+    value = buttons2:get()[8]
+  end
+  if value == 1 then
+    return button
+  else
+    return " "
+  end
+end
+
+local spinDisplay = ""
+local wiimoteSpinBit = V("Wiimote spin bit", 0x27F0, {RefValue, ByteValue})
+local nunchukSpinBit = V("Nunchuk spin bit", 0x27F1, {RefValue, ByteValue})
+local spinCooldownTimer = V("Spin cooldown timer", 0x2217, {RefValue, ByteValue})
+local spinAttackTimer = V("Spin attack timer", 0x2214, {RefValue, ByteValue})
+local function getSpinType()
+  if wiimoteSpinBit:get() == 1 then
+    return "Wiimote spin"
+  elseif nunchukSpinBit:get() == 1 then
+    return "Nunchuk spin"
+  else
+    -- This should really only happen if the script is started in the middle
+    -- of a spin.
+    return "?"
+  end
+end
+local function spinDisp()
+  local cooldownTimer = spinCooldownTimer:get()
+  local attackTimer = spinAttackTimer:get()
+  
+  if cooldownTimer > 0 then
+    if attackTimer > 0 then
+      -- We know we're in the middle of the spin animation, but the question
+      -- is when to check for a new kind of spin (Wiimote or Nunchuk).
+      --
+      -- If you shake the Wiimote and then immediately shake the Nunchuk after,
+      -- then you should still be considered in the middle of a Wiimote spin,
+      -- despite the fact that you turned on the "would activate a Nunchuk
+      -- spin" bit.
+      --
+      -- So we only check for a new kind of spin if there is no spin currently
+      -- going on, or if the cooldown timer is at its highest value, meaning a
+      -- spin must have just started on this frame. (There is potential for the
+      -- script to miss this first frame, though. So if you precisely follow a
+      -- Wiimote spin with a Nunchuk spin, the display may fail to update
+      -- accordingly.)
+      if spinDisplay == "" or cooldownTimer == 79 then
+        spinDisplay = getSpinType()
+      end
+    else
+      -- Spin attack is over, but need to wait to do another spin.
+      spinDisplay = "(Cooldown)"
+    end
+  else
+    if attackTimer > 0 then
+      -- Spin attack is going in midair. (This includes "fake" midair spins,
+      -- and still-active spin attacks after jump canceling a ground spin.)
+      -- We'll just display this the same as any other spin.
+      if spinDisplay == "" or cooldownTimer == 79 then
+        spinDisplay = getSpinType()
+      end
+    else
+      -- Both spin animation and effect are inactive.
+      spinDisplay = ""
+    end
+  end
+  return spinDisplay
+end
+
+local stickX = V("Stick X", 0x61D3A0, {StaticValue, FloatValue})
+local stickY = V("Stick Y", 0x61D3A4, {StaticValue, FloatValue})
+
+local function inputDisplay()
+  local displayStickX = string.format("%+.3f", stickX:get())
+  local displayStickY = string.format("%+.3f", stickY:get())
+  local displayButtons1 = string.format("%s%s%s%s%s",
+    buttonDisp("C"), buttonDisp("^"), buttonDisp("v"),
+    buttonDisp("<"), buttonDisp(">")
+  )
+  local displayButtons2 = string.format("%s%s%s%s%s",
+    buttonDisp("A"), buttonDisp("B"), buttonDisp("Z"),
+    buttonDisp("+"), buttonDisp("H")
+  )
+  local displaySpin = spinDisp()
+  local s = string.format(
+    "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
+    displayStickX, displayButtons1,
+    displayStickY, displayButtons2,
+    displaySpin
+  )
+  return s
+end
+
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -268,6 +402,36 @@ local updateTimeInterval = nil
 local updateButton = nil
 local generalFontName = "Calibri"  -- alt: Arial
 local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
+
+local layoutAddressDebug = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 100
+    
+    window:setSize(400, 300)
+    
+    vars.label = initLabel(window, 10, 5, "", 14)
+    --shared.debugLabel = initLabel(window, 10, 5, "", 9)
+  
+    vars.addresses = {
+      "o", "refPointer", "posBlock",
+    }
+  end,
+  
+  update = function()
+    local s = ""
+    for _, name in pairs(vars.addresses) do
+      s = s..name..": "
+      vars.label:setCaption(s)
+      if computeAddr[name] ~= nil then
+        addrs[name] = computeAddr[name]()
+      end
+      s = s..utils.intToHexStr(addrs[name]).."\n"
+      vars.label:setCaption(s)
+    end
+  end,
+}
 
 local layoutStageTime = {
   
@@ -352,10 +516,43 @@ local layoutDispYRecording = {
   end,
 }
 
+local layoutInputs = {
+  
+  init = function(window)
+    updateMethod = "breakpoint"
+  
+    window:setSize(500, 300)
+  
+    vars.label = initLabel(window, 10, 5, "", 13, fixedWidthFontName)
+    vars.inputsLabel = initLabel(window, 10, 150, "", 12, fixedWidthFontName)
+    --shared.debugLabel = initLabel(window, 200, 220, "", 8, fixedWidthFontName)
+    
+    vars.dispY = Velocity:new("Y")
+    vars.dispXZ = Velocity:new("XZ")
+    vars.dispXYZ = Velocity:new("XYZ")
+  end,
+  
+  update = function()
+    updateAddresses()
+    
+    vars.label:setCaption(
+      table.concat({
+        stageTimeDisplay(),
+        vars.dispY:display(),
+        vars.dispXZ:display(),
+        vars.dispXYZ:display(),
+      }, "\n")
+    )
+    vars.inputsLabel:setCaption(
+      inputDisplay()
+    )
+  end,
+}
+
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layoutVelocity
+local layout = layoutInputs
 
 
 
