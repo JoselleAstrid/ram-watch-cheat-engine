@@ -1,8 +1,10 @@
--- Sample game script (using Metroid Prime 1, USA v1.00)
+-- Metroid Prime
+-- US version 1.00
+local gameId = "GM8E01"
 
 -- This is a sample script that is simpler and less structured than the other
--- game scripts (fzgx, smg2, etc.). It's meant to be a little easier to
--- follow for those new to Lua.
+-- game scripts (F-Zero GX, Super Mario Galaxy, etc.).
+-- It's meant to be a little easier to follow for those new to Lua.
 
 -- If you have a lot of possible RAM values you might want to look at, or
 -- a lot of different layouts with code overlap, consider looking at the
@@ -34,38 +36,56 @@ local StatRecorder = utils.StatRecorder
 
 
 
+-- Here's the memory address where the game's memory begins.
+local o = dolphin.getGameStartAddress(gameId)
+
+
+
 -- GUI layout specifications.
 
+local mainLabel = nil
 local statRecorder = {}
 
+local updateMethod = nil
+local updateTimeInterval = nil
+local updateButton = nil
 
 local layoutA = {
-  label1 = nil,
   
   init = function(window)
     -- This function will get called once at the beginning,
     -- to initialize things.
+    
+    -- We'll have the display refresh every time a time interval has passed.
+    -- Other options are "breakpoint" (refresh on every game frame) and
+    -- "button" (refresh when a button is clicked).
+    -- Note: this update-method stuff is only built in for Dolphin. If it's
+    -- another emulator/PC game, then you will have to figure out how to get
+    -- "breakpoint" updates working yourself.
+    updateMethod = "timer"
+    -- The time interval will be 0.033 seconds, so it'll try to refresh
+    -- about 30 times per second.
+    updateTimeInterval = 33
   
     -- Set the display window's size.
     window:setSize(400, 80)
   
-    -- Add a blank label to the window at position (10,5). In the update
+    -- Add a blank label to the window at position x=10, y=5. In the update
     -- function, which is called on every frame, we'll update the label text.
-    label1 = initLabel(window, 10, 5, "")
+    mainLabel = initLabel(window, 10, 5, "")
   end,
   
   update = function()
     -- This function will get called once per frame.
   
     -- Get the RAM values for Samus's position.
-    local o = dolphin.getGameStartAddress()
     local posX = readFloatBE(o + 0x46B9BC, 4)
     local posY = readFloatBE(o + 0x46B9CC, 4)
     local posZ = readFloatBE(o + 0x46B9DC, 4)
     
     -- Display the position values on the Cheat Engine window's label.
     -- The "1" passed into floatToStr tells it to display one decimal place.
-    label1:setCaption(
+    mainLabel:setCaption(
       "Pos: " .. floatToStr(posX, 1)
       .. " | " .. floatToStr(posY, 1)
       .. " | " .. floatToStr(posZ, 1)
@@ -75,12 +95,14 @@ local layoutA = {
 
 
 local layoutB = {
-  label1 = nil,
   
   init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 33
+    
     window:setSize(300, 130)
   
-    label1 = initLabel(window, 10, 5, "")
+    mainLabel = initLabel(window, 10, 5, "")
     
     -- Set up GUI elements for recording stats to a file. Put the GUI
     -- elements at y position 90.
@@ -89,7 +111,6 @@ local layoutB = {
   
   update = function()
     -- Get the RAM values for Samus's X and Y velocity.
-    local o = dolphin.getGameStartAddress()
     local velX = readFloatBE(o + 0x46BAB4, 4)
     local velY = readFloatBE(o + 0x46BAB8, 4)
     
@@ -97,7 +118,7 @@ local layoutB = {
     local speedXY = math.sqrt(velX*velX + velY*velY)
     
     -- Display the speed.
-    label1:setCaption(
+    mainLabel:setCaption(
       "XY Speed: " .. floatToStr(speedXY)
     )
     
@@ -154,21 +175,6 @@ layout.init(window)
 --------------------------------------------------------------------------------
 
 
-
--- This sets a breakpoint at a particular instruction which should be
--- called exactly once every frame.
-
-debug_removeBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-debug_setBreakpoint(getAddress("Dolphin.exe")+dolphin.oncePerFrameAddress)
-
--- If the oncePerFrameAddress was chosen correctly, everything in the
--- following function should run exactly once every frame. 
-
-function debugger_onBreakpoint()
-  
-  layout.update()
-
-  return 1
-
-end
+dolphin.setupDisplayUpdates(
+  updateMethod, layout.update, window, updateTimeInterval, updateButton)
 
