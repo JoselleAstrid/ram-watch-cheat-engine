@@ -1,5 +1,6 @@
 -- Super Mario Galaxy 2
--- Tested only on the US version so far.
+-- US version
+local gameId = "SB4E01"
 
 
 
@@ -45,43 +46,49 @@ local ValueDisplay = vdisplay.ValueDisplay
 
 
 
--- Functions that compute some addresses.
+local addrs = {}
 
-local gameId = "SB4E01"  -- US version
-local addrs = {
-  o = dolphin.getGameStartAddress(gameId),
-}
+
+-- Addresses that should stay constant for the most part (as long as the
+-- game start address is constant).
+ 
+addrs.o = dolphin.getGameStartAddress(gameId)
+
+-- It's useful to have an address where there's always a ton of zeros.
+-- We can use this address as the result when an address computation
+-- is invalid. Zeros are better than unreadable memory (results in
+-- error) or garbage values.
+-- This group of zeros should go on for 0x20000 to 0x30000 bytes.
+addrs.zeros = addrs.o + 0x754000
+
+
+
+-- These addresses can change more frequently, so we specify them as
+-- functions that can be run continually.
 
 local computeAddr = {
   
+  refPointer = function()
+    return addrs.o + readIntBE(addrs.o + 0xC7A2C8, 4) - 0x80000000
+  end,
+  
   posBlock = function()
-    -- Pointer to the pointer to the block.
-    local ptr2Addr = addrs.o + 0xC7A2C8
-    local ptr2Value = readIntBE(ptr2Addr, 4)
+    local ptrValue = readIntBE(addrs.refPointer + 0x750, 4)
     
-    local ptr1Addr = addrs.o + ptr2Value - 0x80000000 + 0x750
-    local ptr1Value = readIntBE(ptr1Addr, 4)
-    
-    if ptr1Value < 0x80000000 or ptr1Value > 0x90000000 then
+    if ptrValue < 0x80000000 or ptrValue > 0x90000000 then
       -- Rough check that we do not have a valid pointer. This happens when
       -- switching between Mario and Luigi. In this case, we'll give up
       -- on finding the position and read a bunch of zeros instead.
       return addrs.zeros
     end
     
-    return addrs.o + ptr1Value - 0x80000000 - 0x8670
-  end
+    return addrs.o + ptrValue - 0x80000000 - 0x8670
+  end,
 }
 
 local function updateAddresses()
+  addrs.refPointer = computeAddr.refPointer()
   addrs.posBlock = computeAddr.posBlock()
-
-  -- It's useful to have an address where there's always a ton of zeros.
-  -- We can use this address as the result when an address computation
-  -- is invalid. Zeros are better than unreadable memory (results in
-  -- error) or garbage values.
-  -- This group of zeros should go on for 0x20000 to 0x30000 bytes.
-  addrs.zeros = addrs.o + 0x754000
 end
 
 
@@ -293,12 +300,12 @@ local baseVelZ = V("Base Vel Z", -0x5A8, {PosBlockValue, FloatValue})
 
 
 
+-- Inputs and spin state.
+
 local buttons1 = V("Buttons 1", 0xB38A2E, {StaticValue, BinaryValue},
   {binarySize=8, binaryStartBit=7})
 local buttons2 = V("Buttons 2", 0xB38A2F, {StaticValue, BinaryValue},
   {binarySize=8, binaryStartBit=7})
-local stickX = V("Stick X", 0xB38A8C, {StaticValue, FloatValue})
-local stickY = V("Stick Y", 0xB38A90, {StaticValue, FloatValue})
 
 local function buttonDisp(button)
   local value = nil
@@ -329,6 +336,69 @@ local function buttonDisp(button)
     return " "
   end
 end
+
+local spinDisplay = ""
+local wiimoteSpinBit = V("Wiimote spin bit", 0xA26, {PosBlockValue, ByteValue})
+local nunchukSpinBit = V("Nunchuk spin bit", 0xA27, {PosBlockValue, ByteValue})
+local spinCooldownTimer = V("Spin cooldown timer", 0x857, {PosBlockValue, ByteValue})
+local spinAttackTimer = V("Spin attack timer", 0x854, {PosBlockValue, ByteValue})
+local function getSpinType()
+  if wiimoteSpinBit:get() == 1 then
+    return "Wiimote spin"
+  elseif nunchukSpinBit:get() == 1 then
+    return "Nunchuk spin"
+  else
+    -- This should really only happen if the script is started in the middle
+    -- of a spin.
+    return "?"
+  end
+end
+local function spinDisp()
+  local cooldownTimer = spinCooldownTimer:get()
+  local attackTimer = spinAttackTimer:get()
+  
+  if cooldownTimer > 0 then
+    if attackTimer > 0 then
+      -- We know we're in the middle of the spin animation, but the question
+      -- is when to check for a new kind of spin (Wiimote or Nunchuk).
+      --
+      -- If you shake the Wiimote and then immediately shake the Nunchuk after,
+      -- then you should still be considered in the middle of a Wiimote spin,
+      -- despite the fact that you turned on the "would activate a Nunchuk
+      -- spin" bit.
+      --
+      -- So we only check for a new kind of spin if there is no spin currently
+      -- going on, or if the cooldown timer is at its highest value, meaning a
+      -- spin must have just started on this frame. (There is potential for the
+      -- script to miss this first frame, though. So if you precisely follow a
+      -- Wiimote spin with a Nunchuk spin, the display may fail to update
+      -- accordingly.)
+      if spinDisplay == "" or cooldownTimer == 79 then
+        spinDisplay = getSpinType()
+      end
+    else
+      -- Spin attack is over, but need to wait to do another spin.
+      spinDisplay = "(Cooldown)"
+    end
+  else
+    if attackTimer > 0 then
+      -- Spin attack is going in midair. (This includes "fake" midair spins,
+      -- and still-active spin attacks after jump canceling a ground spin.)
+      -- We'll just display this the same as any other spin.
+      if spinDisplay == "" or cooldownTimer == 79 then
+        spinDisplay = getSpinType()
+      end
+    else
+      -- Both spin animation and effect are inactive.
+      spinDisplay = ""
+    end
+  end
+  return spinDisplay
+end
+
+local stickX = V("Stick X", 0xB38A8C, {StaticValue, FloatValue})
+local stickY = V("Stick Y", 0xB38A90, {StaticValue, FloatValue})
+
 local function inputDisplay()
   local displayStickX = string.format("%+.3f", stickX:get())
   local displayStickY = string.format("%+.3f", stickY:get())
@@ -340,9 +410,12 @@ local function inputDisplay()
     buttonDisp("A"), buttonDisp("B"), buttonDisp("Z"),
     buttonDisp("+"), buttonDisp("H")
   )
+  local displaySpin = spinDisp()
   local s = string.format(
-    "Stick   Buttons\n".."%s   %s\n".."%s   %s",
-    displayStickX, displayButtons1, displayStickY, displayButtons2
+    "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
+    displayStickX, displayButtons1,
+    displayStickY, displayButtons2,
+    displaySpin
   )
   return s
 end
@@ -361,6 +434,36 @@ local updateTimeInterval = nil
 local updateButton = nil
 local generalFontName = "Calibri"  -- alt: Arial
 local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
+
+local layoutAddressDebug = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 100
+    
+    window:setSize(400, 300)
+    
+    vars.label = initLabel(window, 10, 5, "", 14)
+    --shared.debugLabel = initLabel(window, 10, 200, "", 9)
+  
+    vars.addresses = {
+      "o", "refPointer", "posBlock",
+    }
+  end,
+  
+  update = function()
+    local s = ""
+    for _, name in pairs(vars.addresses) do
+      s = s..name..": "
+      vars.label:setCaption(s)
+      if computeAddr[name] ~= nil then
+        addrs[name] = computeAddr[name]()
+      end
+      s = s..utils.intToHexStr(addrs[name]).."\n"
+      vars.label:setCaption(s)
+    end
+  end,
+}
 
 local layoutTime = {
   
