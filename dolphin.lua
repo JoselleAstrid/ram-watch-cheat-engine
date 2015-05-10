@@ -52,9 +52,6 @@ local constantGameStartAddress = nil
 
 -- Imports.
 
--- De-cache if we're re-running the script.
-package.loaded.utils = nil
-
 local utils = require "utils"
 
 local readIntLE = utils.readIntLE

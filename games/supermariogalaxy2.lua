@@ -6,19 +6,29 @@ local gameId = "SB4E01"
 
 -- Imports.
 
--- First make sure that the imported modules get de-cached as needed, since
--- we may be re-running the script in the same run of Cheat Engine.
+-- First make sure that the imported modules get de-cached as needed. That way,
+-- if we change the code in those modules and then re-run the script, we won't
+-- need to restart Cheat Engine to see the code changes take effect.
+--
+-- Make sure this game module de-caches all packages that are used, directly
+-- or through another module.
+--
+-- And don't let other modules do the de-caching, because if any of the loaded
+-- modules accept state changes from outside, then having their data cleared
+-- multiple times during initialization can mess things up.
 package.loaded.shared = nil
 package.loaded.utils = nil
 package.loaded.dolphin = nil
 package.loaded.valuetypes = nil
 package.loaded.valuedisplay = nil
+package.loaded._supermariogalaxyshared = nil
 
 local shared = require "shared"
 local utils = require "utils"
 local dolphin = require "dolphin"
 local vtypes = require "valuetypes"
 local vdisplay = require "valuedisplay"
+local smg = require "_supermariogalaxyshared"
 
 local readIntBE = utils.readIntBE
 local readFloatBE = utils.readFloatBE
@@ -144,40 +154,9 @@ function fileTimeFrames:get()
   local highPart = self:read(address + 2)
   return (highPart * 65536) + lowPart
 end
-  
-local function timeDisplay(which)
-  local frames = nil
-  if which == "stage" then frames = stageTimeFrames:get()
-  else frames = fileTimeFrames:get() end
-  
-  local centis = math.floor((frames % 60) * (100/60))
-  local secs = math.floor(frames / 60) % 60
-  
-  local timeStr = nil
-  local label = nil
-  
-  if which == "stage" then
-    local mins = math.floor(frames / (60*60))
-    timeStr = string.format("%d:%02d.%02d",
-      mins, secs, centis
-    )
-    label = "Stage time"
-  else
-    local mins = math.floor(frames / (60*60)) % 60
-    local hrs = math.floor(frames / (60*60*60))
-    timeStr = string.format("%d:%02d:%02d.%02d",
-      hrs, mins, secs, centis
-    )
-    label = "File time"
-  end
-    
-  local display = string.format("%s: %s | %d",
-    label, timeStr, frames
-  )
-  return display
-end
-local stageTimeDisplay = utils.curry(timeDisplay, "stage")
-local fileTimeDisplay = utils.curry(timeDisplay, "file")
+
+local stageTimeDisplay = utils.curry(smg.timeDisplay, stageTimeFrames, "stage")
+local fileTimeDisplay = utils.curry(smg.timeDisplay, fileTimeFrames, "file")
 
 
 
@@ -186,121 +165,19 @@ pos.X = V("Pos X", 0x0, {PosBlockValue, FloatValue})
 pos.Y = V("Pos Y", 0x4, {PosBlockValue, FloatValue})
 pos.Z = V("Pos Z", 0x8, {PosBlockValue, FloatValue})
 
-function pos.display(displayType, beforeDecimal, afterDecimal)
-  local beforeDecimal = beforeDecimalP
-  local afterDecimal = afterDecimalP
-  if beforeDecimal == nil then beforeDecimal = 5 end 
-  if afterDecimal == nil then afterDecimal = 1 end 
-  
-  local numFormat = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
-    
-  local format = nil
-  if displayType == "narrow" then
-    format = "XYZ Pos:\n %s\n %s\n %s"
-  else
-    format = "XYZ Pos: %s | %s | %s"
-  end
-  
-  return string.format(
-    format,
-    string.format(numFormat, pos.X:get()),
-    string.format(numFormat, pos.Y:get()),
-    string.format(numFormat, pos.Z:get())
-  )
-end
+local posDisplay = utils.curry(smg.posDisplay, pos.X, pos.Y, pos.Z)
 
-
-
--- Velocity calculated as position change.
--- TODO: Share this code with Galaxy 1 instead of duplicating it. Maybe the
--- code can even be shared with other games.
-
-local Velocity = {}
-
-function Velocity:new(coordinates)
-  -- coordinates - examples: "X" "Y" "XZ" "XYZ" 
-
-  -- Make an object of the "class" Velocity.
-  local obj = {}
-  setmetatable(obj, self)
-  self.__index = self
-  
-  obj.lastUpdateFrame = dolphin.getFrameCount()
-  obj.numCoordinates = string.len(coordinates)
-  if obj.numCoordinates == 1 then obj.label = coordinates.." Velocity"
-  else obj.label = coordinates.." Speed" end
-  
-  obj.posObjects = {}
-  for char in coordinates:gmatch"." do
-    table.insert(obj.posObjects, pos[char])
-  end
-  obj.value = 0.0
-  
-  return obj
-end
-  
-function Velocity:update()
-  local currentFrame = dolphin.getFrameCount()
-  if self.lastUpdateFrame == currentFrame then return end
-  self.lastUpdateFrame = currentFrame
-
-  -- Update prev and curr position
-  self.prevPos = self.currPos
-  self.currPos = {}
-  for _, posObject in pairs(self.posObjects) do
-    table.insert(self.currPos, posObject:get())
-  end
-  
-  local s = ""
-  for _, v in pairs(self.currPos) do s = s..tostring(v) end
-  
-  -- Update velocity value
-  
-  if self.prevPos == nil then
-    self.value = 0.0
-    return
-  end
-  
-  if self.numCoordinates == 1 then
-    self.value = self.currPos[1] - self.prevPos[1]
-  else
-    local sumOfSquaredDiffs = 0.0
-    for n = 1, self.numCoordinates do
-      local diff = self.currPos[n] - self.prevPos[n] 
-      sumOfSquaredDiffs = sumOfSquaredDiffs + diff*diff
-    end
-    self.value = math.sqrt(sumOfSquaredDiffs)
-  end
-end
-
-function Velocity:display(beforeDecimalP, afterDecimalP, withoutLabel)
-  self:update()
-
-  local beforeDecimal = beforeDecimalP
-  local afterDecimal = afterDecimalP
-  if beforeDecimal == nil then beforeDecimal = 2 end 
-  if afterDecimal == nil then afterDecimal = 2 end 
-  
-  local valueStr = nil
-  if self.numCoordinates == 1 then
-    local format = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
-    valueStr = string.format(format, self.value)
-  else
-    local format = "%0"..(beforeDecimal+afterDecimal+1).."."..afterDecimal.."f"
-    valueStr = string.format(format, self.value)
-  end
-  
-  if withoutLabel then return valueStr
-  else return self.label..": "..valueStr end
-end
+local newVelocityTracker = utils.curry(
+  smg.Velocity.new, smg.Velocity, pos.X, pos.Y, pos.Z
+)
 
 
 
 -- Base velocity: not all kinds of movement are covered.
 -- For example, launch stars and riding moving platforms aren't
 -- accounted for.
--- So it is usually preferable to subtract positions (as the Velocity
--- class does) instead of using this.
+-- So it is usually preferable to subtract positions (as Velocity
+-- does) instead of using this.
 local baseVelX = V("Base Vel X", -0x5B0, {PosBlockValue, FloatValue})
 local baseVelY = V("Base Vel Y", -0x5AC, {PosBlockValue, FloatValue})
 local baseVelZ = V("Base Vel Z", -0x5A8, {PosBlockValue, FloatValue})
@@ -313,141 +190,30 @@ local buttons1 = V("Buttons 1", 0xB38A2E, {StaticValue, BinaryValue},
   {binarySize=8, binaryStartBit=7})
 local buttons2 = V("Buttons 2", 0xB38A2F, {StaticValue, BinaryValue},
   {binarySize=8, binaryStartBit=7})
+  
+local buttonDisp = utils.curry(smg.buttonDisp, buttons1, buttons2)
 
-local function buttonDisp(button)
-  local value = nil
-  if button == "H" then  -- Home
-    value = buttons1:get()[1]
-  elseif button == "C" then
-    value = buttons1:get()[2]
-  elseif button == "Z" then
-    value = buttons1:get()[3]
-  elseif button == "A" then
-    value = buttons1:get()[5]
-  elseif button == "B" then
-    value = buttons1:get()[6]
-  elseif button == "+" then
-    value = buttons2:get()[4]
-  elseif button == "^" then
-    value = buttons2:get()[5]
-  elseif button == "v" then
-    value = buttons2:get()[6]
-  elseif button == ">" then
-    value = buttons2:get()[7]
-  elseif button == "<" then
-    value = buttons2:get()[8]
-  end
-  if value == 1 then
-    return button
-  else
-    return " "
-  end
-end
-
-local spinDisplay = ""
 local wiimoteSpinBit = V("Wiimote spin bit", 0xA26, {PosBlockValue, ByteValue})
 local nunchukSpinBit = V("Nunchuk spin bit", 0xA27, {PosBlockValue, ByteValue})
 local spinCooldownTimer = V("Spin cooldown timer", 0x857, {PosBlockValue, ByteValue})
 local spinAttackTimer = V("Spin attack timer", 0x854, {PosBlockValue, ByteValue})
-local function getSpinType()
-  if wiimoteSpinBit:get() == 1 then
-    return "Wiimote spin"
-  elseif nunchukSpinBit:get() == 1 then
-    return "Nunchuk spin"
-  else
-    -- This should really only happen if the script is started in the middle
-    -- of a spin.
-    return "?"
-  end
-end
-local function spinDisp()
-  local cooldownTimer = spinCooldownTimer:get()
-  local attackTimer = spinAttackTimer:get()
-  
-  if cooldownTimer > 0 then
-    if attackTimer > 0 then
-      -- We know we're in the middle of the spin animation, but the question
-      -- is when to check for a new kind of spin (Wiimote or Nunchuk).
-      --
-      -- If you shake the Wiimote and then immediately shake the Nunchuk after,
-      -- then you should still be considered in the middle of a Wiimote spin,
-      -- despite the fact that you turned on the "would activate a Nunchuk
-      -- spin" bit.
-      --
-      -- So we only check for a new kind of spin if there is no spin currently
-      -- going on, or if the cooldown timer is at its highest value, meaning a
-      -- spin must have just started on this frame. (There is potential for the
-      -- script to miss this first frame, though. So if you precisely follow a
-      -- Wiimote spin with a Nunchuk spin, the display may fail to update
-      -- accordingly.)
-      if spinDisplay == "" or cooldownTimer == 79 then
-        spinDisplay = getSpinType()
-      end
-    else
-      -- Spin attack is over, but need to wait to do another spin.
-      spinDisplay = "(Cooldown)"
-    end
-  else
-    if attackTimer > 0 then
-      -- Spin attack is going in midair. (This includes "fake" midair spins,
-      -- and still-active spin attacks after jump canceling a ground spin.)
-      -- We'll just display this the same as any other spin.
-      if spinDisplay == "" or cooldownTimer == 79 then
-        spinDisplay = getSpinType()
-      end
-    else
-      -- Both spin animation and effect are inactive.
-      spinDisplay = ""
-    end
-  end
-  return spinDisplay
-end
+
+local getSpinType = utils.curry(smg.getSpinType, wiimoteSpinBit, nunchukSpinBit)
+local spinDisp = utils.curry(
+  smg.spinDisp, spinCooldownTimer, spinAttackTimer, getSpinType
+)
 
 local stickX = V("Stick X", 0xB38A8C, {StaticValue, FloatValue})
 local stickY = V("Stick Y", 0xB38A90, {StaticValue, FloatValue})
 
-local function inputDisplay(displayType)
-  local displayStickX = string.format("%+.3f", stickX:get())
-  local displayStickY = string.format("%+.3f", stickY:get())
-  local displayButtons1 = string.format("%s%s%s%s%s",
-    buttonDisp("C"), buttonDisp("^"), buttonDisp("v"),
-    buttonDisp("<"), buttonDisp(">")
-  )
-  local displayButtons2 = string.format("%s%s%s%s%s",
-    buttonDisp("A"), buttonDisp("B"), buttonDisp("Z"),
-    buttonDisp("+"), buttonDisp("H")
-  )
-  local displaySpin = spinDisp()
-  
-  if displayType == "compact" then
-    return string.format(
-      "%s\n".."%s   %s\n".."%s   %s",
-      displaySpin,
-      displayStickX, displayButtons1,
-      displayStickY, displayButtons2
-    )
-  else
-    return string.format(
-      "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
-      displayStickX, displayButtons1,
-      displayStickY, displayButtons2,
-      displaySpin
-    )
-  end
-end
+local inputDisplay = utils.curry(
+  smg.inputDisplay, stickX, stickY, buttonDisp, spinDisp
+)
 
-local function drawStickInput(canvas, width)
-  -- The canvas is assumed to be square
-  
-  canvas:ellipse(0,0, width,width)
-  
-  -- stickX and stickY range from -1 to 1. Transform that to a range from
-  -- 0 to width. Also, stickY goes bottom to top while image coordinates go
-  -- top to bottom, so add a negative sign to get it right.
-  local x = stickX:get()*(width/2) + (width/2)
-  local y = stickY:get()*(-width/2) + (width/2)
-  canvas:line(width/2,width/2, x,y)
-end
+local drawStickInput = utils.curry(
+  smg.drawStickInput, stickX, stickY
+)
+
 
 
 --------------------------------------------------------------------------------
@@ -455,7 +221,7 @@ end
 
 
 
--- GUI layout specifications.
+-- GUI window layouts.
 
 local vars = {}
 local updateMethod = nil
@@ -528,9 +294,9 @@ local layoutVelocity = {
     vars.label = initLabel(window, 10, 5, "", 13, fixedWidthFontName)
     --shared.debugLabel = initLabel(window, 5, 180, "")
     
-    vars.dispY = Velocity:new("Y")
-    vars.dispXZ = Velocity:new("XZ")
-    vars.dispXYZ = Velocity:new("XYZ")
+    vars.dispY = newVelocityTracker("Y")
+    vars.dispXZ = newVelocityTracker("XZ")
+    vars.dispXYZ = newVelocityTracker("XYZ")
   end,
   
   update = function()
@@ -542,7 +308,7 @@ local layoutVelocity = {
         vars.dispY:display(),
         vars.dispXZ:display(),
         vars.dispXYZ:display(),
-        pos.display(),
+        posDisplay(),
       }, "\n")
     )
   end,
@@ -557,7 +323,7 @@ local layoutDispYRecording = {
   
     vars.label = initLabel(window, 10, 5, "", 16, fixedWidthFontName)
     
-    vars.dispY = Velocity:new("Y")
+    vars.dispY = newVelocityTracker("Y")
     vars.statRecorder = StatRecorder:new(window, 90)
   end,
   
@@ -587,7 +353,7 @@ local layoutInputs = {
   
     vars.label = initLabel(window, 10, 5, "", 12, fixedWidthFontName)
     vars.inputsLabel = initLabel(window, 10, 300, "", 12, fixedWidthFontName)
-    --shared.debugLabel = initLabel(window, 10, 220, "", 8, fixedWidthFontName)
+    --shared.debugLabel = initLabel(window, 300, 10, "", 8, fixedWidthFontName)
     
     -- Graphical display of stick input
     vars.image = createImage(window)
@@ -603,9 +369,9 @@ local layoutInputs = {
     -- Initialize the whole image with the brush color
     vars.canvas:fillRect(0,0, vars.canvasSize,vars.canvasSize)
     
-    vars.dispY = Velocity:new("Y")
-    vars.dispXZ = Velocity:new("XZ")
-    vars.dispXYZ = Velocity:new("XYZ")
+    vars.dispY = newVelocityTracker("Y")
+    vars.dispXZ = newVelocityTracker("XZ")
+    vars.dispXYZ = newVelocityTracker("XYZ")
   end,
   
   update = function()
@@ -616,7 +382,7 @@ local layoutInputs = {
       vars.dispY:display(),
       vars.dispXZ:display(),
       vars.dispXYZ:display(),
-      pos.display("narrow"),
+      posDisplay("narrow"),
     }, "\n")
     -- Put labels and values on separate lines to save horizontal space
     s = string.gsub(s, ": ", ":\n ")
