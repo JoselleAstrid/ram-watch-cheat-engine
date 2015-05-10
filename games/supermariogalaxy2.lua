@@ -186,19 +186,26 @@ pos.X = V("Pos X", 0x0, {PosBlockValue, FloatValue})
 pos.Y = V("Pos Y", 0x4, {PosBlockValue, FloatValue})
 pos.Z = V("Pos Z", 0x8, {PosBlockValue, FloatValue})
 
-function pos.display(beforeDecimal, afterDecimal)
+function pos.display(displayType, beforeDecimal, afterDecimal)
   local beforeDecimal = beforeDecimalP
   local afterDecimal = afterDecimalP
   if beforeDecimal == nil then beforeDecimal = 5 end 
   if afterDecimal == nil then afterDecimal = 1 end 
   
-  local format = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
+  local numFormat = "%+0"..(beforeDecimal+afterDecimal+2).."."..afterDecimal.."f"
     
+  local format = nil
+  if displayType == "narrow" then
+    format = "XYZ Pos:\n %s\n %s\n %s"
+  else
+    format = "XYZ Pos: %s | %s | %s"
+  end
+  
   return string.format(
-    "XYZ Pos: %s | %s | %s",
-    string.format(format, pos.X:get()),
-    string.format(format, pos.Y:get()),
-    string.format(format, pos.Z:get())
+    format,
+    string.format(numFormat, pos.X:get()),
+    string.format(numFormat, pos.Y:get()),
+    string.format(numFormat, pos.Z:get())
   )
 end
 
@@ -220,8 +227,8 @@ function Velocity:new(coordinates)
   
   obj.lastUpdateFrame = dolphin.getFrameCount()
   obj.numCoordinates = string.len(coordinates)
-  if obj.numCoordinates == 1 then obj.label = "Vel "..coordinates
-  else obj.label = "Speed "..coordinates end
+  if obj.numCoordinates == 1 then obj.label = coordinates.." Velocity"
+  else obj.label = coordinates.." Speed" end
   
   obj.posObjects = {}
   for char in coordinates:gmatch"." do
@@ -399,7 +406,7 @@ end
 local stickX = V("Stick X", 0xB38A8C, {StaticValue, FloatValue})
 local stickY = V("Stick Y", 0xB38A90, {StaticValue, FloatValue})
 
-local function inputDisplay()
+local function inputDisplay(displayType)
   local displayStickX = string.format("%+.3f", stickX:get())
   local displayStickY = string.format("%+.3f", stickY:get())
   local displayButtons1 = string.format("%s%s%s%s%s",
@@ -411,13 +418,35 @@ local function inputDisplay()
     buttonDisp("+"), buttonDisp("H")
   )
   local displaySpin = spinDisp()
-  local s = string.format(
-    "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
-    displayStickX, displayButtons1,
-    displayStickY, displayButtons2,
-    displaySpin
-  )
-  return s
+  
+  if displayType == "compact" then
+    return string.format(
+      "%s\n".."%s   %s\n".."%s   %s",
+      displaySpin,
+      displayStickX, displayButtons1,
+      displayStickY, displayButtons2
+    )
+  else
+    return string.format(
+      "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
+      displayStickX, displayButtons1,
+      displayStickY, displayButtons2,
+      displaySpin
+    )
+  end
+end
+
+local function drawStickInput(canvas, width)
+  -- The canvas is assumed to be square
+  
+  canvas:ellipse(0,0, width,width)
+  
+  -- stickX and stickY range from -1 to 1. Transform that to a range from
+  -- 0 to width. Also, stickY goes bottom to top while image coordinates go
+  -- top to bottom, so add a negative sign to get it right.
+  local x = stickX:get()*(width/2) + (width/2)
+  local y = stickY:get()*(-width/2) + (width/2)
+  canvas:line(width/2,width/2, x,y)
 end
 
 
@@ -554,11 +583,25 @@ local layoutInputs = {
   init = function(window)
     updateMethod = "breakpoint"
   
-    window:setSize(500, 300)
+    window:setSize(500, 480)
   
-    vars.label = initLabel(window, 10, 5, "", 13, fixedWidthFontName)
-    vars.inputsLabel = initLabel(window, 10, 150, "", 12, fixedWidthFontName)
+    vars.label = initLabel(window, 10, 5, "", 12, fixedWidthFontName)
+    vars.inputsLabel = initLabel(window, 10, 300, "", 12, fixedWidthFontName)
     --shared.debugLabel = initLabel(window, 10, 220, "", 8, fixedWidthFontName)
+    
+    -- Graphical display of stick input
+    vars.image = createImage(window)
+    vars.image:setPosition(10, 370)
+    vars.canvasSize = 100
+    vars.image:setSize(vars.canvasSize, vars.canvasSize)
+    vars.canvas = vars.image:getCanvas()
+    -- Brush: ellipse() fill
+    vars.canvas:getBrush():setColor(0xF0F0F0)
+    -- Pen: ellipse() outline, line()
+    vars.canvas:getPen():setColor(0x000000)
+    vars.canvas:getPen():setWidth(2)
+    -- Initialize the whole image with the brush color
+    vars.canvas:fillRect(0,0, vars.canvasSize,vars.canvasSize)
     
     vars.dispY = Velocity:new("Y")
     vars.dispXZ = Velocity:new("XZ")
@@ -568,17 +611,21 @@ local layoutInputs = {
   update = function()
     updateAddresses()
     
-    vars.label:setCaption(
-      table.concat({
-        stageTimeDisplay(),
-        vars.dispY:display(),
-        vars.dispXZ:display(),
-        vars.dispXYZ:display(),
-      }, "\n")
-    )
+    local s = table.concat({
+      stageTimeDisplay(),
+      vars.dispY:display(),
+      vars.dispXZ:display(),
+      vars.dispXYZ:display(),
+      pos.display("narrow"),
+    }, "\n")
+    -- Put labels and values on separate lines to save horizontal space
+    s = string.gsub(s, ": ", ":\n ")
+    vars.label:setCaption(s)
+    
     vars.inputsLabel:setCaption(
-      inputDisplay()
+      inputDisplay("compact")
     )
+    drawStickInput(vars.canvas, vars.canvasSize)
   end,
 }
 
