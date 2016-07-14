@@ -1,28 +1,31 @@
-local shared = require "shared"
+-- Various utility functions.
 
 
 
 -- If you need to debug something, you'll probably want a
 -- debug display on the window.
 --
--- To use this, first set shared.debugLabel = initLabel(<your arguments here>)
+-- To use this, first use utils.setDebugLabel(initLabel(<your arguments here>))
 -- in your layout's init() function.
--- Then call debugDisp("your debug text here") whenever you want to display
--- some debug text.
--- Since the debugLabel is in the "shared" module, you can set the debugLabel
--- in any module and then call debugDisp in any other module, and it should
--- still work.
+-- Then call utils.debugDisp("your debug text here") whenever you want to
+-- display some debug text.
 --
 -- Tip: If you are trying to display an object that might have a nil value,
 -- use tostring, like this:
--- debugDisp(tostring(myObject))
+-- utils.debugDisp(tostring(myObject))
 -- so that nil will display as "nil", instead of as no text at all. tostring
 -- also improves the display of some other kinds of objects.
+--
+-- Tip: To display the contents of a table, use tableContentsToStr,
+-- also defined here in utils.
 
-shared.debugLabel = nil
+local debugLabel = nil
+local function setDebugLabel(label)
+  debugLabel = label
+end
 local function debugDisp(str)
-  if shared.debugLabel ~= nil then
-    shared.debugLabel:setCaption(str)
+  if debugLabel ~= nil then
+    debugLabel:setCaption(str)
   end
 end
 
@@ -197,22 +200,44 @@ local function intToHexStr(x)
   return string.format("0x%08X", x)
 end
 
-local function floatToStr(x, precision, trimTrailingZeros)
+local function floatToStr(x, options)
   -- In: floating-point value
-  -- Out: string representation, with the specified precision
-  --      (number of decimal places). If not specified, defaults to 3.
-  --      If trimTrailingZeros is true, will display fewer decimal digits if
-  --      the final digits are zeros.
+  -- Out: string representation, as detailed by the options
   if x == nil then return "nil" end
+  if options == nil then options = {} end
   
-  if not precision then precision = 3 end
+  -- Guarantee at least a certain number of digits before the decimal
+  local beforeDecimal = options.beforeDecimal or nil
+  -- Display a certain number of digits after the decimal
+  local afterDecimal = options.afterDecimal or 3
+  -- Trim zeros from the right end
+  local trimTrailingZeros = options.trimTrailingZeros or false
+  -- Always display a + or - in front of the value depending on the sign
+  local signed = options.signed or false
   
-  local s = string.format("%."..precision.."f", x)
-  if trimTrailingZeros then
-    return tostring(tonumber(s))
-  else
-    return s
+  local f = "%"
+  if signed then f = f.."+" end
+  if beforeDecimal then
+    if signed then
+      -- The number after the 0 counts all digits + decimal point + sign
+      f = f.."0"..(beforeDecimal+afterDecimal+2)
+    else
+      -- The number after the 0 counts all digits + decimal point
+      f = f.."0"..(beforeDecimal+afterDecimal+1)
+    end
   end
+  f = f.."."..afterDecimal.."f"
+  
+  local s = string.format(f, x)
+  
+  if trimTrailingZeros then
+    -- Trim off 0s one at a time from the right
+    while s:sub(-1) == "0" do s = s:sub(1,-2) end
+    -- If there's nothing past the decimal now, trim the decimal too
+    if s:sub(-1) == "." then s = s:sub(1,-2) end
+  end
+  
+  return s
 end
 
 
@@ -300,7 +325,7 @@ end
 
 -- Initialize a GUI label.
 -- Based on: http://forum.cheatengine.org/viewtopic.php?t=530121
-local function initLabel(window, x, y, text, fontSize, fontName)
+local function initLabel(window, x, y, text, fontSize, fontName, fontColor)
   local label = createLabel(window)
   if label == nil then return nil end
   label:setCaption(text)
@@ -314,8 +339,117 @@ local function initLabel(window, x, y, text, fontSize, fontName)
     local font = label:getFont()
     font:setName(fontName)
   end
+  if fontColor ~= nil then
+    local font = label:getFont()
+    font:setColor(fontColor)
+  end
   
   return label
+end
+
+
+
+-- TODO: Determine if needed
+
+-- Figure out a working set of Y positions for the elements specified in the
+-- sizes parameter.
+-- Positions are calculated based on the window size and element sizes,
+-- evenly spaced from top to bottom of the window.
+-- local function determineWindowYs(window, sizes, fontSize)
+
+--   -- TODO: Test if this works for different fonts and font sizes.
+--   -- Currently it's tested with Consolas size 12.
+--   local lineHeight = math.ceil(fontSize*1.9)
+  
+--   local heights = {}
+--   local heightSum = 0
+--   local height = nil
+--   local spaceAfter = {}
+--   local numSpaces = 0
+--   local match = nil
+  
+--   for num, size in pairs(sizes) do
+--     -- If not the last element, check for "no space", which specifies that
+--     -- we shouldn't add spacing after this element
+--     if num ~= #sizes then
+--       match = string.match(size, "(.+) no space")
+--       if match then
+--         size = match
+--         spaceAfter[num] = false
+--       else
+--         spaceAfter[num] = true
+--         numSpaces = numSpaces + 1
+--       end
+--     end
+    
+--     -- Check for "lines", specifying that the size is measured in text lines
+--     match = string.match(size, "(%d+) lines")
+--     if match then
+--       local lineCount = tonumber(match)
+--       height = lineCount*lineHeight
+--     end
+      
+--     -- Check for "pixels", specifying that the size is measured in pixels
+--     match = string.match(size, "(%d+) pixels")
+--     if match then
+--       height = tonumber(match)
+--     end
+    
+--     if height == nil then
+--       error("Invalid size string: "..size)
+--     end
+    
+--     table.insert(heights, height)
+--     heightSum = heightSum + height
+--   end
+  
+--   local windowHeight = window:getHeight()
+--   local minY = 6
+--   local maxY = windowHeight - 6
+--   local elementSpacing = (maxY - minY - heightSum) / (numSpaces)
+  
+--   local Ys = {}
+--   local currentY = minY
+--   for num, height in pairs(heights) do
+--     table.insert(Ys, currentY)
+    
+--     currentY = currentY + height
+    
+--     if spaceAfter[num] then
+--       currentY = currentY + elementSpacing
+--     end
+--   end
+  
+--   return Ys
+-- end
+
+
+
+-- Figure out a working set of Y positions for the window elements.
+--
+-- Positions are calculated based on the window size and element sizes,
+-- so that the elements get evenly spaced from top to bottom of the window.
+local function positionWindowElements(window, windowElements)
+  local heightSum = 0
+  for _, element in pairs(windowElements) do
+    local height = element:getHeight()
+    heightSum = heightSum + height
+  end
+  
+  local windowHeight = window:getHeight()
+  local minY = 6
+  local maxY = windowHeight - 6
+  local numSpaces = #windowElements - 1
+  local elementSpacing = (maxY - minY - heightSum) / (numSpaces)
+  
+  local currentY = minY
+  for _, element in pairs(windowElements) do
+    local x = element:getLeft()
+    element:setPosition(x, currentY)
+    
+    local height = element:getHeight()
+    currentY = currentY + height + elementSpacing
+  end
 end
 
 
@@ -433,6 +567,7 @@ end
 
 
 return {
+  setDebugLabel = setDebugLabel,
   debugDisp = debugDisp,
   
   tableContentsToStr = tableContentsToStr,
@@ -454,6 +589,7 @@ return {
   scanStr = scanStr,
   
   initLabel = initLabel,
+  positionWindowElements = positionWindowElements,
   
   StatRecorder = StatRecorder,
 }

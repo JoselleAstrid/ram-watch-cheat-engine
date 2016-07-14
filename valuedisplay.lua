@@ -46,7 +46,7 @@ function ValueDisplay:update()
   
   local lines = {}
   for n, v in pairs(self.valuesToDisplay) do
-    table.insert(lines, v:getDisplay())
+    table.insert(lines, v:display())
     
     local isValid = v:isValid()
     self.listButtons[n]:setEnabled(isValid)

@@ -87,11 +87,13 @@ local compute = {
   end,
   
   ticksLeft = function()
+    -- TODO: Another run of the game says 0x1A7ABC, maybe pointer is bad
     local address = values.refPointer + 0x194404
     values.ticksLeft = readIntLE(address, 4)
   end,
   
   framesLeft = function()
+    -- TODO: Another run of the game says 0x3AB4C, maybe pointer is bad
     local address = values.refPointer + 0x3AA8C
     values.framesLeft = readIntLE(address, 4) / 2
   end,
@@ -126,14 +128,14 @@ local getStr = {
     return string.format("%s: %d", label, values[key])
   end,
   
-  flt = function(key, precision)
+  flt = function(key, afterDecimal)
     local label = keysToLabels[key]
     
     if values[key] == nil then
       return string.format("%s: nil", label)
     end
     
-    return string.format("%s: %s", label, floatToStr(values[key], precision))
+    return string.format("%s: %s", label, floatToStr(values[key], {afterDecimal=afterDecimal}))
   end,
   
   pos = function()
@@ -207,6 +209,8 @@ local layout2 = {
     window:setSize(300, 200)
   
     vars.label1 = initLabel(window, 10, 5, "")
+    
+    --debugLabel = initLabel(window, 10, 120, "")
   end,
   
   update = function()
@@ -219,7 +223,7 @@ local layout2 = {
     vars.label1:setCaption(
       table.concat(
         {
-          getStr.ticksAndFramesLeft(),
+          getStr.int("frameCount"),
           getStr.flt("velX", 2),
           getStr.flt("velY", 2),
           getStr.pos(),
@@ -233,7 +237,7 @@ local layout2 = {
 
 
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layout2
+local layout = layout1
 
 
 

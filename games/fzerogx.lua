@@ -205,15 +205,12 @@ function StateValue:getLabel()
   end
 end
 
-function StateValue:getDisplay(label, value)
-  if label == nil then label = self:getLabel() end
-  if value == nil then value = self:get() end
-  
+function StateValue:display(arg)
   if not machineIndexIsValid(self.machineIndex) then
     return string.format("Rival machine %d is N/A", self.machineIndex)
   end
-  
-  return label .. ": " .. self:toStrForDisplay(value)
+  -- Use MemoryValue's display() function, while still using self as the object.
+  return MemoryValue.display(self, arg)
 end
 
 
@@ -358,20 +355,16 @@ function StatWithBase:hasChanged()
   return self:get() ~= self:getBase2()
 end
 
-function StatWithBase:getDisplay(label, value)
-  if label == nil then label = self:getLabel() end
-  if value == nil then value = self:get() end
-  
+function StatWithBase:display(arg)
   if not machineIndexIsValid(self.machineIndex) then
     return string.format("Rival machine %d is N/A", self.machineIndex)
   end
   
-  local s = self:toStrForDisplay(value)
+  local s = MemoryValue.display(self, arg)
   if self:hasChanged() then
     s = s.."*"
   end
-  
-  return label .. ": " .. s
+  return s
 end
 
 
@@ -493,11 +486,10 @@ copyFields(FloatStat, {FloatValue})
 -- zeros when the value can change rapidly, as it is jarring when the
 -- display constantly gains/loses digits... but machine stats don't
 -- change rapidly.)
-function FloatStat:toStrForDisplay(v, precision, trimTrailingZeros)
-  if precision == nil then precision = 4 end
-  if trimTrailingZeros == nil then trimTrailingZeros = true end
-  
-  return utils.floatToStr(v, precision, trimTrailingZeros)
+function FloatStat:toStrForDisplay(v, options)
+  options.afterDecimal = options.afterDecimal or 4
+  options.trimTrailingZeros = options.trimTrailingZeros or true
+  return utils.floatToStr(v, options)
 end
 
 
@@ -552,11 +544,8 @@ end
 
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 local settingsSlider = V("Settings slider", 0x2453A0, {RefValue, IntValue})
-function settingsSlider:getDisplay(label, value)
-  if label == nil then label = self:getLabel() end
-  if value == nil then value = self:get() end
-  
-  return label .. ": " .. self:toStrForDisplay(value) .. "%"
+function settingsSlider:display(arg)
+  return MemoryValue.display(self, arg) .. "%"
 end 
 
 
@@ -690,8 +679,6 @@ local generalState1d = V(
 local kmh = NewStateFloat("km/h (next)", 0x17C)
 local energy = NewStateFloat("Energy", 0x184)
 local boostFramesLeft = V("Boost frames left", 0x18A, {StateValue, ByteValue})
-local checkpointNumber = NewStateFloat("Checkpoint number", 0x1CC)
-local progressToNextCheckpoint = NewStateFloat("Progress to next checkpoint", 0x1D0)
 local score = V("Score", 0x210, {StateValue, ShortValue})
 local terrainState218 = V(
   "Terrain state", 0x218, {StateValue, BinaryValue},
@@ -712,49 +699,73 @@ local generalState58F = V(
   "State 58F", 0x58F, {StateValue, BinaryValue},
   {binarySize=8, binaryStartBit=7}
 )
-local lapNumber = V("Lap number", 0x67B, {State2Value, ByteValue})
-local lapNumberPosition = V("Lap number (position)", 0x67F, {State2Value, ByteValue, SignedIntValue})
+
+local trackWidth = V("Track width", 0x5E4, {State2Value, FloatValue})
+
+local checkpointMain = V("Main checkpoint", 0x618, {State2Value, IntValue, SignedIntValue})
+local checkpointFraction = V("CP fraction", 0x628, {State2Value, FloatValue})
+local checkpointLateralOffset = V("CP lateral", 0x668, {State2Value, FloatValue})
+local checkpointRightVectorX = V("CP Right X", 0x560, {State2Value, FloatValue})
+local checkpointRightVectorY = V("CP Right Y", 0x570, {State2Value, FloatValue})
+local checkpointRightVectorZ = V("CP Right Z", 0x580, {State2Value, FloatValue})
+local sectionCheckpoint = V("Section CP", 0x61C, {State2Value, IntValue, SignedIntValue})
+local checkpointPositional = V("Positional CP", 0x5FC, {State2Value, IntValue, SignedIntValue})
+local checkpointLastContact = V("Last contact CP", 0x1CC, {StateValue, IntValue})
+local checkpointGround = V("Ground CP", 0x680, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber74 = V("Checkpoint 74", 0x74, {State2Value, IntValue, SignedIntValue})
+local checkpointNumberD0 = V("Checkpoint D0", 0xD0, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber154 = V("Checkpoint 154", 0x154, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber1B0 = V("Checkpoint 1B0", 0x1B0, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber234 = V("Checkpoint 234", 0x234, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber290 = V("Checkpoint 290", 0x290, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber314 = V("Checkpoint 314", 0x314, {State2Value, IntValue, SignedIntValue})
+local checkpointNumber370 = V("Checkpoint 370", 0x370, {State2Value, IntValue, SignedIntValue})
+local lapNumber = V("Lap num", 0x67B, {State2Value, ByteValue})
+local lapNumberPosition = V("Lap num, position", 0x67F, {State2Value, ByteValue, SignedIntValue})
+local lapNumberGround = V("Lap num, ground", 0x6B7, {State2Value, ByteValue})
+local lapNumberPositionGround = V("Lap num, pos/gr", 0x6BB, {State2Value, ByteValue, SignedIntValue})
 
 
 
 -- Physics related
-local gripA4 = NewStateFloat("Grip A4", 0xA4)
-local collisionC4 = NewStateFloat("Collision C4", 0xC4)
-local accelC8 = NewStateFloat("Accel C8", 0xC8)
-local stabilityCC = NewStateFloat("Stability CC", 0xCC)
-local aerialTilt = NewStateFloat("Aerial Tilt", 0x180)
-local boost18C = NewStateFloat("Boost 18C", 0x18C)
-local stability198 = NewStateFloat("Stability 198", 0x198)
-local stability19C = NewStateFloat("Stability 19C", 0x19C)
-local stability1A0 = NewStateFloat("Stability 1A0", 0x1A0)
-local stability1A4 = NewStateFloat("Stability 1A4", 0x1A4)
-local stability1A8 = NewStateFloat("Stability 1A8", 0x1A8)
-local stability1AC = NewStateFloat("Stability 1AC", 0x1AC)
-local stability1B0 = NewStateFloat("Stability 1B0", 0x1B0)
-local stability1B4 = NewStateFloat("Stability 1B4", 0x1B4)
-local stability1B8 = NewStateFloat("Stability 1B8", 0x1B8)
-local groundContact = NewStateFloat("Ground contact", 0x1C8)
-local collision216 = V("Collision 216", 0x216, {StateValue, IntValue})
-local speed224 = NewStateFloat("Speed 224", 0x224)
-local boost228 = NewStateFloat("Boost 228", 0x228)
-local slopeRateOfChange288 = NewStateFloat("Slope rate of change 288", 0x288)
-local tilt28C = NewStateFloat("Tilt 28C", 0x28C)
-local orientation290 = NewStateFloat("Orientation 290", 0x290)
-local collision3D8 = NewStateFloat("Collision 3D8", 0x3D8)
-local speed478 = NewStateFloat("Speed 478", 0x478)
-local strafeEffect = V("Strafe effect", 0x4B0, {StateValue, ShortValue, SignedIntValue})
-local stability4B4 = NewStateFloat("Stability 4B4", 0x4B4)
-local turnReactionInput = NewStateFloat("T. reaction input", 0x4D4)
-local turnReactionEffect = NewStateFloat("T. reaction effect", 0x4D8)
-local collision500X = NewStateFloat("Collision 500, X", 0x500)
-local collision500Y = NewStateFloat("Collision 500, Y", 0x504)
-local collision500Z = NewStateFloat("Collision 500, Z", 0x508)
-local turning580 = NewStateFloat("Turning 580", 0x580)
-local collision5C4 = NewStateFloat("Collision 5C4", 0x5C4)
-local turning5C8 = NewStateFloat("Turning 5C8", 0x5C8)
-local turning5CC = NewStateFloat("Turning 5CC", 0x5CC)
-local unknown5D0 = NewStateFloat("Unknown 5D0", 0x5D0)
-local unknown5D4 = NewStateFloat("Unknown 5D4", 0x5D4)
+-- TODO: Uncomment when we have less than 200 local variables
+-- local gripA4 = NewStateFloat("Grip A4", 0xA4)
+-- local collisionC4 = NewStateFloat("Collision C4", 0xC4)
+-- local accelC8 = NewStateFloat("Accel C8", 0xC8)
+-- local stabilityCC = NewStateFloat("Stability CC", 0xCC)
+-- local aerialTilt = NewStateFloat("Aerial Tilt", 0x180)
+-- local boost18C = NewStateFloat("Boost 18C", 0x18C)
+-- local stability198 = NewStateFloat("Stability 198", 0x198)
+-- local stability19C = NewStateFloat("Stability 19C", 0x19C)
+-- local stability1A0 = NewStateFloat("Stability 1A0", 0x1A0)
+-- local stability1A4 = NewStateFloat("Stability 1A4", 0x1A4)
+-- local stability1A8 = NewStateFloat("Stability 1A8", 0x1A8)
+-- local stability1AC = NewStateFloat("Stability 1AC", 0x1AC)
+-- local stability1B0 = NewStateFloat("Stability 1B0", 0x1B0)
+-- local stability1B4 = NewStateFloat("Stability 1B4", 0x1B4)
+-- local stability1B8 = NewStateFloat("Stability 1B8", 0x1B8)
+-- local groundContact = NewStateFloat("Ground contact", 0x1C8)
+-- local collision216 = V("Collision 216", 0x216, {StateValue, IntValue})
+-- local speed224 = NewStateFloat("Speed 224", 0x224)
+-- local boost228 = NewStateFloat("Boost 228", 0x228)
+-- local slopeRateOfChange288 = NewStateFloat("Slope rate of change 288", 0x288)
+-- local tilt28C = NewStateFloat("Tilt 28C", 0x28C)
+-- local orientation290 = NewStateFloat("Orientation 290", 0x290)
+-- local collision3D8 = NewStateFloat("Collision 3D8", 0x3D8)
+-- local speed478 = NewStateFloat("Speed 478", 0x478)
+-- local strafeEffect = V("Strafe effect", 0x4B0, {StateValue, ShortValue, SignedIntValue})
+-- local stability4B4 = NewStateFloat("Stability 4B4", 0x4B4)
+-- local turnReactionInput = NewStateFloat("T. reaction input", 0x4D4)
+-- local turnReactionEffect = NewStateFloat("T. reaction effect", 0x4D8)
+-- local collision500X = NewStateFloat("Collision 500, X", 0x500)
+-- local collision500Y = NewStateFloat("Collision 500, Y", 0x504)
+-- local collision500Z = NewStateFloat("Collision 500, Z", 0x508)
+-- local turning580 = NewStateFloat("Turning 580", 0x580)
+-- local collision5C4 = NewStateFloat("Collision 5C4", 0x5C4)
+-- local turning5C8 = NewStateFloat("Turning 5C8", 0x5C8)
+-- local turning5CC = NewStateFloat("Turning 5CC", 0x5CC)
+-- local unknown5D0 = NewStateFloat("Unknown 5D0", 0x5D0)
+-- local unknown5D4 = NewStateFloat("Unknown 5D4", 0x5D4)
 
 
 
@@ -1234,7 +1245,7 @@ local layoutAddressDebug = {
   
   init = function(window)
     updateMethod = "timer"
-    updateTimeInterval = 100
+    updateTimeInterval = 1000
     
     window:setSize(400, 300)
     
@@ -1287,8 +1298,8 @@ local layoutKmhRecording = {
     vars.label:setCaption(
       table.concat(
         {
-          settingsSlider:getDisplay(),
-          kmh:getDisplay("km/h", vars.kmh, 3, false)
+          settingsSlider:display(),
+          kmh:display("km/h", vars.kmh, 3, false)
         },
         "\n"
       )
@@ -1328,13 +1339,13 @@ local layoutEnergy = {
     vars.label:setCaption(
       table.concat(
         {
-          vars.energies[0]:getDisplay(),
-          vars.energies[1]:getDisplay(),
-          vars.energies[2]:getDisplay(),
-          vars.energies[3]:getDisplay(),
-          vars.energies[4]:getDisplay(),
-          vars.energies[5]:getDisplay(),
-          numOfRaceEntrants:getDisplay(),
+          vars.energies[0]:display(),
+          vars.energies[1]:display(),
+          vars.energies[2]:display(),
+          vars.energies[3]:display(),
+          vars.energies[4]:display(),
+          vars.energies[5]:display(),
+          numOfRaceEntrants:display(),
         },
         "\n"
       )
@@ -1388,13 +1399,13 @@ local layoutOneMachineStat = {
     updateAddresses()
     vars.label:setCaption(
       table.concat({
-        vars.stat:getDisplay(vars.stat:getLabel().." (B)", vars.stat:getBase()),
-        vars.stat:getDisplay(),
-        vars.statRival1:getDisplay(
+        vars.stat:display(vars.stat:getLabel().." (B)", vars.stat:getBase()),
+        vars.stat:display(),
+        vars.statRival1:display(
           vars.statRival1:getLabel().." (B)",
           vars.statRival1:getBase()
         ),
-        vars.statRival1:getDisplay(),
+        vars.statRival1:display(),
       }, "\n")
     )
   end,
@@ -1477,8 +1488,8 @@ local layoutReplayInfo = {
     updateAddresses()
     
     vars.timeAndEnergyLabel:setCaption(
-      energy:getDisplay()
-      .."\n\n"..timer.raceDisplay()
+      energy:display()
+      .."\n\n"..timer.display()
     )
     
     vars.inputsLabel:setCaption(controlState.display())  -- Works for replays/CPUs
@@ -1532,8 +1543,137 @@ local layoutSpeed224 = {
 
 
 
+local layoutCheckpoints = {
+  
+  init = function(window)
+    updateMethod = "timer"
+    updateTimeInterval = 50
+  
+    local dolphinNativeResolutionHeight = 528
+    window:setSize(250, dolphinNativeResolutionHeight)
+  
+    vars.label = initLabel(window, 6, 5, "", 14, "Calibri")
+    --shared.debugLabel = initLabel(window, 6, 350, "", 8, "Calibri")
+
+    -- local trackedValues = {
+    --   lapNumber, lapNumberGround, lapNumberPosition, lapNumberPositionGround,
+    --   checkpointCurrent, checkpointFraction,
+    --   checkpointClosest, checkpointLastContact, checkpointGround}
+    -- local initiallyActive = {
+    --   lapNumber, lapNumberGround, lapNumberPosition, lapNumberPositionGround,
+    --   checkpointCurrent, checkpointFraction,
+    --   checkpointClosest, checkpointLastContact, checkpointGround}
+    
+    -- vars.display = ValueDisplay:new(
+    --   window, vars.label, updateAddresses, trackedValues, initiallyActive)
+    
+    local writeStatsFile = function()
+      -- TODO: Really could use a "nolabel" option or something
+      local stats = {
+        posX:toStrForDisplay(posX:get(), {afterDecimal=5}),
+        posY:toStrForDisplay(posY:get(), {afterDecimal=5}),
+        posZ:toStrForDisplay(posZ:get(), {afterDecimal=5}),
+        checkpointRightVectorX:toStrForDisplay(checkpointRightVectorX:get(), {afterDecimal=5}),
+        checkpointRightVectorY:toStrForDisplay(checkpointRightVectorY:get(), {afterDecimal=5}),
+        checkpointRightVectorZ:toStrForDisplay(checkpointRightVectorZ:get(), {afterDecimal=5}),
+        trackWidth:toStrForDisplay(trackWidth:get()),
+      }
+      local statsAsStr = table.concat(stats, "\t")
+      local statsFile = io.open("stats.txt", "w")
+      statsFile:write(statsAsStr)
+      statsFile:close()
+    end
+    local button = createButton(window)
+    button:setPosition(6, 320)
+    button:setCaption("To file")
+    button:setOnClick(writeStatsFile)
+  end,
+  
+  update = function()
+    updateAddresses()
+    local s = table.concat({
+      lapNumberPosition:display(),
+      checkpointMain:display(),
+      checkpointFraction:display{afterDecimal=8},
+      checkpointLateralOffset:display{afterDecimal=8},
+      -- checkpointPositional:display(),
+      "",
+      posX:display{afterDecimal=5},
+      posY:display{afterDecimal=5},
+      posZ:display{afterDecimal=5},
+      checkpointRightVectorX:display{afterDecimal=5},
+      checkpointRightVectorY:display{afterDecimal=5},
+      checkpointRightVectorZ:display{afterDecimal=5},
+      trackWidth:display(),
+      -- checkpointPositional:display(),
+      -- checkpointLastContact:display(),
+      -- checkpointGround:display(),
+      -- "",
+      -- lapNumber:display(),
+      -- lapNumberGround:display(),
+      -- lapNumberPosition:display(),
+      -- lapNumberPositionGround:display(),
+    }, "\n")
+    vars.label:setCaption(s)
+  end,
+}
+
+local layoutCheckpointRecording = {
+  
+  init = function(window)
+    -- Using a breakpoint that runs on every frame should guarantee that we
+    -- get one value per frame, which is important for stat recording.
+    updateMethod = "breakpoint"
+  
+    local dolphinNativeResolutionHeight = 528
+    window:setSize(250, dolphinNativeResolutionHeight)
+  
+    vars.label = initLabel(window, 6, 5, "", 14, "Calibri")
+    
+    --shared.debugLabel = initLabel(window, 10, 160, "<debug>")
+    
+    vars.statRecorder = StatRecorder:new(window, 200)
+  end,
+  
+  update = function()
+    updateAddresses()
+    vars.label:setCaption(
+      table.concat(
+        {
+          checkpointMain:display(),
+          checkpointFraction:display{afterDecimal=8},
+          checkpointGround:display(),
+          checkpointLastContact:display(),
+          posX:display{afterDecimal=5},
+          posY:display{afterDecimal=5},
+          posZ:display{afterDecimal=5},
+        },
+        "\n"
+      )
+    )
+    
+    if vars.statRecorder.currentlyTakingStats then
+      local s = table.concat(
+        {
+          checkpointMain:toStrForDisplay(checkpointMain:get()),
+          checkpointFraction:toStrForDisplay(checkpointFraction:get(), {afterDecimal=8}),
+          checkpointGround:toStrForDisplay(checkpointGround:get()),
+          checkpointLastContact:toStrForDisplay(checkpointLastContact:get()),
+          posX:toStrForDisplay(posX:get(), {afterDecimal=5}),
+          posY:toStrForDisplay(posY:get(), {afterDecimal=5}),
+          posZ:toStrForDisplay(posZ:get(), {afterDecimal=5}),
+        },
+        "\t"
+      )
+      vars.statRecorder:takeStat(s)
+    end
+  end,
+}
+
+
+
 -- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layoutMachineStats
+local layout = layoutCheckpointRecording
 
 
 
@@ -1544,6 +1684,8 @@ local window = createForm(true)
 window:centerScreen()
 -- Or you can put it somewhere specific.
 --window:setPosition(500, 0)
+-- TODO: Remove
+window:setPosition(711, 9)
 -- Set the window title.
 window:setCaption("RAM Display")
 -- Customize the labels' default font.

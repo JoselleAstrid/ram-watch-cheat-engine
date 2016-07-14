@@ -1,6 +1,7 @@
 -- Super Mario Galaxy 2
 -- US version
 local gameId = "SB4E01"
+local refPointerOffset = 0xC7A2C8
 
 
 
@@ -16,15 +17,15 @@ local gameId = "SB4E01"
 -- And don't let other modules do the de-caching, because if any of the loaded
 -- modules accept state changes from outside, then having their data cleared
 -- multiple times during initialization can mess things up.
-package.loaded.shared = nil
 package.loaded.utils = nil
+package.loaded.utils_math = nil
 package.loaded.dolphin = nil
 package.loaded.valuetypes = nil
 package.loaded.valuedisplay = nil
 package.loaded._supermariogalaxyshared = nil
 
-local shared = require "shared"
 local utils = require "utils"
+local utils_math = require "utils_math"
 local dolphin = require "dolphin"
 local vtypes = require "valuetypes"
 local vdisplay = require "valuedisplay"
@@ -35,7 +36,9 @@ local readFloatBE = utils.readFloatBE
 local floatToStr = utils.floatToStr
 local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
-local StatRecorder = utils.StatRecorder 
+local StatRecorder = utils.StatRecorder
+
+local Vector3 = utils_math.Vector3
 
 local V = vtypes.V
 local copyFields = vtypes.copyFields
@@ -47,6 +50,7 @@ local ByteValue = vtypes.ByteValue
 local SignedIntValue = vtypes.SignedIntValue
 local StringValue = vtypes.StringValue
 local BinaryValue = vtypes.BinaryValue
+local Vector3Value = vtypes.Vector3Value
 local addAddressToList = vtypes.addAddressToList
 
 local ValueDisplay = vdisplay.ValueDisplay
@@ -79,10 +83,14 @@ addrs.zeros = addrs.o + 0x754000
 local computeAddr = {
   
   refPointer = function()
-    return addrs.o + readIntBE(addrs.o + 0xC7A2C8, 4) - 0x80000000
+    return addrs.o + readIntBE(addrs.o + refPointerOffset, 4) - 0x80000000
   end,
   
-  posBlock = function()
+  refPointer2 = function()
+    return addrs.o + readIntBE(addrs.o + 0x10824F0, 4) - 0x80000000
+  end,
+  
+  posRefPointer = function()
     local ptrValue = readIntBE(addrs.refPointer + 0x750, 4)
     
     if ptrValue < 0x80000000 or ptrValue > 0x90000000 then
@@ -91,14 +99,18 @@ local computeAddr = {
       -- on finding the position and read a bunch of zeros instead.
       return addrs.zeros
     end
+    utils.debugDisp(utils.intToHexStr(ptrValue))
     
-    return addrs.o + ptrValue - 0x80000000 - 0x8670
+    -- TODO: Check if we still need this old offset for reference
+    --return addrs.o + ptrValue - 0x80000000 - 0x8670
+    return addrs.o + ptrValue - 0x80000000
   end,
 }
 
 local function updateAddresses()
   addrs.refPointer = computeAddr.refPointer()
-  addrs.posBlock = computeAddr.posBlock()
+  addrs.refPointer2 = computeAddr.refPointer2()
+  addrs.posRefPointer = computeAddr.posRefPointer()
 end
 
 
@@ -129,17 +141,51 @@ end
 
 
 
--- Values that are a constant small offset from the position values' location.
+-- Values that are a constant offset from a certain reference pointer.
+local Ref2Value = {}
+
+copyFields(Ref2Value, {MemoryValue})
+
+function Ref2Value:getAddress()
+  return addrs.refPointer2 + self.offset
+end
+
+
+
+-- Values that are a constant offset from the position values' location.
 --
--- It might not be ideal to use the position as a reference since that's
--- not necessarily at the start of a block. So we might end up using negative
--- offsets from here; it'll work, but it might be a bit confusing.
-local PosBlockValue = {}
+-- We might end up using negative offsets from here;
+-- it might be a bit confusing, but it'll work.
+local PosRefValue = {}
 
-copyFields(PosBlockValue, {MemoryValue})
+copyFields(PosRefValue, {MemoryValue})
 
-function PosBlockValue:getAddress()
-  return addrs.posBlock + self.offset
+function PosRefValue:getAddress()
+  return addrs.posRefPointer + self.offset
+end
+
+
+
+-- General-interest state values.
+
+local generalState1a = V(
+  "State bits 01-08", -0x51FC, {PosRefValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1b = V(
+  "State bits 09-16", -0x51FB, {PosRefValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1c = V(
+  "State bits 17-24", -0x51FA, {PosRefValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local generalState1d = V(
+  "State bits 25-32", -0x51F9, {PosRefValue, BinaryValue},
+  {binarySize=8, binaryStartBit=7}
+)
+local function onGround()
+  return (generalState1a:get()[2] == 1)
 end
 
 
@@ -160,27 +206,140 @@ local fileTimeDisplay = utils.curry(smg.timeDisplay, fileTimeFrames, "file")
 
 
 
-local pos = {}
-pos.X = V("Pos X", 0x0, {PosBlockValue, FloatValue})
-pos.Y = V("Pos Y", 0x4, {PosBlockValue, FloatValue})
-pos.Z = V("Pos Z", 0x8, {PosBlockValue, FloatValue})
+-- Position, velocity, and other coordinates related stuff.
 
-local posDisplay = utils.curry(smg.posDisplay, pos.X, pos.Y, pos.Z)
-
-local newVelocityTracker = utils.curry(
-  smg.Velocity.new, smg.Velocity, pos.X, pos.Y, pos.Z
+local pos = Vector3Value:new(
+  V("Pos X", -0x8670, {PosRefValue, FloatValue}),
+  V("Pos Y", -0x866C, {PosRefValue, FloatValue}),
+  V("Pos Z", -0x8668, {PosRefValue, FloatValue}),
+  "Position"
 )
+pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
+
+-- 1 frame earlier than what you see on camera.
+local pos_early1 = Vector3Value:new(
+  V("Pos X", -0x8C58+0x14, {PosRefValue, FloatValue}),
+  V("Pos Y", -0x8C58+0x18, {PosRefValue, FloatValue}),
+  V("Pos Z", -0x8C58+0x1C, {PosRefValue, FloatValue}),
+  "Position"
+)
+pos_early1.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
 
 
--- Base velocity: not all kinds of movement are covered.
--- For example, launch stars and riding moving platforms aren't
--- accounted for.
--- So it is usually preferable to subtract positions (as Velocity
--- does) instead of using this.
-local baseVelX = V("Base Vel X", -0x5B0, {PosBlockValue, FloatValue})
-local baseVelY = V("Base Vel Y", -0x5AC, {PosBlockValue, FloatValue})
-local baseVelZ = V("Base Vel Z", -0x5A8, {PosBlockValue, FloatValue})
+-- Velocity based on position change.
+-- Initialization example: obj = Velocity("XZ")
+-- TODO: Make it clear that this combines the components, making it different
+-- from passing position into RateOfChange().
+
+local function Velocity(coordinates)
+  return smg.Velocity:new(pos, coordinates)
+end
+
+-- Velocity directly from a memory value.
+-- Not all kinds of movement are covered. For example, launch stars and
+-- riding moving platforms aren't accounted for.
+--
+-- It's usually preferable to use velocity based on position change, because
+-- that's more accurate to observable velocity. But this velocity value
+-- can still have its uses. For example, this is actually the velocity
+-- observed on the NEXT frame, so if we want advance knowledge of the velocity,
+-- then we might use this.
+
+local baseVel = Vector3Value:new(
+  V("Base Vel X", -0x8C58+0x38, {PosRefValue, FloatValue}),
+  V("Base Vel Y", -0x8C58+0x3C, {PosRefValue, FloatValue}),
+  V("Base Vel Z", -0x8C58+0x40, {PosRefValue, FloatValue}),
+  "Base Vel"
+)
+baseVel.displayDefaults = {signed=true}
+
+
+-- Gravity acting on Mario/Luigi.
+
+local downVectorGravity = Vector3Value:new(
+  V("Down X", -0x86C4, {PosRefValue, FloatValue}),
+  V("Down Y", -0x86C0, {PosRefValue, FloatValue}),
+  V("Down Z", -0x86BC, {PosRefValue, FloatValue}),
+  "Grav (Down)"
+)
+downVectorGravity.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=4}
+
+-- Downward accel acting on Mario/Luigi.
+
+local downVectorAccel = Vector3Value:new(
+  V("Down X", -0x7D88, {PosRefValue, FloatValue}),
+  V("Down Y", -0x7D84, {PosRefValue, FloatValue}),
+  V("Down Z", -0x7D80, {PosRefValue, FloatValue}),
+  "Down accel\ndirection"
+)
+downVectorAccel.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=4}
+
+-- Mario/Luigi's tilt.
+
+local upVectorTilt = Vector3Value:new(
+  V("Up X", -0x5018, {PosRefValue, FloatValue}),
+  V("Up Y", -0x5014, {PosRefValue, FloatValue}),
+  V("Up Z", -0x5010, {PosRefValue, FloatValue}),
+  "Tilt (Up)"
+)
+upVectorTilt.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=4}
+
+
+
+-- How much Mario/Luigi is tilted relative to gravity.
+
+local function Tilt()
+  return smg.Tilt:new(downVectorGravity, upVectorTilt)
+end
+
+-- Upward velocity, regardless of which direction is up.
+
+local function UpwardVelocity()
+  return smg.UpwardVelocity:new(pos, downVectorGravity)
+end
+
+-- Lateral velocity, regardless of which direction is up.
+
+local function LateralVelocity()
+  return smg.LateralVelocity:new(pos, downVectorGravity)
+end
+
+local function UpwardVelocityLastJump()
+  return smg.UpwardVelocityLastJump:new(pos, downVectorGravity, onGround)
+end
+
+-- Distance from a particular point (the "anchor").
+
+local function AnchoredDistance(coordinates)
+  return smg.AnchoredDistance:new(pos, coordinates)
+end
+
+-- Modifiers that can apply to value classes.
+
+local function RateOfChange(...)
+  return smg.RateOfChange:new(...)
+end
+
+local function MaxValue(baseValue)
+  return smg.MaxValue:new(baseValue)
+end
+local function AverageValue(baseValue)
+  return smg.AverageValue:new(baseValue)
+end
+
+-- If we jump now, we'll get this much "bonus" upward velocity due to
+-- the current tilt.
+
+local function UpVelocityTiltBonus(tiltValue)
+  local nextVel = Vector3Value:new(
+    RateOfChange(smg.VToDerivedValue(pos_early1.x)),
+    RateOfChange(smg.VToDerivedValue(pos_early1.y)),
+    RateOfChange(smg.VToDerivedValue(pos_early1.z)),
+    "Velocity"
+  )
+  return smg.UpVelocityTiltBonus:new(nextVel, downVectorGravity, onGround, tiltValue)
+end
 
 
 
@@ -193,26 +352,35 @@ local buttons2 = V("Buttons 2", 0xB38A2F, {StaticValue, BinaryValue},
   
 local buttonDisp = utils.curry(smg.buttonDisp, buttons1, buttons2)
 
-local wiimoteSpinBit = V("Wiimote spin bit", 0xA26, {PosBlockValue, ByteValue})
-local nunchukSpinBit = V("Nunchuk spin bit", 0xA27, {PosBlockValue, ByteValue})
-local spinCooldownTimer = V("Spin cooldown timer", 0x857, {PosBlockValue, ByteValue})
-local spinAttackTimer = V("Spin attack timer", 0x854, {PosBlockValue, ByteValue})
+local wiimoteSpinBit = V("Wiimote spin bit", -0x7C4A, {PosRefValue, ByteValue})
+local nunchukSpinBit = V("Nunchuk spin bit", -0x7C49, {PosRefValue, ByteValue})
+local spinCooldownTimer = V("Spin cooldown timer", -0x7E19, {PosRefValue, ByteValue})
+local spinAttackTimer = V("Spin attack timer", -0x7E1C, {PosRefValue, ByteValue})
 
-local getSpinType = utils.curry(smg.getSpinType, wiimoteSpinBit, nunchukSpinBit)
+local getShakeType = utils.curry(smg.getShakeType, wiimoteSpinBit, nunchukSpinBit)
+local shakeDisp = utils.curry(smg.shakeDisp, getShakeType)
 local spinDisp = utils.curry(
-  smg.spinDisp, spinCooldownTimer, spinAttackTimer, getSpinType
+  smg.spinDisp, spinCooldownTimer, spinAttackTimer, getShakeType
 )
 
 local stickX = V("Stick X", 0xB38A8C, {StaticValue, FloatValue})
 local stickY = V("Stick Y", 0xB38A90, {StaticValue, FloatValue})
 
 local inputDisplay = utils.curry(
-  smg.inputDisplay, stickX, stickY, buttonDisp, spinDisp
+  smg.inputDisplay, stickX, stickY, buttonDisp, shakeDisp, spinDisp
 )
 
-local drawStickInput = utils.curry(
-  smg.drawStickInput, stickX, stickY
+local newStickInputImage = utils.curry(
+  smg.StickInputImage.new, smg.StickInputImage, stickX, stickY
 )
+
+
+
+-- Resettable values can be reset using 'v' (D-Pad Down)
+
+local function ResettableValue(baseValue)
+  return smg.ResettableValue:new(buttonDisp, 'v', baseValue)
+end
 
 
 
@@ -239,10 +407,10 @@ local layoutAddressDebug = {
     window:setSize(400, 300)
     
     vars.label = initLabel(window, 10, 5, "", 14)
-    --shared.debugLabel = initLabel(window, 10, 200, "", 9)
+    utils.setDebugLabel(initLabel(window, 10, 200, "", 9))
   
     vars.addresses = {
-      "o", "refPointer", "posBlock",
+      "o", "refPointer", "refPointer2", "posRefPointer",
     }
   end,
   
@@ -292,11 +460,13 @@ local layoutVelocity = {
     window:setSize(500, 200)
     
     vars.label = initLabel(window, 10, 5, "", 13, fixedWidthFontName)
-    --shared.debugLabel = initLabel(window, 5, 180, "")
+    --utils.setDebugLabel(initLabel(window, 5, 180, ""))
     
-    vars.dispY = newVelocityTracker("Y")
-    vars.dispXZ = newVelocityTracker("XZ")
-    vars.dispXYZ = newVelocityTracker("XYZ")
+    updateAddresses()
+    
+    vars.velocityY = Velocity("Y")
+    vars.velocityXZ = Velocity("XZ")
+    vars.velocityXYZ = Velocity("XYZ")
   end,
   
   update = function()
@@ -305,16 +475,16 @@ local layoutVelocity = {
     vars.label:setCaption(
       table.concat({
         stageTimeDisplay(),
-        vars.dispY:display(),
-        vars.dispXZ:display(),
-        vars.dispXYZ:display(),
-        posDisplay(),
+        vars.velocityY:display(),
+        vars.velocityXZ:display(),
+        vars.velocityXYZ:display(),
+        pos:display(),
       }, "\n")
     )
   end,
 }
 
-local layoutDispYRecording = {
+local layoutRecording = {
   
   init = function(window)
     updateMethod = "breakpoint"
@@ -323,7 +493,9 @@ local layoutDispYRecording = {
   
     vars.label = initLabel(window, 10, 5, "", 16, fixedWidthFontName)
     
-    vars.dispY = newVelocityTracker("Y")
+    updateAddresses()
+    
+    vars.velocityY = Velocity("Y")
     vars.statRecorder = StatRecorder:new(window, 90)
   end,
   
@@ -333,12 +505,12 @@ local layoutDispYRecording = {
     vars.label:setCaption(
       table.concat({
         stageTimeDisplay(),
-        vars.dispY:display(),
+        vars.velocityY:display(),
       }, "\n")
     )
     
     if vars.statRecorder.currentlyTakingStats then
-      local s = vars.dispY:display(1, 10, true)
+      local s = vars.velocityY:display{beforeDecimal=1, afterDecimal=10}
       vars.statRecorder:takeStat(s)
     end
   end,
@@ -349,49 +521,102 @@ local layoutInputs = {
   init = function(window)
     updateMethod = "breakpoint"
   
-    window:setSize(500, 480)
-  
-    vars.label = initLabel(window, 10, 5, "", 12, fixedWidthFontName)
-    vars.inputsLabel = initLabel(window, 10, 300, "", 12, fixedWidthFontName)
-    --shared.debugLabel = initLabel(window, 300, 10, "", 8, fixedWidthFontName)
+    local dolphinNativeResolutionHeight = 528
+    window:setSize(144, dolphinNativeResolutionHeight)
+    
+    local fontSize = 12
+    local X = 6
+    local inputColor = 0x880000    -- Cheat Engine uses BGR order, not sure why
+    
+    vars.coordsLabel = initLabel(window, X, 0, "", fontSize, fixedWidthFontName)
+    -- vars.inputsLabel = initLabel(window, X, 0, "", fontSize, fixedWidthFontName, inputColor)
+    vars.timeLabel = initLabel(window, X, 0, "", fontSize, fixedWidthFontName)
     
     -- Graphical display of stick input
-    vars.image = createImage(window)
-    vars.image:setPosition(10, 370)
-    vars.canvasSize = 100
-    vars.image:setSize(vars.canvasSize, vars.canvasSize)
-    vars.canvas = vars.image:getCanvas()
-    -- Brush: ellipse() fill
-    vars.canvas:getBrush():setColor(0xF0F0F0)
-    -- Pen: ellipse() outline, line()
-    vars.canvas:getPen():setColor(0x000000)
-    vars.canvas:getPen():setWidth(2)
-    -- Initialize the whole image with the brush color
-    vars.canvas:fillRect(0,0, vars.canvasSize,vars.canvasSize)
+    -- vars.stickInputImage = newStickInputImage(
+    --   window,
+    --   100,    -- size
+    --   10, 0,    -- x, y position
+    --   inputColor
+    -- )
     
-    vars.dispY = newVelocityTracker("Y")
-    vars.dispXZ = newVelocityTracker("XZ")
-    vars.dispXYZ = newVelocityTracker("XYZ")
+    vars.window = window
+    vars.windowElements = {vars.coordsLabel, vars.timeLabel}
+    -- vars.windowElements = {vars.coordsLabel, vars.inputsLabel, vars.stickInputImage.image, vars.timeLabel}
+    vars.windowElementsPositioned = false
+    
+    -- utils.setDebugLabel(initLabel(window, X, 0, "", 8, fixedWidthFontName))
+    
+    
+    -- Some of the value objects might need valid addresses during initialization.
+    updateAddresses()
+    
+    -- vars.velocityX = Velocity("X")
+    -- vars.velocityY = Velocity("Y")
+    -- vars.velocityZ = Velocity("Z")
+    
+    vars.upwardVelocity = UpwardVelocity()
+    vars.upwardAccel = RateOfChange(vars.upwardVelocity, "Up Accel")
+    vars.upwardVelocityLastJump = UpwardVelocityLastJump()
+    
+    vars.tilt = Tilt()
+    vars.upVelocityTiltBonus = UpVelocityTiltBonus(vars.tilt)
+    
+    --vars.lateralVelocity = LateralVelocity()
+    
+    --vars.velocityY = Velocity("Y")
+    --vars.accelY = RateOfChange(vars.velocityY, "Y Accel")
+    
+    -- vars.speedXZ = Velocity("XZ")
+    -- vars.speedXZ2 = smg.Velocity:new(pos_early1, "XZ")
   end,
   
   update = function()
     updateAddresses()
     
-    local s = table.concat({
-      stageTimeDisplay(),
-      vars.dispY:display(),
-      vars.dispXZ:display(),
-      vars.dispXYZ:display(),
-      posDisplay("narrow"),
-    }, "\n")
-    -- Put labels and values on separate lines to save horizontal space
-    s = string.gsub(s, ": ", ":\n ")
-    vars.label:setCaption(s)
+    vars.timeLabel:setCaption(stageTimeDisplay("narrow"))
     
-    vars.inputsLabel:setCaption(
-      inputDisplay("compact")
-    )
-    drawStickInput(vars.canvas, vars.canvasSize)
+    -- local bvx = baseVel.x:get()
+    -- local bvz = baseVel.z:get()
+    -- local baseVelXZ = math.sqrt(bvx*bvx + bvz*bvz)
+    
+    local s = table.concat({
+      -- vars.velocityX:display{narrow=true},
+      -- vars.velocityY:display{narrow=true},
+      -- vars.velocityZ:display{narrow=true},
+      
+      -- vars.upwardVelocity:display{narrow=true},
+      -- downVectorAccel:display{narrow=true},
+      downVectorGravity:display{narrow=true},
+      upVectorTilt:display{narrow=true},
+      vars.upwardVelocityLastJump:display{narrow=true, beforeDecimal=2, afterDecimal=3},
+      vars.upwardAccel:display{narrow=true, signed=true, beforeDecimal=2, afterDecimal=3},
+      vars.upVelocityTiltBonus:display{narrow=true},
+      
+      --vars.lateralVelocity:display{narrow=true},
+      --pos:display{narrow=true},
+      --vars.velocityY:display{narrow=true},
+      -- vars.accelY:display{narrow=true},
+      -- vars.speedXZ:display{narrow=true},
+      -- vars.speedXZ2:display{narrow=true, label="XZ Speed 2"},
+      -- "XZ BaseVel:\n "..utils.floatToStr(baseVelXZ, {narrow=true}),
+      -- "On ground:\n "..tostring(onGround()),
+      -- generalState1a:display{narrow=true},
+      -- generalState1b:display{narrow=true},
+      -- generalState1c:display{narrow=true},
+      -- generalState1d:display{narrow=true},
+    }, "\n")
+    vars.coordsLabel:setCaption(s)
+    
+    -- vars.inputsLabel:setCaption(
+    --   inputDisplay("both", "compact")
+    -- )
+    -- vars.stickInputImage:update()
+    
+    if not vars.windowElementsPositioned then
+      utils.positionWindowElements(vars.window, vars.windowElements)
+      vars.windowElementsPositioned = true
+    end
   end,
 }
 
@@ -406,7 +631,9 @@ local layout = layoutInputs
 
 local window = createForm(true)
 -- Put it in the center of the screen.
-window:centerScreen()
+--window:centerScreen()
+-- TODO: Revert
+window:setPosition(988,487)
 -- Set the window title.
 window:setCaption("RAM Display")
 -- Customize the font.

@@ -86,9 +86,9 @@ local layoutA = {
     -- Display the position values on the Cheat Engine window's label.
     -- The "1" passed into floatToStr tells it to display one decimal place.
     mainLabel:setCaption(
-      "Pos: " .. floatToStr(posX, 1)
-      .. " | " .. floatToStr(posY, 1)
-      .. " | " .. floatToStr(posZ, 1)
+      "Pos: " .. floatToStr(posX, {afterDecimal=1})
+      .. " | " .. floatToStr(posY, {afterDecimal=1})
+      .. " | " .. floatToStr(posZ, {afterDecimal=1})
     )
   end,
 }
@@ -137,7 +137,7 @@ local layoutB = {
     -- 9.43
     -- (etc.)
     if statRecorder.currentlyTakingStats then
-      local s = floatToStr(speedXY, 2)
+      local s = floatToStr(speedXY, {afterDecimal=2})
       statRecorder:takeStat(s)
     end
   end,

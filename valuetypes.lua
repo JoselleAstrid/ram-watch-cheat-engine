@@ -2,6 +2,9 @@
 -- and their supporting functions.
 
 local utils = require "utils"
+local utils_math = require "utils_math"
+
+local Vector3 = utils_math.Vector3
 
 
 
@@ -29,8 +32,13 @@ local function V(label, offset, classes, extraArgs)
 end
 
 -- Kind of like inheritance, except it just copies the fields from the parents
--- to the children. This means no "super" calls. This also means you can
--- easily have multiple parents ordered by priority.
+-- to the children.
+--
+-- This means you can easily have multiple parents ordered by priority
+-- (so the 2nd parent's stuff takes precedence over the 1st parent's, etc.).
+--
+-- It also means no "super" calls; you'd have to explicitly go
+-- like MySuperClass.myFunc(self, ...) instead of doing a super call.
 local function copyFields(child, parents)
   for _, parent in pairs(parents) do
     for key, value in pairs(parent) do
@@ -45,6 +53,18 @@ local function copyFields(child, parents)
       end
     end
   end
+end
+
+-- Bit of a shortcut for copyFields.
+local function subclass(...)
+  local parents = {}
+  for _,v in ipairs(arg) do
+    table.insert(parents, v)
+  end
+  
+  local subcls = {}
+  copyFields(subcls, parents)
+  return subcls
 end
 
 
@@ -186,13 +206,32 @@ end
 function MemoryValue:getLabel()
   return self.label
 end
-function MemoryValue:getDisplay(label, value)
+function MemoryValue:display(passedOptions)
+  local options = {}
+  -- First apply default options
+  if self.displayDefaults then
+    for key, value in pairs(self.displayDefaults) do
+      options[key] = value
+    end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedOptions then
+    for key, value in pairs(passedOptions) do
+      options[key] = value
+    end
+  end
+  
   -- Passing a custom label, or even value, allows you to customize a display
   -- using this memory value's display method.
-  if label == nil then label = self:getLabel() end
-  if value == nil then value = self:get() end
+  local label = options.label or self:getLabel()
+  local value = options.value or self:get()
+  local narrow = options.narrow or false
   
-  return label .. ": " .. self:toStrForDisplay(value)
+  if narrow then
+    return label .. ":\n " .. self:toStrForDisplay(value, options)
+  else
+    return label .. ": " .. self:toStrForDisplay(value, options)
+  end
 end
 
 function MemoryValue:getEditFieldText()
@@ -216,19 +255,15 @@ function FloatValue:write(address, v)
   return utils.writeFloatBE(address, v, self.numOfBytes)
 end
 function FloatValue:strToValue(s) return tonumber(s) end
-function FloatValue:toStrForDisplay(v, precision, trimTrailingZeros)
-  if precision == nil then precision = 4 end
-  if trimTrailingZeros == nil then trimTrailingZeros = false end
-  
-  return utils.floatToStr(v, precision, trimTrailingZeros)
+function FloatValue:toStrForDisplay(v, options)
+  return utils.floatToStr(v, options)
 end
-function FloatValue:toStrForEditField(v, precision, trimTrailingZeros)
+function FloatValue:toStrForEditField(v, options)
   -- Here we have less concern of looking good, and more concern of
   -- giving more info.
-  if precision == nil then precision = 10 end
-  if trimTrailingZeros == nil then trimTrailingZeros = false end
-  
-  return utils.floatToStr(v, precision, trimTrailingZeros)
+  options.afterDecimal = options.afterDecimal or 10
+  options.trimTrailingZeros = options.trimTrailingZeros or false
+  return utils.floatToStr(v, options)
 end
 FloatValue.numOfBytes = 4
 -- For the memory record type constants, look up defines.lua in
@@ -369,10 +404,93 @@ BinaryValue.toStrForEditField = BinaryValue.toStrForDisplay
 
 
 
+-- Vector3Value is different from the other value types so far. It's basically
+-- a wrapper for 3 other Values.
+-- You call the new() method to instantiate rather than calling V().
+
+local Vector3Value = {}
+
+function Vector3Value:new(x, y, z, label)
+  local obj = subclass(Vector3Value)
+  obj.x = x
+  obj.y = y
+  obj.z = z
+  obj.label = label
+  return obj
+end
+
+function Vector3Value:get()
+  return Vector3:new(self.x:get(), self.y:get(), self.z:get())
+end
+function Vector3Value:set(vec3)
+  self.x:set(vec3.x)
+  self.y:set(vec3.y)
+  self.z:set(vec3.z)
+end
+
+function Vector3Value:isValid()
+  return (self.x:isValid() and self.y:isValid() and self.z:isValid()) 
+end
+
+function Vector3Value:getLabel()
+  return self.label
+end
+function Vector3Value:display(passedOptions)
+  local options = {}
+  -- First apply default options
+  if self.displayDefaults then
+    for key, value in pairs(self.displayDefaults) do
+      options[key] = value
+    end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedOptions then
+    for key, value in pairs(passedOptions) do
+      options[key] = value
+    end
+  end
+  
+  -- Passing a custom label, or even value, allows you to customize a display
+  -- using this memory value's display method.
+  if options == nil then arg = {} end
+  local label = options.label or self:getLabel()
+  local value = options.value or self:get()
+  local narrow = options.narrow or false
+
+  local format = nil
+  if narrow then
+    format = "%s:\n X %s\n Y %s\n Z %s"
+  else
+    format = "%s: X %s | Y %s | Z %s"
+  end
+  
+  return string.format(
+    format,
+    label,
+    self.x:toStrForDisplay(value.x, options),
+    self.y:toStrForDisplay(value.y, options),
+    self.z:toStrForDisplay(value.z, options)
+  )
+end
+
+function Vector3Value:getEditFieldText()
+  error("Value "..self:getLabel().." isn't editable")
+end
+function Vector3Value:getEditWindowTitle()
+  error("Value "..self:getLabel().." isn't editable")
+end
+
+function Vector3Value:addAddressesToList()
+  -- TODO: Implement adding X, Y, and Z addresses to the list
+end
+
+
+
 return {
   V = V,
   
   copyFields = copyFields,
+  subclass = subclass,
   
   MemoryValue = MemoryValue,
   FloatValue = FloatValue,
@@ -382,6 +500,8 @@ return {
   SignedIntValue = SignedIntValue,
   StringValue = StringValue,
   BinaryValue = BinaryValue,
+  
+  Vector3Value = Vector3Value,
   
   openEditWindow = openEditWindow,
   addAddressToList = addAddressToList,
