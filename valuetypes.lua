@@ -31,6 +31,8 @@ local function V(label, offset, classes, extraArgs)
   return newObj
 end
 
+-- TODO: Move copyFields, subclass, and classInstantiate to the utils module.
+
 -- Kind of like inheritance, except it just copies the fields from the parents
 -- to the children.
 --
@@ -65,6 +67,12 @@ local function subclass(...)
   local subcls = {}
   copyFields(subcls, parents)
   return subcls
+end
+
+local function classInstantiate(class, ...)
+  local obj = subclass(class)
+  obj:init(...)
+  return obj
 end
 
 
@@ -491,6 +499,7 @@ return {
   
   copyFields = copyFields,
   subclass = subclass,
+  classInstantiate = classInstantiate,
   
   MemoryValue = MemoryValue,
   FloatValue = FloatValue,
