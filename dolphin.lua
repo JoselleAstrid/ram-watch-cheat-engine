@@ -139,21 +139,6 @@ function DolphinGame:getFrameCount()
 end
 
 function DolphinGame:startUpdating(layout)
-  -- TODO: Rework comments
-  -- updateMethod
-  --   string representing the update method.
-  -- update
-  --   to be called here whenever an update is needed.
-  -- window
-  --   if updateMethod is "timer", this is required so that we
-  --   can assign window to be the timer's parent object.
-  -- timerInterval
-  --   if updateMethod is "timer", this is the number
-  --   of milliseconds to wait till the next update.
-  -- updateButton
-  --   if updateMethod is "button", this is the button
-  --   that you'd click to update the display.
-
   -- Clean up from previous runs of the script 
   if self.oncePerFrameAddress then
     debug_removeBreakpoint(
@@ -162,7 +147,7 @@ function DolphinGame:startUpdating(layout)
   
   self.updateOK = true
   
-  if updateMethod == "timer" then
+  if layout.updateMethod == "timer" then
   
     -- Set the window to be the timer's parent, so that when the window is
     -- closed, the timer will stop being called. This allows us to edit and then
@@ -170,7 +155,7 @@ function DolphinGame:startUpdating(layout)
     -- loops.
     self.timer = createTimer(layout.window)
     -- Time interval at which we'll periodically call a function.
-    self.timer.setInterval(layout.timerInterval)
+    self.timer.setInterval(layout.updateTimeInterval)
     
     local function timerFunction(game)
       if not game.updateOK then
@@ -240,7 +225,7 @@ function DolphinGame:startUpdating(layout)
     end
     debugger_onBreakpoint = utils.curry(runOncePerFrame, self)
     
-  elseif updateMethod == "button" then
+  elseif layout.updateMethod == "button" then
     
     -- First do an initial update.
     layout:update()

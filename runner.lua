@@ -10,7 +10,7 @@ local function initWindow(options)
   
   -- Window position {xpixels, ypixels}; if nil, put at center of screen
   if options.windowPosition ~= nil then
-    window:setPosition(options.windowPosition)
+    window:setPosition(options.windowPosition[1], options.windowPosition[2])
   else
     window:centerScreen()
   end

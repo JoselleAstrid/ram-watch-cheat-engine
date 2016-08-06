@@ -6,15 +6,19 @@ local utils = require 'utils'
 package.loaded.valuetypes = nil
 local vtypes = require 'valuetypes'
 local classInstantiate = vtypes.classInstantiate
+local subclass = vtypes.subclass
 
+package.loaded.layouts = nil
+local layoutsModule = require 'layouts'
+local Layout = layoutsModule.Layout
 
 
 local layouts = {}
 
--- local vars = {}
--- local updateMethod = nil
--- local updateTimeInterval = nil
--- local updateButton = nil
+local windowWidth = 144
+local dolphinNativeResolutionHeight = 528
+local X = 6
+local fontSize = 12
 local generalFontName = "Calibri"  -- alt: Arial
 local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
 
@@ -186,113 +190,137 @@ local layoutMessages = {
 }
 
 
-layouts.inputs = {
+layouts.inputsOldWay = subclass(Layout)
   
-  updateMethod = 'breakpoint',
+function layouts.inputsOldWay:init(window, game)
+  self.window = window
+  self.game = game
   
-  init = function(self, window, game)
-    local dolphinNativeResolutionHeight = 528
-    window:setSize(144, dolphinNativeResolutionHeight)
-    
-    local fontSize = 12
-    local X = 6
-    local inputColor = 0x880000    -- Cheat Engine uses BGR order, not sure why
-    
-    self.coordsLabel = utils.initLabel(window, X, 0, "", fontSize, fixedWidthFontName)
-    self.inputsLabel = utils.initLabel(window, X, 0, "", fontSize, fixedWidthFontName, inputColor)
-    self.timeLabel = utils.initLabel(window, X, 0, "", fontSize, fixedWidthFontName)
-    
-    -- Graphical display of stick input
-    -- self.stickInputImage = game.newStickInputImage(
-    --   window,
-    --   100,    -- size
-    --   10, 0,    -- x, y position
-    --   inputColor
-    -- )
-    
-    self.window = window
-    self.windowElements = {self.coordsLabel, self.timeLabel}
-    -- self.windowElements = {self.coordsLabel, self.inputsLabel, self.stickInputImage.image, self.timeLabel}
-    self.windowElementsPositioned = false
-    
-    --utils.setDebugLabel(initLabel(window, X, 0, "", 8, fixedWidthFontName))
-    
-    
-    self.game = game
-    -- Some of the value objects might need valid addresses during initialization.
-    game:updateAddresses()
-    
-    -- self.velocityX = Velocity("X")
-    -- self.velocityY = Velocity("Y")
-    -- self.velocityZ = Velocity("Z")
-    
-    self.velUp = game:newDV(game.UpwardVelocity)
-    self.upwardAccel = game:newDV(game.RateOfChange, self.velUp, "Up Accel")
-    self.upwardVelocityLastJump = game:newDV(game.UpwardVelocityLastJump)
-    self.tilt = game:newDV(game.Tilt)
-    self.upVelocityTiltBonus = game:newDV(game.UpVelocityTiltBonus)
-    --self.speedLateral = LateralVelocity()
-    
-    --self.speedXZ = Velocity("XZ")
-    
-    --self.velY = Velocity("Y")
-    --self.speedXYZ = Velocity("XYZ")
-    --self.anchoredDistXZ = ResettableValue(AnchoredDistance("XZ"))
-    --self.anchoredMaxDistY = ResettableValue(MaxValue(AnchoredDistance("Y")))
-    --self.anchoredMaxHeight = ResettableValue(MaxValue(AnchoredHeight()))
-    --self.averageSpeedXZ = ResettableValue(AverageValue(Velocity("XZ")))
-    
-    --self.accelY = RateOfChange(self.velY, "Y Accel")
-  end,
+  self:setBreakpointUpdateMethod()
   
-  update = function(self)
-    local game = self.game
+  local dolphinNativeResolutionHeight = 528
+  self.window:setSize(144, dolphinNativeResolutionHeight)
   
-    game:updateAddresses()
+  local fontSize = 12
+  local X = 6
+  local inputColor = 0x880000    -- Cheat Engine uses BGR order, not sure why
+  
+  self.coordsLabel = self:createLabel{
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.inputsLabel = self:createLabel{
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName, fontColor=inputColor}
+  self.timeLabel = self:createLabel{
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  -- Graphical display of stick input
+  -- self.stickInputImage = game.newStickInputImage(
+  --   window,
+  --   100,    -- size
+  --   10, 0,    -- x, y position
+  --   inputColor
+  -- )
+  self.windowElements = {self.coordsLabel, self.timeLabel}
+  -- self.windowElements = {self.coordsLabel, self.inputsLabel, self.stickInputImage.image, self.timeLabel}
+  self.windowElementsPositioned = false
+  
+  -- self.debugLabel = self:createLabel{
+  --   x=X, fontSize=8, fontName=fixedWidthFontName}
+  
+  -- Some of the value objects might need valid addresses during initialization.
+  game:updateAddresses()
+  
+  -- self.velocityX = Velocity("X")
+  -- self.velocityY = Velocity("Y")
+  -- self.velocityZ = Velocity("Z")
+  
+  self.velUp = game:newDV(game.UpwardVelocity)
+  self.upwardAccel = game:newDV(game.RateOfChange, self.velUp, "Up Accel")
+  self.upwardVelocityLastJump = game:newDV(game.UpwardVelocityLastJump)
+  self.tilt = game:newDV(game.Tilt)
+  self.upVelocityTiltBonus = game:newDV(game.UpVelocityTiltBonus)
+  --self.speedLateral = LateralVelocity()
+  
+  --self.speedXZ = Velocity("XZ")
+  
+  --self.velY = Velocity("Y")
+  --self.speedXYZ = Velocity("XYZ")
+  --self.anchoredDistXZ = ResettableValue(AnchoredDistance("XZ"))
+  --self.anchoredMaxDistY = ResettableValue(MaxValue(AnchoredDistance("Y")))
+  --self.anchoredMaxHeight = ResettableValue(MaxValue(AnchoredHeight()))
+  --self.averageSpeedXZ = ResettableValue(AverageValue(Velocity("XZ")))
+  
+  --self.accelY = RateOfChange(self.velY, "Y Accel")
+end
+  
+function layouts.inputsOldWay:update()
+  local game = self.game
+
+  game:updateAddresses()
+  
+  self.timeLabel:setCaption(game:stageTimeDisplay("narrow"))
+  
+  local s = table.concat({
+    -- self.velocityX:display{narrow=true},
+    -- self.velocityY:display{narrow=true},
+    -- self.velocityZ:display{narrow=true},
     
-    self.timeLabel:setCaption(game:stageTimeDisplay("narrow"))
+    game.downVectorGravity:display{narrow=true},
+    game.upVectorTilt:display{narrow=true},
+    self.upwardVelocityLastJump:display{narrow=true, beforeDecimal=2, afterDecimal=3},
+    self.upwardAccel:display{narrow=true, signed=true, beforeDecimal=2, afterDecimal=3},
+    self.upVelocityTiltBonus:display{narrow=true},
     
-    local s = table.concat({
-      -- self.velocityX:display{narrow=true},
-      -- self.velocityY:display{narrow=true},
-      -- self.velocityZ:display{narrow=true},
-      
-      game.downVectorGravity:display{narrow=true},
-      game.upVectorTilt:display{narrow=true},
-      self.upwardVelocityLastJump:display{narrow=true, beforeDecimal=2, afterDecimal=3},
-      self.upwardAccel:display{narrow=true, signed=true, beforeDecimal=2, afterDecimal=3},
-      self.upVelocityTiltBonus:display{narrow=true},
-      
-      --self.velUp:display{narrow=true},
-      --self.speedLateral:display{narrow=true},
-      --game.pos:display{narrow=true},
-      
-      --self.speedXZ:display{narrow=true},
-      --self.anchoredMaxDistY:display(),
-      --self.anchoredMaxHeight:display{narrow=true},
-      --"Base Spd XZ:\n "..utils.floatToStr(baseSpeedXZ),
-      --self.accelY:display{narrow=true},
-      --self.tilt:displayRotation(),
-      --self.tilt:displayDiff{narrow=true},
-      --"On ground:\n "..tostring(game:onGround()),
-      
-      --self.averageSpeedXZ:display{narrow=true},
-      --self.anchoredDistXZ:display{narrow=true},
-      
-    }, "\n")
-    self.coordsLabel:setCaption(s)
+    --self.velUp:display{narrow=true},
+    --self.speedLateral:display{narrow=true},
+    --game.pos:display{narrow=true},
     
-    -- self.inputsLabel:setCaption(
-    --   game:inputDisplay("both", "compact")
-    -- )
-    -- self.stickInputImage:update()
+    --self.speedXZ:display{narrow=true},
+    --self.anchoredMaxDistY:display(),
+    --self.anchoredMaxHeight:display{narrow=true},
+    --"Base Spd XZ:\n "..utils.floatToStr(baseSpeedXZ),
+    --self.accelY:display{narrow=true},
+    --self.tilt:displayRotation(),
+    --self.tilt:displayDiff{narrow=true},
+    --"On ground:\n "..tostring(game:onGround()),
     
-    if not self.windowElementsPositioned then
-      utils.positionWindowElements(self.window, self.windowElements)
-      self.windowElementsPositioned = true
-    end
-  end,
-}
+    --self.averageSpeedXZ:display{narrow=true},
+    --self.anchoredDistXZ:display{narrow=true},
+    
+  }, "\n")
+  self.coordsLabel:setCaption(s)
+  
+  -- self.inputsLabel:setCaption(
+  --   game:inputDisplay("both", "compact")
+  -- )
+  -- self.stickInputImage:update()
+  
+  if not self.windowElementsPositioned then
+    self:positionWindowElements(self.windowElements)
+    self.windowElementsPositioned = true
+  end
+end
+
+
+layouts.inputs = subclass(Layout)
+
+function layouts.inputs:init(window, game)
+  self:setBreakpointUpdateMethod()
+  
+  self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
+  
+  self.velUp = game:newDV(game.UpwardVelocity)
+  
+  self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addItem(game.downVectorGravity, {narrow=true})
+  self:addItem(game.upVectorTilt, {narrow=true})
+  self:addItem(game:newDV(game.UpwardVelocityLastJump),
+     {narrow=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:newDV(game.RateOfChange, self.velUp, "Up Accel"),
+     {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:newDV(game.UpVelocityTiltBonus), {narrow=true})
+  
+  Layout.init(self, window, game)
+end
 
 
 
