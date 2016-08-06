@@ -1,6 +1,10 @@
 package.loaded.utils = nil
 local utils = require "utils"
 
+package.loaded.valuetypes = nil
+local vtypes = require "valuetypes"
+local classInstantiate = vtypes.classInstantiate
+
 
 local Layout = {
   displayElements = {},
@@ -13,12 +17,16 @@ function Layout:init(window, game)
   
   self.window:setSize(self.windowSize[1], self.windowSize[2])
   
+  -- TODO: Maybe element.obj should be called displayObj or uiObj
   self.displayObjs = {}
   for _, element in pairs(self.displayElements) do
     if element.type == 'label' then
       element.obj = self:createLabel(element.initOptions)
     elseif element.type == 'image' then
-      element.obj = self:createImage(element.initOptions)
+      local imageClassObj =
+        self:createImage(element.ImageClass, element.initOptions)
+      element.obj = imageClassObj.image
+      element.updateFunc = utils.curry(imageClassObj.update, imageClassObj)
     end
     table.insert(self.displayObjs, element.obj)
   end
@@ -33,13 +41,13 @@ function Layout:update()
   for _, element in pairs(self.displayElements) do
     if element.type == 'label' then
       local displayTexts = {}
-      for _, item in pairs(element.displayItems) do
-        table.insert(displayTexts, item.obj:display(item.displayOptions))
+      for _, displayFunc in pairs(element.displayFuncs) do
+        table.insert(displayTexts, displayFunc())
       end
       local labelDisplay = table.concat(displayTexts, '\n')
       element.obj:setCaption(labelDisplay)
     elseif element.type == 'image' then
-      -- TODO
+      element.updateFunc()
     end
   end
 
@@ -76,7 +84,7 @@ end
 
 function Layout:addLabel(initOptions)
   local label = {
-    type='label', obj=nil, displayItems={}, initOptions=initOptions}
+    type='label', obj=nil, displayFuncs={}, initOptions=initOptions}
   self.lastAddedLabel = label
   table.insert(self.displayElements, label)
 end
@@ -86,9 +94,35 @@ function Layout:addItem(item, displayOptions)
   if not self.lastAddedLabel then
     error("Must add a label before adding an item.")
   end
-  table.insert(
-    self.lastAddedLabel.displayItems,
-    {obj=item, displayOptions=displayOptions})
+  
+  if tostring(type(item)) == 'function' then
+    -- Take the item itself to be a function which returns the desired
+    -- value as a string, and takes display options.
+    table.insert(
+      self.lastAddedLabel.displayFuncs,
+      utils.curry(item, displayOptions)
+    )
+  else
+    -- Assume the item is a table where item:display(displayOptions)
+    -- would get the desired value as a string, while applying the options.
+    table.insert(
+      self.lastAddedLabel.displayFuncs,
+      utils.curry(item.display, item, displayOptions)
+    )
+  end
+end
+
+
+function Layout:createImage(ImageClass, options)
+  return classInstantiate(ImageClass, self.game, self.window, options)
+end
+
+
+function Layout:addImage(ImageClass, initOptions)
+  local image = {
+    type='image', obj=nil, updateFunc=nil,
+    ImageClass=ImageClass, initOptions=initOptions}
+  table.insert(self.displayElements, image)
 end
 
 

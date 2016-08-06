@@ -26,7 +26,7 @@ end
 
 
 
-function SMGshared:timeDisplay(framesObj, which, displayType)
+function SMGshared:timeDisplay(framesObj, which, options)
   local frames = nil
   if which == "stage" then frames = framesObj:get()
   else frames = framesObj:get() end
@@ -53,7 +53,7 @@ function SMGshared:timeDisplay(framesObj, which, displayType)
   end
     
   local format = nil
-  if displayType == "narrow" then
+  if options.narrow then
     format = "%s:\n %s\n %d"
   else
     format = "%s: %s | %d"
@@ -63,13 +63,13 @@ function SMGshared:timeDisplay(framesObj, which, displayType)
   return display
 end
 
-function SMGshared:stageTimeDisplay(displayType)
-  return self:timeDisplay(self.stageTimeFrames, "stage", displayType)
+function SMGshared:stageTimeDisplay(options)
+  return self:timeDisplay(self.stageTimeFrames, "stage", options)
 end
 
 -- SMG2 only
-function SMGshared:fileTimeDisplay(displayType)
-  return self:timeDisplay(self.fileTimeFrames, "stage", displayType)
+function SMGshared:fileTimeDisplay(options)
+  return self:timeDisplay(self.fileTimeFrames, "stage", options)
 end
 
 
@@ -681,13 +681,14 @@ end
 
 SMGshared.StickInputImage = {}
 
-function SMGshared.StickInputImage:init(game, window, size, x, y, foregroundColor_)
-  local foregroundColor = foregroundColor_ or 0x000000  -- default = black
+function SMGshared.StickInputImage:init(game, window, options)
+  local foregroundColor =
+    options.foregroundColor or 0x000000  -- default = black
   
   self.image = createImage(window)
-  self.image:setPosition(x, y)
-  self.size = size
-  self.image:setSize(size, size)
+  self.image:setPosition(options.x or 0, options.y or 0)
+  self.size = options.size
+  self.image:setSize(self.size, self.size)
   self.canvas = self.image:getCanvas()
   -- Brush: ellipse() fill
   self.canvas:getBrush():setColor(0xF0F0F0)
@@ -695,7 +696,7 @@ function SMGshared.StickInputImage:init(game, window, size, x, y, foregroundColo
   self.canvas:getPen():setColor(foregroundColor)
   self.canvas:getPen():setWidth(2)
   -- Initialize the whole image with the brush color
-  self.canvas:fillRect(0,0, size,size)
+  self.canvas:fillRect(0,0, self.size,self.size)
   
   self.stickX = game.stickX
   self.stickY = game.stickY

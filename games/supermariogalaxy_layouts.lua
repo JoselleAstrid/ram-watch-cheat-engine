@@ -19,8 +19,12 @@ local windowWidth = 144
 local dolphinNativeResolutionHeight = 528
 local X = 6
 local fontSize = 12
-local generalFontName = "Calibri"  -- alt: Arial
-local fixedWidthFontName = "Consolas"  -- alt: Lucida Console
+-- alt: Arial
+local generalFontName = "Calibri"
+-- alt: Lucida Console
+local fixedWidthFontName = "Consolas"
+-- Cheat Engine uses blue-green-red order for some reason
+local inputColor = 0x880000
 
 
 
@@ -198,12 +202,7 @@ function layouts.inputsOldWay:init(window, game)
   
   self:setBreakpointUpdateMethod()
   
-  local dolphinNativeResolutionHeight = 528
-  self.window:setSize(144, dolphinNativeResolutionHeight)
-  
-  local fontSize = 12
-  local X = 6
-  local inputColor = 0x880000    -- Cheat Engine uses BGR order, not sure why
+  self.window:setSize(windowWidth, dolphinNativeResolutionHeight)
   
   self.coordsLabel = self:createLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName}
@@ -264,8 +263,8 @@ function layouts.inputsOldWay:update()
     -- self.velocityY:display{narrow=true},
     -- self.velocityZ:display{narrow=true},
     
-    game.downVectorGravity:display{narrow=true},
-    game.upVectorTilt:display{narrow=true},
+    --game.downVectorGravity:display{narrow=true},
+    --game.upVectorTilt:display{narrow=true},
     self.upwardVelocityLastJump:display{narrow=true, beforeDecimal=2, afterDecimal=3},
     self.upwardAccel:display{narrow=true, signed=true, beforeDecimal=2, afterDecimal=3},
     self.upVelocityTiltBonus:display{narrow=true},
@@ -308,16 +307,30 @@ function layouts.inputs:init(window, game)
   
   self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
   
+  -- TODO: Be able to specify label defaults: X, fontSize, fontName
+  
   self.velUp = game:newDV(game.UpwardVelocity)
   
   self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game.downVectorGravity, {narrow=true})
-  self:addItem(game.upVectorTilt, {narrow=true})
+  --self:addItem(game.downVectorGravity, {narrow=true})
+  --self:addItem(game.upVectorTilt, {narrow=true})
   self:addItem(game:newDV(game.UpwardVelocityLastJump),
      {narrow=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game:newDV(game.RateOfChange, self.velUp, "Up Accel"),
      {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game:newDV(game.UpVelocityTiltBonus), {narrow=true})
+  
+  self:addLabel{
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName, color=inputColor}
+  -- TODO: Make this display function's interface more uniform with others
+  self:addItem(utils.curry(game.inputDisplay, game, "both", "compact"))
+  
+  self:addImage(
+    game.StickInputImage, {size=100, x=10, color=inputColor})
+  
+  self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  -- TODO: This currying isn't too user friendly, how to make it better?
+  self:addItem(utils.curry(game.stageTimeDisplay, game), {narrow=true})
   
   Layout.init(self, window, game)
 end
