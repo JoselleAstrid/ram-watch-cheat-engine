@@ -26,9 +26,9 @@ local floatToStr = utils.floatToStr
 local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
 local StatRecorder = utils.StatRecorder
+local copyFields = utils.copyFields
 
 local V = vtypes.V
-local copyFields = vtypes.copyFields
 local MemoryValue = vtypes.MemoryValue
 local FloatValue = vtypes.FloatValue
 local IntValue = vtypes.IntValue

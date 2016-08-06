@@ -34,11 +34,11 @@ local floatToStr = utils.floatToStr
 local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
 local StatRecorder = utils.StatRecorder
+local copyFields = utils.copyFields
+local subclass = utils.subclass
 
 local Vector3 = utils_math.Vector3
 
-local copyFields = vtypes.copyFields
-local subclass = vtypes.subclass
 local MemoryValue = vtypes.MemoryValue
 local FloatValue = vtypes.FloatValue
 local IntValue = vtypes.IntValue

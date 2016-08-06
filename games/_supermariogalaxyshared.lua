@@ -6,12 +6,12 @@ package.loaded.dolphin = nil
 local dolphin = require "dolphin"
 package.loaded.utils = nil
 local utils = require "utils"
+local subclass = utils.subclass
 package.loaded.utils_math = nil
 local utils_math = require "utils_math"
 local Vector3 = utils_math.Vector3
 package.loaded.valuetypes = nil
 local vtypes = require "valuetypes"
-local subclass = vtypes.subclass
 local Vector3Value = vtypes.Vector3Value
 
 

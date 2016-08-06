@@ -323,6 +323,57 @@ end
 
 
 
+--
+-- Inheritance related.
+--
+
+-- Kind of like inheritance, except it just copies the fields from the parents
+-- to the children.
+--
+-- This means you can easily have multiple parents ordered by priority
+-- (so the 2nd parent's stuff takes precedence over the 1st parent's, etc.).
+--
+-- It also means no "super" calls; you'd have to explicitly go
+-- like MySuperClass.myFunc(self, ...) instead of doing a super call.
+local function copyFields(child, parents)
+  for _, parent in pairs(parents) do
+    for key, value in pairs(parent) do
+      if key == "extraArgs" then
+        -- Add the parent's extraArgs to the child's. 
+        for _, name in pairs(value) do
+          table.insert(child.extraArgs, name)
+        end
+      else
+        -- For any non-extraArgs field, just set the value directly.
+        child[key] = value
+      end
+    end
+  end
+end
+
+-- Basically a shortcut for copyFields.
+local function subclass(...)
+  local parents = {}
+  for _,v in ipairs(arg) do
+    table.insert(parents, v)
+  end
+  
+  local subcls = {}
+  copyFields(subcls, parents)
+  return subcls
+end
+
+-- Create an object of a class, and call init() to initialize the object.
+-- Similar to class instantiation in Python, or 'new' keyword in Java (init is
+-- basically the constructor), etc.
+local function classInstantiate(class, ...)
+  local obj = subclass(class)
+  obj:init(...)
+  return obj
+end
+
+
+
 return {
   setDebugLabel = setDebugLabel,
   debugDisp = debugDisp,
@@ -344,4 +395,8 @@ return {
   writeFloatBE = writeFloatBE,
   
   scanStr = scanStr,
+  
+  copyFields = copyFields,
+  subclass = subclass,
+  classInstantiate = classInstantiate,
 }

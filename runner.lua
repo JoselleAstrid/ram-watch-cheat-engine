@@ -1,6 +1,6 @@
-package.loaded.valuetypes = nil
-local vtypes = require "valuetypes"
-local classInstantiate = vtypes.classInstantiate
+package.loaded.utils = nil
+local utils = require "utils"
+local classInstantiate = utils.classInstantiate
 
 
 

@@ -1,9 +1,6 @@
 package.loaded.utils = nil
 local utils = require "utils"
-
-package.loaded.valuetypes = nil
-local vtypes = require "valuetypes"
-local classInstantiate = vtypes.classInstantiate
+local classInstantiate = utils.classInstantiate
 
 
 local Layout = {

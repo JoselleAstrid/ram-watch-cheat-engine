@@ -1,9 +1,12 @@
 -- Non-game-specific value classes,
 -- and their supporting functions.
 
+package.loaded.utils = nil
 local utils = require "utils"
+local subclass = utils.subclass
+local copyFields = utils.copyFields
+package.loaded.utils_math = nil
 local utils_math = require "utils_math"
-
 local Vector3 = utils_math.Vector3
 
 
@@ -29,50 +32,6 @@ local function V(label, offset, classes, extraArgs)
   end
   
   return newObj
-end
-
--- TODO: Move copyFields, subclass, and classInstantiate to the utils module.
-
--- Kind of like inheritance, except it just copies the fields from the parents
--- to the children.
---
--- This means you can easily have multiple parents ordered by priority
--- (so the 2nd parent's stuff takes precedence over the 1st parent's, etc.).
---
--- It also means no "super" calls; you'd have to explicitly go
--- like MySuperClass.myFunc(self, ...) instead of doing a super call.
-local function copyFields(child, parents)
-  for _, parent in pairs(parents) do
-    for key, value in pairs(parent) do
-      if key == "extraArgs" then
-        -- Add the parent's extraArgs to the child's. 
-        for _, name in pairs(value) do
-          table.insert(child.extraArgs, name)
-        end
-      else
-        -- For any non-extraArgs field, just set the value directly.
-        child[key] = value
-      end
-    end
-  end
-end
-
--- Bit of a shortcut for copyFields.
-local function subclass(...)
-  local parents = {}
-  for _,v in ipairs(arg) do
-    table.insert(parents, v)
-  end
-  
-  local subcls = {}
-  copyFields(subcls, parents)
-  return subcls
-end
-
-local function classInstantiate(class, ...)
-  local obj = subclass(class)
-  obj:init(...)
-  return obj
 end
 
 
@@ -496,10 +455,6 @@ end
 
 return {
   V = V,
-  
-  copyFields = copyFields,
-  subclass = subclass,
-  classInstantiate = classInstantiate,
   
   MemoryValue = MemoryValue,
   FloatValue = FloatValue,
