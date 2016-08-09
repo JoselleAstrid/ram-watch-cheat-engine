@@ -2,7 +2,6 @@
 
 package.loaded.utils = nil
 local utils = require 'utils'
-local classInstantiate = utils.classInstantiate
 local subclass = utils.subclass
 
 package.loaded.layouts = nil
@@ -229,11 +228,11 @@ function layouts.inputsOldWay:init(window, game)
   -- self.velocityY = Velocity("Y")
   -- self.velocityZ = Velocity("Z")
   
-  self.velUp = game:newDV(game.UpwardVelocity)
-  self.upwardAccel = game:newDV(game.RateOfChange, self.velUp, "Up Accel")
-  self.upwardVelocityLastJump = game:newDV(game.UpwardVelocityLastJump)
-  self.tilt = game:newDV(game.Tilt)
-  self.upVelocityTiltBonus = game:newDV(game.UpVelocityTiltBonus)
+  self.velUp = game:V(game.UpwardVelocity)
+  self.upwardAccel = game:V(game.RateOfChange, self.velUp, "Up Accel")
+  self.upwardVelocityLastJump = game:V(game.UpwardVelocityLastJump)
+  self.tilt = game:V(game.Tilt)
+  self.upVelocityTiltBonus = game:V(game.UpVelocityTiltBonus)
   --self.speedLateral = LateralVelocity()
   
   --self.speedXZ = Velocity("XZ")
@@ -306,16 +305,16 @@ function layouts.inputs:init(window, game)
   
   -- TODO: Be able to specify label defaults: X, fontSize, fontName
   
-  self.velUp = game:newDV(game.UpwardVelocity)
+  self.velUp = game:V(game.UpwardVelocity)
   
   self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
-  --self:addItem(game.downVectorGravity, {narrow=true})
-  --self:addItem(game.upVectorTilt, {narrow=true})
-  self:addItem(game:newDV(game.UpwardVelocityLastJump),
-     {narrow=true, beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:newDV(game.RateOfChange, self.velUp, "Up Accel"),
-     {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:newDV(game.UpVelocityTiltBonus), {narrow=true})
+  -- self:addItem(game.downVectorGravity, {narrow=true})
+  -- self:addItem(game.upVectorTilt, {narrow=true})
+  self:addItem(game:V(game.UpwardVelocityLastJump),
+    {narrow=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:V(game.RateOfChange, self.velUp, "Up Accel"),
+    {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:V(game.UpVelocityTiltBonus), {narrow=true})
   
   self:addLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName, color=inputColor}
@@ -326,7 +325,7 @@ function layouts.inputs:init(window, game)
     game.StickInputImage, {size=100, x=10, color=inputColor})
   
   self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
-  -- TODO: This currying isn't too user friendly, how to make it better?
+  -- TODO: Make this display function's interface more uniform with others
   self:addItem(utils.curry(game.stageTimeDisplay, game), {narrow=true})
   
   Layout.init(self, window, game)

@@ -338,15 +338,7 @@ end
 local function copyFields(child, parents)
   for _, parent in pairs(parents) do
     for key, value in pairs(parent) do
-      if key == "extraArgs" then
-        -- Add the parent's extraArgs to the child's. 
-        for _, name in pairs(value) do
-          table.insert(child.extraArgs, name)
-        end
-      else
-        -- For any non-extraArgs field, just set the value directly.
-        child[key] = value
-      end
+      child[key] = value
     end
   end
 end

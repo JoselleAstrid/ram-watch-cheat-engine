@@ -7,10 +7,16 @@
 package.loaded.utils = nil
 local utils = require 'utils'
 local readIntLE = utils.readIntLE
+local subclass = utils.subclass
+package.loaded.valuetypes = nil
+local vtypes = require 'valuetypes'
+local MemoryValue = vtypes.MemoryValue
 
 
 
-local DolphinGame = {}
+local DolphinGame = {
+  valuesToInitialize = {},
+}
 
 function DolphinGame:init(options)
   self.gameVersion =
@@ -22,10 +28,69 @@ function DolphinGame:init(options)
     options.oncePerFrameAddress or nil
   self.constantGameStartAddress =
     options.constantGameStartAddress or nil
+  
+  for _, value in pairs(self.valuesToInitialize) do
+    value.obj.game = self
+    value.initCallable()
+  end
     
   -- Subclasses of DolphinGame must set a gameId attribute in their init().
 end
+
+
+-- Like classInstantiate(), except the game attribute is set
+-- before init() is called.
+-- If the Game object isn't initialized yet, use VDeferredInit() instead.
+function DolphinGame:V(ValueClass, ...)
+  local newValue = subclass(ValueClass)
+  newValue.game = self
+  newValue:init(...)
+  return newValue
+end
+
+
+-- Create Values which are initialized after <value>.game is set.
+function DolphinGame:VDeferredInit(ValueClass, ...)
+  local newValue = subclass(ValueClass)
+  local initCallable = utils.curry(ValueClass.init, newValue, ...)
   
+  -- Save the object in a table.
+  -- Later, when we have an initialized Game object,
+  -- we'll iterate over this table, set the game attribute for each object,
+  -- and call init() on each object.
+  table.insert(
+    self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
+  
+  return newValue
+end
+
+
+-- Create MemoryValues which are initialized after <value>.game is set.
+--
+-- Creation isn't entirely straightforward because we want
+-- MemoryValue instances to be a mixin of multiple classes.
+function DolphinGame:MVDeferredInit(
+    label, offset, mvClass, typeMixin, extraArgs)
+  local newMV = subclass(mvClass, typeMixin)
+  
+  local function f(newMV_, label_, offset_, mvClass_, typeMixin_, extraArgs_)
+    mvClass_.init(newMV_, label_, offset_)
+    typeMixin_.init(newMV_, extraArgs_)
+  end
+  
+  local initCallable = utils.curry(
+    f, newMV, label, offset, mvClass, typeMixin, extraArgs)
+  
+  -- Save the object in a table.
+  -- Later, when we have an initialized Game object,
+  -- we'll iterate over this table, set the game attribute for each object,
+  -- and call init() on each object.
+  table.insert(
+    self.valuesToInitialize, {obj=newMV, initCallable=initCallable})
+    
+  return newMV
+end
+
 
 function DolphinGame:getGameStartAddress()
   if self.constantGameStartAddress then

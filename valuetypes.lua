@@ -4,39 +4,80 @@
 package.loaded.utils = nil
 local utils = require "utils"
 local subclass = utils.subclass
-local copyFields = utils.copyFields
 package.loaded.utils_math = nil
 local utils_math = require "utils_math"
 local Vector3 = utils_math.Vector3
 
+local valuetypes = {}
 
 
-local function V(label, offset, classes, extraArgs)
-  -- Note that these parameters are optional, any unspecified ones
-  -- will just become nil.
-  local newObj = {label = label, offset = offset}
+
+Value = {}
+valuetypes.Value = Value
+Value.label = "Label not specified"
+Value.initialValue = nil
+
+function Value:init()
+  self.value = self.initialValue
+  self.lastUpdateFrame = self.game:getFrameCount()
+end
+
+function Value:updateValue()
+  -- Subclasses should implement this function to update self.value.
+  error("Function not implemented")
+end
+
+function Value:update()
+  -- Generally this shouldn't be overridden.
+  local currentFrame = self.game:getFrameCount()
+  if self.lastUpdateFrame == currentFrame then return end
+  self.lastUpdateFrame = currentFrame
   
-  -- The below is a simple implementation of mixins. This lets us get
-  -- some attributes from one class and some attributes from another class.
-  for _, class in pairs(classes) do
-    for key, value in pairs(class) do
-      newObj[key] = value
+  self:updateValue()
+end
+
+function Value:get()
+  self:update()
+  return self.value
+end
+
+function Value:displayValue(options)
+  -- Subclasses with non-float values should override this.
+  -- This is separate from display() for
+  -- (1) Ease of overriding this function, and
+  -- (2) Providing a more bare-bones display function, which allows callers
+  -- some flexibility on how to display values.
+  return utils.floatToStr(self.value, options)
+end
+
+function Value:display(passedOptions)
+  local options = {}
+  -- First apply default options
+  if self.displayDefaults then
+    for key, value in pairs(self.displayDefaults) do
+      options[key] = value
     end
-    if class.extraArgs then
-      for _, argName in pairs(class.extraArgs) do
-        -- TODO: Would be nice to have a good way of enforcing that the
-        -- extraArgs needed are present.
-        newObj[argName] = extraArgs[argName]
-      end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedOptions then
+    for key, value in pairs(passedOptions) do
+      options[key] = value
     end
   end
   
-  return newObj
+  local label = options.label or self.label
+  
+  self:update()
+  if options.narrow then
+    return label..":\n "..self:displayValue(options)
+  else
+    return label..": "..self:displayValue(options)
+  end
 end
 
 
-
-local function openEditWindow(mvObj, updateDisplayFunction)
+-- TODO: Move to layouts?
+function valuetypes.openEditWindow(mvObj, updateDisplayFunction)
   -- mvObj = MemoryValue object
 
   local font = nil
@@ -106,7 +147,9 @@ local function openEditWindow(mvObj, updateDisplayFunction)
   textField:setFocus()
 end
 
-local function addAddressToList(mvObj, args)
+
+-- TODO: Move to layouts?
+function valuetypes.addAddressToList(mvObj, args)
   -- mvObj = MemoryValue object
   -- args = table of custom arguments for the address list entry, otherwise
   -- it's assumed that certain fields of the mvObj should be used
@@ -117,7 +160,7 @@ local function addAddressToList(mvObj, args)
   local address = mvObj:getAddress()
   if args.address then address = args.address end
   
-  local description = mvObj:getLabel()
+  local description = mvObj.label
   if args.description then description = args.description end
   
   local displayType = mvObj.addressListType
@@ -154,10 +197,23 @@ end
 
 
 
-local MemoryValue = {}
+local MemoryValue = subclass(Value)
+valuetypes.MemoryValue = MemoryValue
 
-function MemoryValue:get()
-  return self:read(self:getAddress())
+function MemoryValue:init(label, offset)
+  Value.init(self)
+
+  -- These parameters are optional; will be nil if unspecified.
+  self.label = label
+  self.offset = offset
+end
+
+function MemoryValue:getAddress()
+  error("Must be implemented by subclass")
+end
+
+function MemoryValue:updateValue()
+  self.value = self:read(self:getAddress())
 end
 function MemoryValue:set(v)
   self:write(self:getAddress(), v)
@@ -170,51 +226,42 @@ function MemoryValue:isValid()
   return true
 end
 
-function MemoryValue:getLabel()
-  return self.label
-end
-function MemoryValue:display(passedOptions)
-  local options = {}
-  -- First apply default options
-  if self.displayDefaults then
-    for key, value in pairs(self.displayDefaults) do
-      options[key] = value
-    end
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedOptions then
-    for key, value in pairs(passedOptions) do
-      options[key] = value
-    end
-  end
-  
-  -- Passing a custom label, or even value, allows you to customize a display
-  -- using this memory value's display method.
-  local label = options.label or self:getLabel()
-  local value = options.value or self:get()
-  local narrow = options.narrow or false
-  
-  if narrow then
-    return label .. ":\n " .. self:toStrForDisplay(value, options)
-  else
-    return label .. ": " .. self:toStrForDisplay(value, options)
-  end
-end
-
 function MemoryValue:getEditFieldText()
   return self:toStrForEditField(self:get())
 end
 function MemoryValue:getEditWindowTitle()
-  return string.format("Edit: %s", self:getLabel())
+  return string.format("Edit: %s", self.label)
 end
 
 function MemoryValue:addAddressesToList()
+  -- TODO: Where is this function from now?
   addAddressToList(self, {})
 end
 
 
 
-local FloatValue = {}
+-- Not considered a descendant of MemoryValue, but can be used
+-- as a mixin class when initializing a MemoryValue.
+local TypeMixin = {}
+function TypeMixin:init() end
+function TypeMixin:read(address)
+  error("Must be implemented by subclass")
+end
+function TypeMixin:write(address, v)
+  error("Must be implemented by subclass")
+end
+function TypeMixin:strToValue(s)
+  error("Must be implemented by subclass")
+end
+function TypeMixin:displayValue(v, options)
+  error("Must be implemented by subclass")
+end
+function TypeMixin:toStrForEditField(v, options)
+  error("Must be implemented by subclass")
+end
+
+local FloatValue = subclass(TypeMixin)
+valuetypes.FloatValue = FloatValue
 function FloatValue:read(address)
   return utils.readFloatBE(address, self.numOfBytes)
 end
@@ -222,8 +269,8 @@ function FloatValue:write(address, v)
   return utils.writeFloatBE(address, v, self.numOfBytes)
 end
 function FloatValue:strToValue(s) return tonumber(s) end
-function FloatValue:toStrForDisplay(v, options)
-  return utils.floatToStr(v, options)
+function FloatValue:displayValue(options)
+  return utils.floatToStr(self.value, options)
 end
 function FloatValue:toStrForEditField(v, options)
   -- Here we have less concern of looking good, and more concern of
@@ -238,7 +285,8 @@ FloatValue.numOfBytes = 4
 FloatValue.addressListType = vtCustom
 FloatValue.addressListCustomTypeName = "Float Big Endian"
 
-local IntValue = {}
+local IntValue = subclass(TypeMixin)
+valuetypes.IntValue = IntValue
 function IntValue:read(address)
   return utils.readIntBE(address, self.numOfBytes)
 end
@@ -246,24 +294,25 @@ function IntValue:write(address, v)
   return utils.writeIntBE(address, v, self.numOfBytes)
 end
 function IntValue:strToValue(s) return tonumber(s) end
-function IntValue:toStrForDisplay(v) return tostring(v) end
-IntValue.toStrForEditField = IntValue.toStrForDisplay 
+function IntValue:displayValue() return tostring(self.value) end
+IntValue.toStrForEditField = IntValue.displayValue 
 IntValue.numOfBytes = 4
 IntValue.addressListType = vtCustom
 IntValue.addressListCustomTypeName = "4 Byte Big Endian"
 
-local ShortValue = {}
-copyFields(ShortValue, {IntValue})
+local ShortValue = subclass(IntValue)
+valuetypes.ShortValue = ShortValue
 ShortValue.numOfBytes = 2
 ShortValue.addressListType = vtCustom
 ShortValue.addressListCustomTypeName = "2 Byte Big Endian"
 
-local ByteValue = {}
-copyFields(ByteValue, {IntValue})
+local ByteValue = subclass(IntValue)
+valuetypes.ByteValue = ByteValue
 ByteValue.numOfBytes = 1
 ByteValue.addressListType = vtByte
 
-local SignedIntValue = {}
+local SignedIntValue = subclass(TypeMixin)
+valuetypes.SignedIntValue = SignedIntValue
 function SignedIntValue:read(address)
   local v = utils.readIntBE(address, self.numOfBytes)
   return utils.unsignedToSigned(v, self.numOfBytes)
@@ -274,8 +323,13 @@ function SignedIntValue:write(address, v)
 end
 
 
-local StringValue = {}
-StringValue.extraArgs = {"maxLength"}
+local StringValue = subclass(TypeMixin)
+valuetypes.StringValue = StringValue
+function StringValue:init(extraArgs)
+  TypeMixin.init(self)
+  self.maxLength = extraArgs.maxLength
+    or error("Must specify a max string length")
+end
 function StringValue:read(address)
   return readString(address, self.maxLength)
 end
@@ -283,8 +337,8 @@ function StringValue:write(address, text)
   writeString(address, text)
 end
 function StringValue:strToValue(s) return s end
-function StringValue:toStrForDisplay(v) return v end
-StringValue.toStrForEditField = StringValue.toStrForDisplay 
+function StringValue:displayValue() return self.value end
+StringValue.toStrForEditField = StringValue.displayValue 
 StringValue.addressListType = vtString
 -- TODO: Figure out the remaining details of adding a String to the
 -- address list. I think there's a couple of special fields for vtString?
@@ -292,10 +346,18 @@ StringValue.addressListType = vtString
 
 
 
-local BinaryValue = {}
-BinaryValue.extraArgs = {"binarySize", "binaryStartBit"}
+local BinaryValue = subclass(TypeMixin)
+valuetypes.BinaryValue = BinaryValue
 BinaryValue.addressListType = vtBinary
 
+function BinaryValue:init(extraArgs)
+  TypeMixin.init(self)
+  if not extraArgs.binarySize then error(self.label) end
+  self.binarySize = extraArgs.binarySize
+    or error("Must specify size of the binary value (number of bits)")
+  self.binaryStartBit = extraArgs.binaryStartBit
+    or error("Must specify binary start bit (which bit within the byte)")
+end
 function BinaryValue:read(address, startBit)
   -- address is the byte address
   -- Possible startBit values from left to right: 76543210
@@ -315,8 +377,8 @@ function BinaryValue:read(address, startBit)
   return bits
 end
 
-function BinaryValue:get()
-  return self:read(self:getAddress(), self.binaryStartBit)
+function BinaryValue:updateValue()
+  self.value = self:read(self:getAddress(), self.binaryStartBit)
 end
 
 function BinaryValue:write(address, startBit, v)
@@ -359,36 +421,34 @@ function BinaryValue:strToValue(s)
   return bits
 end
 
-function BinaryValue:toStrForDisplay(v)
-  -- v is a table of bits
+function BinaryValue:displayValue()
+  -- self.value is a table of bits
   local s = ""
-  for _, bit in pairs(v) do
+  for _, bit in pairs(self.value) do
     s = s .. tostring(bit)
   end
   return s
 end
-BinaryValue.toStrForEditField = BinaryValue.toStrForDisplay
+BinaryValue.toStrForEditField = BinaryValue.displayValue
 
 
 
--- Vector3Value is different from the other value types so far. It's basically
--- a wrapper for 3 other Values.
--- You call the new() method to instantiate rather than calling V().
+local Vector3Value = subclass(Value)
+valuetypes.Vector3Value = Vector3Value
+Vector3Value.initialValue = "Value field not used"
 
-local Vector3Value = {}
-
-function Vector3Value:new(x, y, z, label)
-  local obj = subclass(Vector3Value)
-  obj.x = x
-  obj.y = y
-  obj.z = z
-  obj.label = label
-  return obj
+function Vector3Value:init(x, y, z)
+  Value.init(self)
+  self.x = x
+  self.y = y
+  self.z = z
 end
 
 function Vector3Value:get()
+  self:update()
   return Vector3:new(self.x:get(), self.y:get(), self.z:get())
 end
+
 function Vector3Value:set(vec3)
   self.x:set(vec3.x)
   self.y:set(vec3.y)
@@ -399,9 +459,12 @@ function Vector3Value:isValid()
   return (self.x:isValid() and self.y:isValid() and self.z:isValid()) 
 end
 
-function Vector3Value:getLabel()
-  return self.label
+function Vector3Value:update()
+  self.x:update()
+  self.y:update()
+  self.z:update()
 end
+
 function Vector3Value:display(passedOptions)
   local options = {}
   -- First apply default options
@@ -417,57 +480,26 @@ function Vector3Value:display(passedOptions)
     end
   end
   
-  -- Passing a custom label, or even value, allows you to customize a display
-  -- using this memory value's display method.
-  if options == nil then arg = {} end
-  local label = options.label or self:getLabel()
-  local value = options.value or self:get()
-  local narrow = options.narrow or false
+  local label = options.label or self.label
 
   local format = nil
-  if narrow then
+  if options.narrow then
     format = "%s:\n X %s\n Y %s\n Z %s"
   else
     format = "%s: X %s | Y %s | Z %s"
   end
   
+  self:update()
   return string.format(
     format,
     label,
-    self.x:toStrForDisplay(value.x, options),
-    self.y:toStrForDisplay(value.y, options),
-    self.z:toStrForDisplay(value.z, options)
+    self.x:displayValue(options),
+    self.y:displayValue(options),
+    self.z:displayValue(options)
   )
 end
 
-function Vector3Value:getEditFieldText()
-  error("Value "..self:getLabel().." isn't editable")
-end
-function Vector3Value:getEditWindowTitle()
-  error("Value "..self:getLabel().." isn't editable")
-end
-
-function Vector3Value:addAddressesToList()
-  -- TODO: Implement adding X, Y, and Z addresses to the list
-end
 
 
-
-return {
-  V = V,
-  
-  MemoryValue = MemoryValue,
-  FloatValue = FloatValue,
-  IntValue = IntValue,
-  ShortValue = ShortValue,
-  ByteValue = ByteValue,
-  SignedIntValue = SignedIntValue,
-  StringValue = StringValue,
-  BinaryValue = BinaryValue,
-  
-  Vector3Value = Vector3Value,
-  
-  openEditWindow = openEditWindow,
-  addAddressToList = addAddressToList,
-}
+return valuetypes
 

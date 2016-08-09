@@ -333,9 +333,9 @@ end
 
 local function UpVelocityTiltBonus(tiltValue)
   local nextVel = Vector3Value:new(
-    RateOfChange(smg.VToDerivedValue(pos_early1.x)),
-    RateOfChange(smg.VToDerivedValue(pos_early1.y)),
-    RateOfChange(smg.VToDerivedValue(pos_early1.z)),
+    RateOfChange(pos_early1.x),
+    RateOfChange(pos_early1.y),
+    RateOfChange(pos_early1.z),
     "Velocity"
   )
   return smg.UpVelocityTiltBonus:new(nextVel, downVectorGravity, onGround, tiltValue)

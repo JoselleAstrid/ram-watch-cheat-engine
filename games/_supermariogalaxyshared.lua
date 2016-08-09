@@ -74,93 +74,14 @@ end
 
 
 
-SMGshared.DerivedValue = {}
-SMGshared.DerivedValue.label = "Value label goes here"
-SMGshared.DerivedValue.initialValue = 0.0
-
-function SMGshared.DerivedValue:init()
-  self.value = self.initialValue
-  self.lastUpdateFrame = self.game:getFrameCount()
-end
-
-function SMGshared.DerivedValue:updateValue()
-  -- Subclasses should implement this function to update self.value.
-  error("Function not implemented")
-end
-
-function SMGshared.DerivedValue:update()
-  local currentFrame = self.game:getFrameCount()
-  if self.lastUpdateFrame == currentFrame then return end
-  self.lastUpdateFrame = currentFrame
-  
-  self:updateValue()
-end
-
-function SMGshared.DerivedValue:get()
-  self:update()
-  return self.value
-end
-
-function SMGshared.DerivedValue:displayValue(options)
-  return utils.floatToStr(self.value, options)
-end
-
-function SMGshared.DerivedValue:display(passedOptions)
-  local options = {}
-  -- First apply default options
-  if self.displayDefaults then
-    for key, value in pairs(self.displayDefaults) do
-      options[key] = value
-    end
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedOptions then
-    for key, value in pairs(passedOptions) do
-      options[key] = value
-    end
-  end
-  
-  local label = options.label or self.label
-  
-  self:update()
-  if options.narrow then
-    return label..":\n "..self:displayValue(options)
-  else
-    return label..": "..self:displayValue(options)
-  end
-end
-
-function SMGshared:newDV(class, ...)
-  -- Like classInstantiate(), except the game attribute is set
-  -- before init() is called
-  local obj = subclass(class)
-  obj.game = self
-  obj:init(...)
-  return obj
-end
-
-
-
-function SMGshared:VToDerivedValue(vObj)
-  local obj = self:newDV(self.DerivedValue)
-  obj.vObj = vObj
-  obj.label = vObj.label
-  function obj:updateValue()
-    self.value = self.vObj:get()
-  end
-  return obj
-end
-
-
-
 -- Velocity calculated as position change.
 
-SMGshared.Velocity = subclass(SMGshared.DerivedValue)
+SMGshared.Velocity = subclass(Value)
 SMGshared.Velocity.label = "Label to be passed as argument"
 SMGshared.Velocity.initialValue = 0.0
 
 function SMGshared.Velocity:init(coordinates)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
   self.posObjects = {}
@@ -206,12 +127,12 @@ end
 
 
 
-SMGshared.RateOfChange = subclass(SMGshared.DerivedValue)
+SMGshared.RateOfChange = subclass(Value)
 SMGshared.RateOfChange.label = "Label to be passed as argument"
 SMGshared.RateOfChange.initialValue = 0.0
 
 function SMGshared.RateOfChange:init(baseValue, label)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.baseValue = baseValue
   self.label = label
@@ -239,12 +160,12 @@ end
 -- We might also call this 'skew' when the character is tilted on
 -- non-tilting ground.
 
-SMGshared.Tilt = subclass(SMGshared.DerivedValue)
-SMGshared.Tilt.label = "Not used"
-SMGshared.Tilt.initialValue = "Not used"
+SMGshared.Tilt = subclass(Value)
+SMGshared.Tilt.label = "Label not used"
+SMGshared.Tilt.initialValue = "Value field not used"
 
 function SMGshared.Tilt:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.dgrav = self.game.downVectorGravity
   self.utilt = self.game.upVectorTilt
@@ -321,13 +242,13 @@ end
 
 
 
-SMGshared.UpwardVelocity = subclass(SMGshared.DerivedValue)
+SMGshared.UpwardVelocity = subclass(Value)
 SMGshared.UpwardVelocity.label = "Upward Vel"
 SMGshared.UpwardVelocity.initialValue = 0.0
 SMGshared.UpwardVelocity.displayDefaults = {signed=true}
 
 function SMGshared.UpwardVelocity:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
@@ -352,12 +273,12 @@ end
 
 
 
-SMGshared.LateralVelocity = subclass(SMGshared.DerivedValue)
+SMGshared.LateralVelocity = subclass(Value)
 SMGshared.LateralVelocity.label = "Lateral Spd"
 SMGshared.LateralVelocity.initialValue = 0.0
 
 function SMGshared.LateralVelocity:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
@@ -387,13 +308,13 @@ end
 
 
 
-SMGshared.UpwardVelocityLastJump = subclass(SMGshared.DerivedValue)
+SMGshared.UpwardVelocityLastJump = subclass(Value)
 SMGshared.UpwardVelocityLastJump.label = "Up Vel\nlast jump"
 SMGshared.UpwardVelocityLastJump.initialValue = 0.0
 SMGshared.UpwardVelocityLastJump.displayDefaults = {signed=true}
 
 function SMGshared.UpwardVelocityLastJump:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
@@ -443,23 +364,24 @@ end
 -- (e.g. a bonus of +0.9 means that, if we normally start with
 -- 22 upward velocity, then here we start with 22.9.)
 
-SMGshared.UpVelocityTiltBonus = subclass(SMGshared.DerivedValue)
+SMGshared.UpVelocityTiltBonus = subclass(Value)
 SMGshared.UpVelocityTiltBonus.label = "Up Vel\ntilt bonus\nprediction"
 SMGshared.UpVelocityTiltBonus.initialValue = 0.0
 SMGshared.UpVelocityTiltBonus.displayDefaults = {signed=true}
 
 function SMGshared.UpVelocityTiltBonus:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
-  self.nextVel = Vector3Value:new(
-    self.game:newDV(self.game.RateOfChange, self.game:VToDerivedValue(self.game.pos_early1.x)),
-    self.game:newDV(self.game.RateOfChange, self.game:VToDerivedValue(self.game.pos_early1.y)),
-    self.game:newDV(self.game.RateOfChange, self.game:VToDerivedValue(self.game.pos_early1.z)),
+  self.nextVel = self.game:V(
+    Vector3Value,
+    self.game:V(self.game.RateOfChange, self.game.pos_early1.x),
+    self.game:V(self.game.RateOfChange, self.game.pos_early1.y),
+    self.game:V(self.game.RateOfChange, self.game.pos_early1.z),
     "Velocity"
   )
   
   self.dgrav = self.game.downVectorGravity
-  self.tiltValue = self.game:newDV(self.game.Tilt)
+  self.tiltValue = self.game:V(self.game.Tilt)
 end
 
 function SMGshared.UpVelocityTiltBonus:updateValue()
@@ -717,10 +639,10 @@ end
 
 
 
-SMGshared.ResettableValue = subclass(SMGshared.DerivedValue)
+SMGshared.ResettableValue = subclass(Value)
 
 function SMGshared.ResettableValue:init(baseValue, resetButton)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   -- The baseValue's class is expected to define a reset function.
   if not baseValue.reset then
@@ -750,12 +672,12 @@ end
 
 
 
-SMGshared.AnchoredDistance = subclass(SMGshared.DerivedValue)
+SMGshared.AnchoredDistance = subclass(Value)
 SMGshared.AnchoredDistance.label = "Label to be passed as argument"
 SMGshared.AnchoredDistance.initialValue = 0.0
 
 function SMGshared.AnchoredDistance:init(coordinates)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
   self.posObjects = {}
@@ -803,12 +725,12 @@ end
 
 
 
-SMGshared.MaxValue = subclass(SMGshared.DerivedValue)
+SMGshared.MaxValue = subclass(Value)
 SMGshared.MaxValue.label = "Label to be passed as argument"
 SMGshared.MaxValue.initialValue = 0.0
 
 function SMGshared.MaxValue:init(baseValue)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.baseValue = baseValue
   self.label = "Max "..baseValue.label
@@ -835,12 +757,12 @@ end
 
 
 
-SMGshared.AnchoredHeight = subclass(SMGshared.DerivedValue)
+SMGshared.AnchoredHeight = subclass(Value)
 SMGshared.AnchoredHeight.label = "Height"
 SMGshared.AnchoredHeight.initialValue = 0.0
 
 function SMGshared.AnchoredHeight:init()
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
@@ -860,12 +782,12 @@ end
 
 
 
-SMGshared.AverageValue = subclass(SMGshared.DerivedValue)
+SMGshared.AverageValue = subclass(Value)
 SMGshared.AverageValue.label = "Label to be passed as argument"
 SMGshared.AverageValue.initialValue = 0.0
 
 function SMGshared.AverageValue:init(baseValue)
-  self.game.DerivedValue.init(self)
+  Value.init(self)
   
   self.baseValue = baseValue
   self.label = "Avg "..baseValue.label

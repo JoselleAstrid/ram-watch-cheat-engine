@@ -34,7 +34,6 @@ local floatToStr = utils.floatToStr
 local initLabel = utils.initLabel
 local debugDisp = utils.debugDisp
 local StatRecorder = utils.StatRecorder
-local copyFields = utils.copyFields
 local subclass = utils.subclass
 
 local Vector3 = utils_math.Vector3
@@ -76,10 +75,6 @@ function SMG1:init(options)
   
   self.addrs = {}
   self:initConstantAddresses()
-  
-  for _,obj in pairs(self.vObjects) do
-    obj.game = self
-  end
 end
 
 
@@ -137,39 +132,13 @@ end
 
 
 
--- SMG1 specific classes and their supporting functions.
-
-
-
-SMG1.vObjects = {}
--- Wrapper around vtypes.V() to save the object in a table. Later we'll
--- iterate over this table and add a game attribute to each object. (We
--- can't get the game attribute yet.)
+-- Shortcuts for creating Values and MemoryValues.
 local function V(...)
-  local obj = vtypes.V(...)
-  table.insert(SMG1.vObjects, obj)
-  return obj
+  return SMG1:VDeferredInit(...)
 end
-
--- TODO: Check if needed.
--- Here is another idea for a vtypes.V() wrapper, where we would delay the
--- call of vtypes.V() until the initialization of the Game. This may be
--- needed if some V() calls require the game attribute to be set.
---
--- SMG1.VCreationCallables = {}
--- local function V(...)
---   local function createVObj(vArgsTable, game)
---     -- Pass in the V() args as a standard argument list,
---     -- which we can get by using unpack() on the argument table.
---     local obj = vtypes.V(unpack(vArgsTable))
---     obj.game = game
---     return obj
---   end
---   -- Curry in the vtypes.V() args as a table right now.
---   -- Let the caller pass in game.
---   table.insert(SMG1.VCreationCallables, utils.curry(createVObj, {...}))
--- end
-
+local function MV(...)
+  return SMG1:MVDeferredInit(...)
+end
 
 
 -- Values at static addresses (from the beginning of the game memory).
@@ -180,7 +149,6 @@ function SMG1.StaticValue:getAddress()
 end
 
 
-
 -- Values that are a constant offset from the refPointer.
 SMG1.RefValue = subclass(MemoryValue)
 
@@ -189,14 +157,12 @@ function SMG1.RefValue:getAddress()
 end
 
 
-
 -- Values that are a constant small offset from the position values' location.
 SMG1.PosBlockValue = subclass(MemoryValue)
 
 function SMG1.PosBlockValue:getAddress()
   return self.game.addrs.posBlock + self.offset
 end
-
 
 
 -- Values that are a constant offset from the messageInfoPointer.
@@ -214,45 +180,45 @@ end
 -- It also pauses for a few frames when you get the star.
 -- It resets to 0 if you die.
 SMG1.stageTimeFrames =
-  V("Stage time, frames", 0x9ADE58, {SMG1.StaticValue, IntValue})
+  MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntValue)
 
 
 
 -- Inputs and spin state.
 
-SMG1.buttons1 = V("Buttons 1", 0x61D342, {SMG1.StaticValue, BinaryValue},
+SMG1.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
-SMG1.buttons2 = V("Buttons 2", 0x61D343, {SMG1.StaticValue, BinaryValue},
+SMG1.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
 
-SMG1.wiimoteSpinBit = V("Wiimote spin bit", 0x27F0, {SMG1.RefValue, ByteValue})
-SMG1.nunchukSpinBit = V("Nunchuk spin bit", 0x27F1, {SMG1.RefValue, ByteValue})
+SMG1.wiimoteSpinBit = MV("Wiimote spin bit", 0x27F0, SMG1.RefValue, ByteValue)
+SMG1.nunchukSpinBit = MV("Nunchuk spin bit", 0x27F1, SMG1.RefValue, ByteValue)
 SMG1.spinCooldownTimer =
-  V("Spin cooldown timer", 0x2217, {SMG1.RefValue, ByteValue})
+  MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
 SMG1.spinAttackTimer =
-  V("Spin attack timer", 0x2214, {SMG1.RefValue, ByteValue})
+  MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteValue)
 
-SMG1.stickX = V("Stick X", 0x61D3A0, {SMG1.StaticValue, FloatValue})
-SMG1.stickY = V("Stick Y", 0x61D3A4, {SMG1.StaticValue, FloatValue})
+SMG1.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
+SMG1.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
 
 
 
 -- General-interest state values.
 
-SMG1.generalState1a = V(
-  "State bits 01-08", -0x128, {SMG1.PosBlockValue, BinaryValue},
+SMG1.generalState1a = MV(
+  "State bits 01-08", -0x128, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1b = V(
-  "State bits 09-16", -0x127, {SMG1.PosBlockValue, BinaryValue},
+SMG1.generalState1b = MV(
+  "State bits 09-16", -0x127, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1c = V(
-  "State bits 17-24", -0x126, {SMG1.PosBlockValue, BinaryValue},
+SMG1.generalState1c = MV(
+  "State bits 17-24", -0x126, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1d = V(
-  "State bits 25-32", -0x125, {SMG1.PosBlockValue, BinaryValue},
+SMG1.generalState1d = MV(
+  "State bits 25-32", -0x125, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
 function SMG1:onGround()
@@ -262,50 +228,54 @@ end
 
 
 -- Position, velocity, and other coordinates related stuff.
-
-SMG1.pos = Vector3Value:new(
-  V("Pos X", 0x0, {SMG1.PosBlockValue, FloatValue}),
-  V("Pos Y", 0x4, {SMG1.PosBlockValue, FloatValue}),
-  V("Pos Z", 0x8, {SMG1.PosBlockValue, FloatValue}),
+SMG1.pos = V(
+  Vector3Value,
+  MV("Pos X", 0x0, SMG1.PosBlockValue, FloatValue),
+  MV("Pos Y", 0x4, SMG1.PosBlockValue, FloatValue),
+  MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatValue),
   "Position"
 )
 SMG1.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
-SMG1.pos_early1 = Vector3Value:new(
-  V("Pos X", 0x18DC, {SMG1.RefValue, FloatValue}),
-  V("Pos Y", 0x18E0, {SMG1.RefValue, FloatValue}),
-  V("Pos Z", 0x18E4, {SMG1.RefValue, FloatValue}),
-  "Position"
+SMG1.pos_early1 = V(
+  Vector3Value,
+  MV("Pos X", 0x18DC, SMG1.RefValue, FloatValue),
+  MV("Pos Y", 0x18E0, SMG1.RefValue, FloatValue),
+  MV("Pos Z", 0x18E4, SMG1.RefValue, FloatValue)
 )
+SMG1.pos_early1.label = "Position"
 SMG1.pos_early1.displayDefaults =
   {signed=true, beforeDecimal=5, afterDecimal=1}
 
 -- Mario/Luigi's direction of gravity.
-SMG1.upVectorGravity = Vector3Value:new(
-  V("Up X", 0x6A3C, {SMG1.RefValue, FloatValue}),
-  V("Up Y", 0x6A40, {SMG1.RefValue, FloatValue}),
-  V("Up Z", 0x6A44, {SMG1.RefValue, FloatValue}),
-  "Grav (Up)"
+SMG1.upVectorGravity = V(
+  Vector3Value,
+  MV("Up X", 0x6A3C, SMG1.RefValue, FloatValue),
+  MV("Up Y", 0x6A40, SMG1.RefValue, FloatValue),
+  MV("Up Z", 0x6A44, SMG1.RefValue, FloatValue)
 )
+SMG1.upVectorGravity.label = "Grav (Up)"
 SMG1.upVectorGravity.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
-SMG1.downVectorGravity = Vector3Value:new(
-  V("Up X", 0x1B10, {SMG1.RefValue, FloatValue}),
-  V("Up Y", 0x1B14, {SMG1.RefValue, FloatValue}),
-  V("Up Z", 0x1B18, {SMG1.RefValue, FloatValue}),
-  "Grav (Down)"
+SMG1.downVectorGravity = V(
+  Vector3Value,
+  MV("Up X", 0x1B10, SMG1.RefValue, FloatValue),
+  MV("Up Y", 0x1B14, SMG1.RefValue, FloatValue),
+  MV("Up Z", 0x1B18, SMG1.RefValue, FloatValue)
 )
+SMG1.downVectorGravity.label = "Grav (Down)"
 SMG1.downVectorGravity.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 -- Up vector (tilt). Offset from the gravity up vector when there is tilt.
-SMG1.upVectorTilt = Vector3Value:new(
-  V("Up X", 0xC0, {SMG1.PosBlockValue, FloatValue}),
-  V("Up Y", 0xC4, {SMG1.PosBlockValue, FloatValue}),
-  V("Up Z", 0xC8, {SMG1.PosBlockValue, FloatValue}),
-  "Tilt (Up)"
+SMG1.upVectorTilt = V(
+  Vector3Value,
+  MV("Up X", 0xC0, SMG1.PosBlockValue, FloatValue),
+  MV("Up Y", 0xC4, SMG1.PosBlockValue, FloatValue),
+  MV("Up Z", 0xC8, SMG1.PosBlockValue, FloatValue)
 )
+SMG1.upVectorTilt.label = "Tilt (Up)"
 SMG1.upVectorTilt.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
@@ -319,12 +289,13 @@ SMG1.upVectorTilt.displayDefaults =
 -- can still have its uses. For example, this is actually the velocity
 -- observed on the NEXT frame, so if we want advance knowledge of the velocity,
 -- then we might use this.
-SMG1.baseVel = Vector3Value:new(
-  V("Base Vel X", 0x78, {SMG1.PosBlockValue, FloatValue}),
-  V("Base Vel Y", 0x7C, {SMG1.PosBlockValue, FloatValue}),
-  V("Base Vel Z", 0x80, {SMG1.PosBlockValue, FloatValue}),
-  "Base Vel"
+SMG1.baseVel = V(
+  Vector3Value,
+  MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatValue),
+  MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatValue),
+  MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatValue)
 )
+SMG1.baseVel.label = "Base Vel"
 SMG1.baseVel.displayDefaults = {signed=true}
 
 
@@ -332,12 +303,11 @@ SMG1.baseVel.displayDefaults = {signed=true}
 -- Text.
 
 SMG1.textProgress =
-  V("Text progress", 0x2D39C, {SMG1.MessageInfoValue, IntValue})
+  MV("Text progress", 0x2D39C, SMG1.MessageInfoValue, IntValue)
 SMG1.alphaReq =
-  V("Alpha req", 0x2D3B0, {SMG1.MessageInfoValue, FloatValue})
+  MV("Alpha req", 0x2D3B0, SMG1.MessageInfoValue, FloatValue)
 SMG1.fadeRate =
-  V("Fade rate", 0x2D3B4, {SMG1.MessageInfoValue, FloatValue})
-
+  MV("Fade rate", 0x2D3B4, SMG1.MessageInfoValue, FloatValue)
 
 
 return SMG1
