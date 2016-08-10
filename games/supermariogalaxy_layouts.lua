@@ -302,12 +302,11 @@ function layouts.inputs:init(window, game)
   self:setBreakpointUpdateMethod()
   
   self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
-  
-  -- TODO: Be able to specify label defaults: X, fontSize, fontName
+  self.labelDefaults = {x=X, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self.velUp = game:V(game.UpwardVelocity)
   
-  self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{}
   -- self:addItem(game.downVectorGravity, {narrow=true})
   -- self:addItem(game.upVectorTilt, {narrow=true})
   self:addItem(game:V(game.UpwardVelocityLastJump),
@@ -316,17 +315,14 @@ function layouts.inputs:init(window, game)
     {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game:V(game.UpVelocityTiltBonus), {narrow=true})
   
-  self:addLabel{
-    x=X, fontSize=fontSize, fontName=fixedWidthFontName, color=inputColor}
-  -- TODO: Make this display function's interface more uniform with others
-  self:addItem(utils.curry(game.inputDisplay, game, "both", "compact"))
+  self:addLabel{fontColor=inputColor}
+  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true, narrow=true})
   
   self:addImage(
-    game.StickInputImage, {size=100, x=10, color=inputColor})
+    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
   
-  self:addLabel{x=X, fontSize=fontSize, fontName=fixedWidthFontName}
-  -- TODO: Make this display function's interface more uniform with others
-  self:addItem(utils.curry(game.stageTimeDisplay, game), {narrow=true})
+  self:addLabel{}
+  self:addItem(game:V(game.StageTime), {narrow=true})
   
   Layout.init(self, window, game)
 end

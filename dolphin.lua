@@ -49,6 +49,11 @@ function DolphinGame:V(ValueClass, ...)
 end
 
 
+function DolphinGame:F(func, ...)
+  return utils.curry(func, self, ...)
+end
+
+
 -- Create Values which are initialized after <value>.game is set.
 function DolphinGame:VDeferredInit(ValueClass, ...)
   local newValue = subclass(ValueClass)

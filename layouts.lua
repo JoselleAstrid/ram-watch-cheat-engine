@@ -61,7 +61,20 @@ end
 
 -- Initialize a GUI label.
 -- Based on: http://forum.cheatengine.org/viewtopic.php?t=530121
-function Layout:createLabel(options)
+function Layout:createLabel(passedOptions)
+  local options = {}
+  -- First apply default options
+  if self.labelDefaults then
+    for key, value in pairs(self.labelDefaults) do
+      options[key] = value
+    end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedOptions then
+    for key, value in pairs(passedOptions) do
+      options[key] = value
+    end
+  end
 
   -- Call the Cheat Engine function to create a label.
   local label = createLabel(self.window)

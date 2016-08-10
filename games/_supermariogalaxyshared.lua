@@ -25,51 +25,52 @@ function SMGshared:init(options)
 end
 
 
+SMGshared.Time = subclass(Value)
+SMGshared.Time.label = "Should be set by subclass"
+SMGshared.Time.initialValue = nil
 
-function SMGshared:timeDisplay(framesObj, which, options)
-  local frames = nil
-  if which == "stage" then frames = framesObj:get()
-  else frames = framesObj:get() end
+function SMGshared.Time:updateValue()
+  self.frames:update()
+end
+
+function SMGshared.Time:displayValue(options)
+  local frames = self.frames:get()
   
-  local centis = math.floor((frames % 60) * (100/60))
+  local hours = math.floor(frames / (60*60*60))
+  local mins = math.floor(frames / (60*60)) % 60
   local secs = math.floor(frames / 60) % 60
+  local centis = math.floor((frames % 60) * (100/60))
   
   local timeStr = nil
-  local label = nil
-  
-  if which == "stage" then
-    local mins = math.floor(frames / (60*60))
-    timeStr = string.format("%d:%02d.%02d",
-      mins, secs, centis
-    )
-    label = "Stage time"
+  if hours > 0 then
+    timeStr = string.format("%d:%02d:%02d.%02d", hours, mins, secs, centis)
   else
-    local mins = math.floor(frames / (60*60)) % 60
-    local hrs = math.floor(frames / (60*60*60))
-    timeStr = string.format("%d:%02d:%02d.%02d",
-      hrs, mins, secs, centis
-    )
-    label = "File time"
+    timeStr = string.format("%d:%02d.%02d", mins, secs, centis)
   end
     
-  local format = nil
   if options.narrow then
-    format = "%s:\n %s\n %d"
+    return string.format("%s\n %d", timeStr, frames)
   else
-    format = "%s: %s | %d"
+    return string.format("%s | %d", timeStr, frames)
   end
-  
-  local display = string.format(format, label, timeStr, frames)
-  return display
 end
 
-function SMGshared:stageTimeDisplay(options)
-  return self:timeDisplay(self.stageTimeFrames, "stage", options)
+
+-- In-game level time in SMG2, level-timer-esque value in SMG1
+SMGshared.StageTime = subclass(SMGshared.Time)
+SMGshared.StageTime.label = "Stage time"
+function SMGshared.StageTime:init()
+  SMGshared.Time.init(self)
+  self.frames = self.game.stageTimeFrames
 end
+
 
 -- SMG2 only
-function SMGshared:fileTimeDisplay(options)
-  return self:timeDisplay(self.fileTimeFrames, "stage", options)
+SMGshared.FileTime = subclass(SMGshared.Time)
+SMGshared.FileTime.label = "File time"
+function SMGshared.FileTime:init()
+  SMGshared.Time.init(self)
+  self.frames = self.game.fileTimeFrames
 end
 
 
@@ -561,7 +562,7 @@ end
 
 
 
-function SMGshared:inputDisplay(shakeOrSpin, displayType)
+function SMGshared:inputDisplay(options)
   
   local displayStickX = string.format("%+.3f", self.stickX:get())
   local displayStickY = string.format("%+.3f", self.stickY:get())
@@ -573,30 +574,22 @@ function SMGshared:inputDisplay(shakeOrSpin, displayType)
     self:buttonDisp("A"), self:buttonDisp("B"), self:buttonDisp("Z"),
     self:buttonDisp("+"), self:buttonDisp("H")
   )
-  local displayShakeOrSpin = nil
-  if shakeOrSpin == "both" then
-    displayShakeOrSpin = self:shakeDisp().."\n"..self:spinDisp()
-  elseif shakeOrSpin == "shake" then
-    displayShakeOrSpin = self:shakeDisp()
+  
+  local lines = {}
+  if options.narrow then
+    if options.shake then table.insert(lines, self:shakeDisp()) end
+    if options.spin then table.insert(lines, self:spinDisp()) end
+    table.insert(lines, displayStickX.." "..displayButtons1)
+    table.insert(lines, displayStickY.." "..displayButtons2)
   else
-    displayShakeOrSpin = self:spinDisp()
+    table.insert(lines, "Stick   Buttons")
+    table.insert(lines, displayStickX.."   "..displayButtons1)
+    table.insert(lines, displayStickY.."   "..displayButtons2)
+    if options.shake then table.insert(lines, self:shakeDisp()) end
+    if options.spin then table.insert(lines, self:spinDisp()) end
   end
   
-  if displayType == "compact" then
-    return string.format(
-      "%s\n".."%s %s\n".."%s %s",
-      displayShakeOrSpin,
-      displayStickX, displayButtons1,
-      displayStickY, displayButtons2
-    )
-  else
-    return string.format(
-      "Stick   Buttons\n".."%s   %s\n".."%s   %s\n".."  %s",
-      displayStickX, displayButtons1,
-      displayStickY, displayButtons2,
-      displayShakeOrSpin
-    )
-  end
+  return table.concat(lines, "\n")
 end
 
 
