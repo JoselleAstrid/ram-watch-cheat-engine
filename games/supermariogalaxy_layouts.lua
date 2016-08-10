@@ -303,26 +303,27 @@ function layouts.inputs:init(window, game)
   
   self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
   self.labelDefaults = {x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
   
   self.velUp = game:V(game.UpwardVelocity)
   
-  self:addLabel{}
-  -- self:addItem(game.downVectorGravity, {narrow=true})
-  -- self:addItem(game.upVectorTilt, {narrow=true})
+  self:addLabel()
+  -- self:addItem(game.downVectorGravity)
+  -- self:addItem(game.upVectorTilt)
   self:addItem(game:V(game.UpwardVelocityLastJump),
-    {narrow=true, beforeDecimal=2, afterDecimal=3})
+    {beforeDecimal=2, afterDecimal=3})
   self:addItem(game:V(game.RateOfChange, self.velUp, "Up Accel"),
-    {narrow=true, signed=true, beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(game.UpVelocityTiltBonus), {narrow=true})
+    {signed=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:V(game.UpVelocityTiltBonus))
   
   self:addLabel{fontColor=inputColor}
-  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true, narrow=true})
+  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
   
-  self:addLabel{}
-  self:addItem(game:V(game.StageTime), {narrow=true})
+  self:addLabel()
+  self:addItem(game:V(game.StageTime))
   
   Layout.init(self, window, game)
 end

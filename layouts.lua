@@ -14,18 +14,17 @@ function Layout:init(window, game)
   
   self.window:setSize(self.windowSize[1], self.windowSize[2])
   
-  -- TODO: Maybe element.obj should be called displayObj or uiObj
-  self.displayObjs = {}
+  self.uiObjs = {}
   for _, element in pairs(self.displayElements) do
     if element.type == 'label' then
-      element.obj = self:createLabel(element.initOptions)
+      element.uiObj = self:createLabel(element.initOptions)
     elseif element.type == 'image' then
       local imageClassObj =
         self:createImage(element.ImageClass, element.initOptions)
-      element.obj = imageClassObj.image
+      element.uiObj = imageClassObj.image
       element.updateFunc = utils.curry(imageClassObj.update, imageClassObj)
     end
-    table.insert(self.displayObjs, element.obj)
+    table.insert(self.uiObjs, element.uiObj)
   end
 end
 
@@ -42,7 +41,7 @@ function Layout:update()
         table.insert(displayTexts, displayFunc())
       end
       local labelDisplay = table.concat(displayTexts, '\n')
-      element.obj:setCaption(labelDisplay)
+      element.uiObj:setCaption(labelDisplay)
     elseif element.type == 'image' then
       element.updateFunc()
     end
@@ -53,7 +52,7 @@ function Layout:update()
   -- Thus this step is done at the end of the first update(),
   -- rather than in init().
   if not self.windowElementsPositioned then
-    self:positionWindowElements(self.displayObjs)
+    self:positionWindowElements(self.uiObjs)
     self.windowElementsPositioned = true
   end
 end
@@ -61,20 +60,7 @@ end
 
 -- Initialize a GUI label.
 -- Based on: http://forum.cheatengine.org/viewtopic.php?t=530121
-function Layout:createLabel(passedOptions)
-  local options = {}
-  -- First apply default options
-  if self.labelDefaults then
-    for key, value in pairs(self.labelDefaults) do
-      options[key] = value
-    end
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedOptions then
-    for key, value in pairs(passedOptions) do
-      options[key] = value
-    end
-  end
+function Layout:createLabel(options)
 
   -- Call the Cheat Engine function to create a label.
   local label = createLabel(self.window)
@@ -92,17 +78,37 @@ function Layout:createLabel(passedOptions)
 end
 
 
-function Layout:addLabel(initOptions)
+function Layout:addLabel(passedInitOptions)
+  local initOptions = {}
+  -- First apply default options
+  if self.labelDefaults then
+    for k, v in pairs(self.labelDefaults) do initOptions[k] = v end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedInitOptions then
+    for k, v in pairs(passedInitOptions) do initOptions[k] = v end
+  end
+
   local label = {
-    type='label', obj=nil, displayFuncs={}, initOptions=initOptions}
+    type='label', uiObj=nil, displayFuncs={}, initOptions=initOptions}
   self.lastAddedLabel = label
   table.insert(self.displayElements, label)
 end
 
 
-function Layout:addItem(item, displayOptions)
+function Layout:addItem(item, passedDisplayOptions)
   if not self.lastAddedLabel then
     error("Must add a label before adding an item.")
+  end
+  
+  local displayOptions = {}
+  -- First apply default options
+  if self.itemDisplayDefaults then
+    for k, v in pairs(self.itemDisplayDefaults) do displayOptions[k] = v end
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedDisplayOptions then
+    for k, v in pairs(passedDisplayOptions) do displayOptions[k] = v end
   end
   
   if tostring(type(item)) == 'function' then
@@ -130,7 +136,7 @@ end
 
 function Layout:addImage(ImageClass, initOptions)
   local image = {
-    type='image', obj=nil, updateFunc=nil,
+    type='image', uiObj=nil, updateFunc=nil,
     ImageClass=ImageClass, initOptions=initOptions}
   table.insert(self.displayElements, image)
 end
