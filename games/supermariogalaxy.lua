@@ -191,8 +191,8 @@ SMG1.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
 SMG1.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
 
-SMG1.wiimoteSpinBit = MV("Wiimote spin bit", 0x27F0, SMG1.RefValue, ByteValue)
-SMG1.nunchukSpinBit = MV("Nunchuk spin bit", 0x27F1, SMG1.RefValue, ByteValue)
+SMG1.wiimoteShakeBit = MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteValue)
+SMG1.nunchukShakeBit = MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteValue)
 SMG1.spinCooldownTimer =
   MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
 SMG1.spinAttackTimer =

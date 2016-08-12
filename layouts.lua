@@ -47,13 +47,14 @@ function Layout:update()
     end
   end
 
-  -- Positioning window elements should be done once we've added valid content
-  -- to the labels for the first time, so that we get accurate label sizes.
-  -- Thus this step is done at the end of the first update(),
-  -- rather than in init().
-  if not self.windowElementsPositioned then
-    self:positionWindowElements(self.uiObjs)
-    self.windowElementsPositioned = true
+  if self.autoPositioningActive and not self.autoPositioningDone then
+    -- Auto-positioning window elements should be done
+    -- once we've added valid content to the labels for the first time,
+    -- so that we get accurate label sizes.
+    -- Thus this step is done at the end of the first update(),
+    -- rather than in init().
+    self:autoPositionElements()
+    self.autoPositioningDone = true
   end
 end
 
@@ -142,30 +143,57 @@ function Layout:addImage(ImageClass, initOptions)
 end
 
 
+function Layout:activateAutoPositioningX()
+  -- Auto-position layout elements left to right.
+  self.autoPositioningActive = true
+  self.autoPositioningDone = false
+  self.autoPositioningCoord = 'x'
+end
+function Layout:activateAutoPositioningY()
+  -- Auto-position layout elements top to bottom.
+  self.autoPositioningActive = true
+  self.autoPositioningDone = false
+  self.autoPositioningCoord = 'y'
+end
+
+
 -- Figure out a working set of Y positions for the window elements.
 --
 -- Positions are calculated based on the window size and element sizes,
 -- so that the elements get evenly spaced from top to bottom of the window.
-function Layout:positionWindowElements(windowElements)
-  local heightSum = 0
-  for _, element in pairs(windowElements) do
-    local height = element:getHeight()
-    heightSum = heightSum + height
+function Layout:autoPositionElements()
+  local function getElementLength(element_)
+    if self.autoPositioningCoord == 'x' then return element_:getWidth()
+    else return element_:getHeight() end
+  end
+  local function getWindowLength()
+    if self.autoPositioningCoord == 'x' then return self.window:getWidth()
+    else return self.window:getHeight() end
+  end
+  local function getElementOtherCoordPos(element_)
+    if self.autoPositioningCoord == 'x' then return element_:getTop()
+    else return element_:getLeft() end
+  end
+
+  local lengthSum = 0
+  for _, element in pairs(self.uiObjs) do
+    local length = getElementLength(element)
+    lengthSum = lengthSum + length
   end
   
-  local windowHeight = self.window:getHeight()
-  local minY = 6
-  local maxY = windowHeight - 6
-  local numSpaces = #windowElements - 1
-  local elementSpacing = (maxY - minY - heightSum) / (numSpaces)
+  local windowLength = getWindowLength()
+  local minPos = 6
+  local maxPos = windowLength - 6
+  local numSpaces = #(self.uiObjs) - 1
+  local elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
   
-  local currentY = minY
-  for _, element in pairs(windowElements) do
-    local x = element:getLeft()
-    element:setPosition(x, currentY)
+  local currentPos = minPos
+  for _, element in pairs(self.uiObjs) do
+    local otherCoordPos = getElementOtherCoordPos(element)
+    element:setPosition(otherCoordPos, currentPos)
     
-    local height = element:getHeight()
-    currentY = currentY + height + elementSpacing
+    local length = getElementLength(element)
+    currentPos = currentPos + length + elementSpacing
   end
 end
 

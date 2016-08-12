@@ -13,6 +13,8 @@ local Vector3 = utils_math.Vector3
 package.loaded.valuetypes = nil
 local vtypes = require "valuetypes"
 local Vector3Value = vtypes.Vector3Value
+local RateOfChange = vtypes.RateOfChange
+local ResettableValue = vtypes.ResettableValue
 
 
 
@@ -24,6 +26,9 @@ function SMGshared:init(options)
   dolphin.DolphinGame.init(self, options)
 end
 
+
+-- Tracking time based on a memory value which represents number of frames
+-- since time = 0.
 
 SMGshared.Time = subclass(Value)
 SMGshared.Time.label = "Should be set by subclass"
@@ -123,35 +128,6 @@ function SMGshared.Velocity:updateValue()
       sumOfSquaredDiffs = sumOfSquaredDiffs + diff*diff
     end
     self.value = math.sqrt(sumOfSquaredDiffs)
-  end
-end
-
-
-
-SMGshared.RateOfChange = subclass(Value)
-SMGshared.RateOfChange.label = "Label to be passed as argument"
-SMGshared.RateOfChange.initialValue = 0.0
-
-function SMGshared.RateOfChange:init(baseValue, label)
-  Value.init(self)
-  
-  self.baseValue = baseValue
-  self.label = label
-  -- Display the same way as the base value
-  self.displayValue = baseValue.displayValue
-end
-
-function SMGshared.RateOfChange:updateValue()
-  -- Update prev and curr stat values
-  self.prevStat = self.currStat
-  self.baseValue:update()
-  self.currStat = self.baseValue.value
-  
-  -- Update rate of change value
-  if self.prevStat == nil then
-    self.value = 0.0
-  else
-    self.value = self.currStat - self.prevStat
   end
 end
 
@@ -375,9 +351,9 @@ function SMGshared.UpVelocityTiltBonus:init()
   
   self.nextVel = self.game:V(
     Vector3Value,
-    self.game:V(self.game.RateOfChange, self.game.pos_early1.x),
-    self.game:V(self.game.RateOfChange, self.game.pos_early1.y),
-    self.game:V(self.game.RateOfChange, self.game.pos_early1.z),
+    self.game:V(RateOfChange, self.game.pos_early1.x),
+    self.game:V(RateOfChange, self.game.pos_early1.y),
+    self.game:V(RateOfChange, self.game.pos_early1.z),
     "Velocity"
   )
   
@@ -456,137 +432,177 @@ end
 
 
 
-function SMGshared:buttonDisp(button)
+SMGshared.buttons = SMGshared:VDeferredInit(vtypes.Buttons)
+
+function SMGshared.buttons:get(button)
+  -- Return 1 if the button is currently being pressed, 0 otherwise.
+  -- TODO: Check if this can be universally implemented, with same addresses
+  -- and all, for any Wii/GC game.
+  local b1 = self.game.buttons1
+  local b2 = self.game.buttons2
+  
   local value = nil
   if button == "H" then  -- Home
-    value = self.buttons1:get()[1]
+    value = b1:get()[1]
   elseif button == "C" then
-    value = self.buttons1:get()[2]
+    value = b1:get()[2]
   elseif button == "Z" then
-    value = self.buttons1:get()[3]
+    value = b1:get()[3]
   elseif button == "A" then
-    value = self.buttons1:get()[5]
+    value = b1:get()[5]
   elseif button == "B" then
-    value = self.buttons1:get()[6]
+    value = b1:get()[6]
   elseif button == "+" then
-    value = self.buttons2:get()[4]
+    value = b2:get()[4]
   elseif button == "^" then
-    value = self.buttons2:get()[5]
+    value = b2:get()[5]
   elseif button == "v" then
-    value = self.buttons2:get()[6]
+    value = b2:get()[6]
   elseif button == ">" then
-    value = self.buttons2:get()[7]
+    value = b2:get()[7]
   elseif button == "<" then
-    value = self.buttons2:get()[8]
-  end
-  if value == 1 then
-    return button
+    value = b2:get()[8]
   else
-    return " "
+    error("Button code not recognized: " .. button)
+  end
+  
+  return value
+end
+
+
+
+SMGshared.shake = SMGshared:VDeferredInit(Value)
+SMGshared.shake.initialValue = {wiimote=0, nunchuk=0}
+
+function SMGshared.shake:updateValue()
+  self.value = {
+    wiimote=self.game.wiimoteShakeBit:get(),
+    nunchuk=self.game.nunchukShakeBit:get(),
+  }
+end
+
+function SMGshared.shake:display()
+  self:update()
+  
+  if self.value.wiimote == 1 then return "Wiimote shake"
+  elseif self.value.nunchuk == 1 then return "Nunchuk shake"
+  else return ""
   end
 end
 
 
 
-SMGshared.spinDisplay = ""
-function SMGshared:getShakeType()
-  if self.wiimoteSpinBit:get() == 1 then
-    return "Wiimote"
-  elseif self.nunchukSpinBit:get() == 1 then
-    return "Nunchuk"
-  else
-    -- This should really only happen if the script is started in the middle
-    -- of a spin.
-    return nil
-  end
-end
-function SMGshared:shakeDisp()
-  local shakeType = self:getShakeType()
-  if shakeType ~= nil then
-    return shakeType.." shake"
-  else
-    return ""
-  end
-end
-function SMGshared:spinDisp()
-  local cooldownTimer = self.spinCooldownTimer:get()
-  local attackTimer = self.spinAttackTimer:get()
-  local shakeType = self:getShakeType()
+SMGshared.spinStatus = SMGshared:VDeferredInit(Value)
+SMGshared.spinStatus.initialValue = {phase='noSpin', spinType='unknown'}
+
+function SMGshared.spinStatus:updateValue()
+  local cooldownTimer = self.game.spinCooldownTimer:get()
+  local attackTimer = self.game.spinAttackTimer:get()
+  local shakeValues = self.game.shake:get()
+  
+  self.previousValue = self.value
+  self.value = {phase=nil, spinType=nil}
   
   if cooldownTimer > 0 then
     if attackTimer > 0 then
-      -- We know we're in the middle of the spin animation, but the question
-      -- is when to check for a new kind of spin (Wiimote or Nunchuk).
-      --
-      -- If you shake the Wiimote and then immediately shake the Nunchuk after,
-      -- then you should still be considered in the middle of a Wiimote spin,
-      -- despite the fact that you turned on the "would activate a Nunchuk
-      -- spin" bit.
-      --
-      -- So we only check for a new kind of spin if there is no spin currently
-      -- going on, or if the cooldown timer is at its highest value, meaning a
-      -- spin must have just started on this frame. (There is potential for the
-      -- script to miss this first frame, though. So if you precisely follow a
-      -- Wiimote spin with a Nunchuk spin, the display may fail to update
-      -- accordingly.)
-      if spinDisplay == "" or cooldownTimer == 79 then
-        if shakeType ~= nil then
-          spinDisplay = shakeType.." spin"
-        else
-          spinDisplay = "? spin"
+      -- We know we're in the middle of the spin animation.
+      self.value.phase = 'spin'
+      
+      -- Update the spin type based on the current shake input,
+      -- ONLY if we have just started a spin.
+      if self.previousValue.phase == 'noSpin' or cooldownTimer == 79 then
+        -- Just started a spin: either there was no spin on the previous frame,
+        -- or the cooldown timer is at its max value.
+        -- Both checks are imperfect. The 'noSpin' check misses the case where
+        -- a new spin is started JUST as the previous spin ends (1 frame
+        -- window). The timer check might miss a spin-start if this Lua script
+        -- skips a frame.
+        -- The idea is that reliability should be higher with both checks
+        -- working together.
+        if shakeValues.wiimote == 1 then self.value.spinType = 'wiimote'
+        elseif shakeValues.nunchuk == 1 then self.value.spinType = 'nunchuk'
+        else self.value.spinType = 'unknown'
         end
+      else
+        -- If we haven't just started a spin, then the previous spin is
+        -- still going.
+        self.value.spinType = self.previousValue.spinType
       end
     else
       -- Spin attack is over, but need to wait to do another spin.
-      spinDisplay = "(Cooldown)"
+      self.value.phase = 'cooldown'
+      self.value.spinType = self.previousValue.spinType
     end
   else
     if attackTimer > 0 then
       -- Spin attack is going in midair. (This includes "fake" midair spins,
       -- and still-active spin attacks after jump canceling a ground spin.)
-      -- We'll just display this the same as any other spin.
-      if spinDisplay == "" or cooldownTimer == 79 then
-        if shakeType ~= nil then
-          spinDisplay = shakeType.." spin"
-        else
-          spinDisplay = "? spin"
+      self.value.phase = 'attackSpin'
+      
+      -- TODO: Check if the max timer here is still 79.
+      if self.previousValue.phase == 'noSpin' or cooldownTimer == 79 then
+        if shakeValues.wiimote == 1 then self.value.spinType = 'wiimote'
+        elseif shakeValues.nunchuk == 1 then self.value.spinType = 'nunchuk'
+        else self.value.spinType = 'unknown'
         end
+      else
+        self.value.spinType = self.previousValue.spinType
       end
     else
       -- Both spin animation and effect are inactive.
-      spinDisplay = ""
+      self.value.phase = 'noSpin'
     end
   end
-  return spinDisplay
+end
+
+function SMGshared.spinStatus:display()
+  self:update()
+
+  if self.value.phase == 'spin' or self.value.phase == 'attackSpin' then
+    -- We'll just display an attacking-only spin (no height boost)
+    -- the same way as a full spin.
+    if self.value.spinType == 'wiimote' then return "Wiimote spin"
+    elseif self.value.spinType == 'nunchuk' then return "Nunchuk spin"
+    elseif self.value.spinType == 'unknown' then return "? spin"
+    else error("Unrecognized spin type: " .. self.value.spinType)
+    end
+  elseif self.value.phase == 'cooldown' then
+    return "(Cooldown)"
+  elseif self.value.phase == 'noSpin' then
+    return ""
+  else
+    error("Unrecognized spin phase: " .. self.value.phase)
+  end
 end
 
 
 
 function SMGshared:inputDisplay(options)
-  
-  local displayStickX = string.format("%+.3f", self.stickX:get())
-  local displayStickY = string.format("%+.3f", self.stickY:get())
+  local displayStickX = self.stickX:displayValue{afterDecimal=3, signed=true}
+  local displayStickY = self.stickY:displayValue{afterDecimal=3, signed=true}
   local displayButtons1 = string.format("%s%s%s%s%s",
-    self:buttonDisp("C"), self:buttonDisp("^"), self:buttonDisp("v"),
-    self:buttonDisp("<"), self:buttonDisp(">")
+    self.buttons:display{button="C"},
+    self.buttons:display{button="^"}, self.buttons:display{button="v"},
+    self.buttons:display{button="<"}, self.buttons:display{button=">"}
   )
   local displayButtons2 = string.format("%s%s%s%s%s",
-    self:buttonDisp("A"), self:buttonDisp("B"), self:buttonDisp("Z"),
-    self:buttonDisp("+"), self:buttonDisp("H")
+    self.buttons:display{button="A"},
+    self.buttons:display{button="B"}, self.buttons:display{button="Z"},
+    self.buttons:display{button="+"}, self.buttons:display{button="H"}
   )
   
   local lines = {}
   if options.narrow then
-    if options.shake then table.insert(lines, self:shakeDisp()) end
-    if options.spin then table.insert(lines, self:spinDisp()) end
+    if options.shake then table.insert(lines, self.shake:display()) end
+    if options.spin then table.insert(lines, self.spinStatus:display()) end
     table.insert(lines, displayStickX.." "..displayButtons1)
     table.insert(lines, displayStickY.." "..displayButtons2)
   else
     table.insert(lines, "Stick   Buttons")
     table.insert(lines, displayStickX.."   "..displayButtons1)
     table.insert(lines, displayStickY.."   "..displayButtons2)
-    if options.shake then table.insert(lines, self:shakeDisp()) end
-    if options.spin then table.insert(lines, self:spinDisp()) end
+    if options.shake then table.insert(lines, self.shake:display()) end
+    if options.spin then table.insert(lines, self.spinStatus:display()) end
   end
   
   return table.concat(lines, "\n")
@@ -594,6 +610,8 @@ end
 
 
 
+-- TODO: Check if this can be universally implemented, with same addresses
+-- and all, for any Wii/GC game.
 SMGshared.StickInputImage = {}
 
 function SMGshared.StickInputImage:init(game, window, options)
@@ -632,45 +650,13 @@ end
 
 
 
-SMGshared.ResettableValue = subclass(Value)
+local AnchoredDistance = subclass(ResettableValue)
+SMGshared.AnchoredDistance = AnchoredDistance
+AnchoredDistance.label = "Label to be determined in init"
+AnchoredDistance.initialValue = 0.0
 
-function SMGshared.ResettableValue:init(baseValue, resetButton)
-  Value.init(self)
-  
-  -- The baseValue's class is expected to define a reset function.
-  if not baseValue.reset then
-    error("Value of label '" .. baseValue.label
-      .. "' needs a reset function to be resettable")
-  end
-  
-  -- Default reset button is D-Pad Down.
-  self.resetButton = resetButton or 'v'
-  
-  self.baseValue = baseValue
-  self.label = baseValue.label
-  -- Display the same way as the base value
-  self.displayValue = baseValue.displayValue
-  
-  self.buttonDisp = self.game.buttonDisp
-end
-
-function SMGshared.ResettableValue:updateValue()
-  -- If the reset button is being pressed, reset the baseValue.
-  if self.buttonDisp(self.resetButton) ~= ' ' then self.baseValue:reset() end
-  -- Update the baseValue.
-  self.baseValue:updateValue()
-  -- Update self.value for the purpose of getting the value for display.
-  self.value = self.baseValue.value
-end
-
-
-
-SMGshared.AnchoredDistance = subclass(Value)
-SMGshared.AnchoredDistance.label = "Label to be passed as argument"
-SMGshared.AnchoredDistance.initialValue = 0.0
-
-function SMGshared.AnchoredDistance:init(coordinates)
-  Value.init(self)
+function AnchoredDistance:init(coordinates)
+  ResettableValue.init(self, resetButton)
   
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
   self.posObjects = {}
@@ -686,11 +672,9 @@ function SMGshared.AnchoredDistance:init(coordinates)
   -- If more than 1 coordinate, it'll just be a magnitude, so need no +/-.
   local defaultSigned = (self.numCoordinates == 1)
   self.displayDefaults = {signed=defaultSigned}
-  
-  self:reset()
 end
 
-function SMGshared.AnchoredDistance:updateValue()
+function AnchoredDistance:updateValue()
   self.currPos = {}
   for _, posObject in pairs(self.posObjects) do
     table.insert(self.currPos, posObject:get())
@@ -708,7 +692,7 @@ function SMGshared.AnchoredDistance:updateValue()
   end
 end
 
-function SMGshared.AnchoredDistance:reset()
+function AnchoredDistance:reset()
   -- Reset anchor
   self.anchor = {}
   for _, posObject in pairs(self.posObjects) do
@@ -718,90 +702,26 @@ end
 
 
 
-SMGshared.MaxValue = subclass(Value)
-SMGshared.MaxValue.label = "Label to be passed as argument"
-SMGshared.MaxValue.initialValue = 0.0
+local AnchoredHeight = subclass(ResettableValue)
+SMGshared.AnchoredHeight = AnchoredHeight
+AnchoredHeight.label = "Height"
+AnchoredHeight.initialValue = 0.0
 
-function SMGshared.MaxValue:init(baseValue)
-  Value.init(self)
-  
-  self.baseValue = baseValue
-  self.label = "Max "..baseValue.label
-  -- Display the same way as the base value
-  self.displayValue = baseValue.displayValue
-  
-  obj:reset()
-end
-
-function SMGshared.MaxValue:updateValue()
-  self.baseValue:update()
-
-  if self.baseValue.value > self.value then
-    self.value = self.baseValue.value
-  end
-end
-
-function SMGshared.MaxValue:reset()
-  if self.baseValue.reset then self.baseValue:reset() end
-  -- Set max value to (essentially) negative infinity, so any valid value
-  -- is guaranteed to be the new max
-  self.value = -math.huge
-end
-
-
-
-SMGshared.AnchoredHeight = subclass(Value)
-SMGshared.AnchoredHeight.label = "Height"
-SMGshared.AnchoredHeight.initialValue = 0.0
-
-function SMGshared.AnchoredHeight:init()
-  Value.init(self)
+function AnchoredHeight:init()
+  ResettableValue.init(self, resetButton)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
-  
-  self:reset()
 end
 
-function SMGshared.AnchoredHeight:updateValue()
+function AnchoredHeight:updateValue()
   -- Dot product of distance-from-anchor vector and up vector
   self.value = self.pos:get():minus(self.anchor):dot(self.upValue)
 end
 
-function SMGshared.AnchoredHeight:reset()
+function AnchoredHeight:reset()
   self.anchor = self.pos:get()
   self.upValue = self.dgrav:get():times(-1)
-end
-
-
-
-SMGshared.AverageValue = subclass(Value)
-SMGshared.AverageValue.label = "Label to be passed as argument"
-SMGshared.AverageValue.initialValue = 0.0
-
-function SMGshared.AverageValue:init(baseValue)
-  Value.init(self)
-  
-  self.baseValue = baseValue
-  self.label = "Avg "..baseValue.label
-  -- Display the same way as the base value
-  self.displayValue = baseValue.displayValue
-  
-  self:reset()
-end
-
-function SMGshared.AverageValue:updateValue()
-  self.baseValue:update()
-  self.sum = self.sum + self.baseValue.value
-  self.numOfDataPoints = self.numOfDataPoints + 1
-
-  self.value = self.sum / self.numOfDataPoints
-end
-
-function SMGshared.AverageValue:reset()
-  if self.baseValue.reset then self.baseValue:reset() end
-  self.sum = 0
-  self.numOfDataPoints = 0
 end
 
 

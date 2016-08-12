@@ -4,6 +4,9 @@ package.loaded.utils = nil
 local utils = require 'utils'
 local subclass = utils.subclass
 
+package.loaded.utils = nil
+local valuetypes = require 'valuetypes'
+
 package.loaded.layouts = nil
 local layoutsModule = require 'layouts'
 local Layout = layoutsModule.Layout
@@ -296,13 +299,77 @@ function layouts.inputsOldWay:update()
 end
 
 
-layouts.inputs = subclass(Layout)
-
-function layouts.inputs:init(window, game)
+layouts.testClasses = subclass(Layout)
+function layouts.testClasses:init(window, game)
   self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {500, 800}
+  self.labelDefaults = {
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  self.tilt = game:V(game.Tilt)
+  self.velUp = game:V(game.UpwardVelocity)
+  
+  self:addLabel()
+  self:addItem(game:V(game.StageTime))
+  self:addItem(game:V(game.Velocity, "Y"))
+  self:addItem(game:V(game.Velocity, "XZ"))
+  self:addItem(game:V(game.Velocity, "XYZ"))
+  self:addItem(utils.curry(self.tilt.displayRotation, self.tilt))
+  self:addItem(utils.curry(self.tilt.displayDiff, self.tilt))
+  self:addItem(self.velUp)
+  self:addItem(game:V(game.LateralVelocity))
+  self:addItem(game:V(game.UpwardVelocityLastJump))
+  self:addItem(game:V(game.UpVelocityTiltBonus))
+  self:addItem(game:V(game.AnchoredDistance, "XZ"))
+  self:addItem(game:V(game.AnchoredHeight))
+  self:addItem(game:V(valuetypes.MaxValue, game.pos.y))
+  self:addItem(game:V(valuetypes.AverageValue, game:V(game.LateralVelocity)))
+  
+  self:addLabel()
+  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
+  
+  self:addImage(
+    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
+  
+  Layout.init(self, window, game)
+end
+
+
+layouts.tilt1 = subclass(Layout)
+function layouts.tilt1:init(window, game)
+  self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningY()
   
   self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
-  self.labelDefaults = {x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+  
+  self.velUp = game:V(game.UpwardVelocity)
+  
+  self:addLabel()
+  self:addItem(game.downVectorGravity)
+  self:addItem(game.upVectorTilt)
+  self:addItem(game:V(game.UpwardVelocityLastJump),
+    {beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:V(valuetypes.RateOfChange, self.velUp, "Up Accel"),
+    {signed=true, beforeDecimal=2, afterDecimal=3})
+  self:addItem(game:V(game.UpVelocityTiltBonus))
+  
+  Layout.init(self, window, game)
+end
+
+
+layouts.tilt2 = subclass(Layout)
+function layouts.tilt2:init(window, game)
+  self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {windowWidth, dolphinNativeResolutionHeight}
+  self.labelDefaults = {
+    x=X, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self.velUp = game:V(game.UpwardVelocity)
@@ -312,7 +379,7 @@ function layouts.inputs:init(window, game)
   -- self:addItem(game.upVectorTilt)
   self:addItem(game:V(game.UpwardVelocityLastJump),
     {beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(game.RateOfChange, self.velUp, "Up Accel"),
+  self:addItem(game:V(valuetypes.RateOfChange, self.velUp, "Up Accel"),
     {signed=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game:V(game.UpVelocityTiltBonus))
   

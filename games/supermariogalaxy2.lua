@@ -352,12 +352,12 @@ local buttons2 = V("Buttons 2", 0xB38A2F, {StaticValue, BinaryValue},
   
 local buttonDisp = utils.curry(smg.buttonDisp, buttons1, buttons2)
 
-local wiimoteSpinBit = V("Wiimote spin bit", -0x7C4A, {PosRefValue, ByteValue})
-local nunchukSpinBit = V("Nunchuk spin bit", -0x7C49, {PosRefValue, ByteValue})
+local wiimoteShakeBit = V("Wiimote spin bit", -0x7C4A, {PosRefValue, ByteValue})
+local nunchukShakeBit = V("Nunchuk spin bit", -0x7C49, {PosRefValue, ByteValue})
 local spinCooldownTimer = V("Spin cooldown timer", -0x7E19, {PosRefValue, ByteValue})
 local spinAttackTimer = V("Spin attack timer", -0x7E1C, {PosRefValue, ByteValue})
 
-local getShakeType = utils.curry(smg.getShakeType, wiimoteSpinBit, nunchukSpinBit)
+local getShakeType = utils.curry(smg.getShakeType, wiimoteShakeBit, nunchukShakeBit)
 local shakeDisp = utils.curry(smg.shakeDisp, getShakeType)
 local spinDisp = utils.curry(
   smg.spinDisp, spinCooldownTimer, spinAttackTimer, getShakeType

@@ -501,5 +501,150 @@ end
 
 
 
+local RateOfChange = subclass(Value)
+valuetypes.RateOfChange = RateOfChange
+RateOfChange.label = "Label to be passed as argument"
+RateOfChange.initialValue = 0.0
+
+function RateOfChange:init(baseValue, label)
+  Value.init(self)
+  
+  self.baseValue = baseValue
+  self.label = label
+  -- Display the same way as the base value
+  self.displayValue = baseValue.displayValue
+end
+
+function RateOfChange:updateValue()
+  -- Update prev and curr stat values
+  self.prevStat = self.currStat
+  self.baseValue:update()
+  self.currStat = self.baseValue.value
+  
+  -- Update rate of change value
+  if self.prevStat == nil then
+    self.value = 0.0
+  else
+    self.value = self.currStat - self.prevStat
+  end
+end
+
+
+
+local ResettableValue = subclass(Value)
+valuetypes.ResettableValue = ResettableValue
+
+function ResettableValue:init(resetButton)
+  Value.init(self)
+  
+  -- Default reset button is D-Pad Down, which is assumed to be represented
+  -- with 'v'.
+  -- TODO: Allow each game to define a default reset button.
+  self.resetButton = resetButton or 'v'
+end
+
+function ResettableValue:reset()
+  error(
+    "Reset function not implemented in value of label: "..self.baseValue.label)
+end
+
+function ResettableValue:update()
+  -- Do an initial reset, if we haven't already.
+  -- We don't do this in init() because the reset function may depend on
+  -- looking up other Values, which may require that those Values be
+  -- initialized. And there is no guarantee about the initialization
+  -- order of Values.
+  if not self.initialResetDone then
+    self:reset()
+    self.initialResetDone = true
+  end
+
+  Value.update(self)
+  
+  -- If the reset button is being pressed, call the reset function.
+  if self.game.buttons:get(self.resetButton) == 1 then self:reset() end
+end
+
+
+
+local MaxValue = subclass(ResettableValue)
+valuetypes.MaxValue = MaxValue
+MaxValue.label = "Label to be passed as argument"
+MaxValue.initialValue = 0.0
+
+function MaxValue:init(baseValue, resetButton)
+  ResettableValue.init(self, resetButton)
+  
+  self.baseValue = baseValue
+  self.label = "Max "..baseValue.label
+  -- Display the same way as the base value
+  self.displayValue = baseValue.displayValue
+end
+
+function MaxValue:updateValue()
+  self.baseValue:update()
+
+  if self.baseValue.value > self.value then
+    self.value = self.baseValue.value
+  end
+end
+
+function MaxValue:reset()
+  -- Set max value to (essentially) negative infinity, so any valid value
+  -- is guaranteed to be the new max
+  self.value = -math.huge
+end
+
+
+
+local AverageValue = subclass(ResettableValue)
+valuetypes.AverageValue = AverageValue
+AverageValue.label = "Label to be passed as argument"
+AverageValue.initialValue = 0.0
+
+function AverageValue:init(baseValue)
+  ResettableValue.init(self, resetButton)
+  
+  self.baseValue = baseValue
+  self.label = "Avg "..baseValue.label
+  -- Display the same way as the base value
+  self.displayValue = baseValue.displayValue
+end
+
+function AverageValue:updateValue()
+  self.baseValue:update()
+  self.sum = self.sum + self.baseValue.value
+  self.numOfDataPoints = self.numOfDataPoints + 1
+
+  self.value = self.sum / self.numOfDataPoints
+end
+
+function AverageValue:reset()
+  self.sum = 0
+  self.numOfDataPoints = 0
+end
+
+
+
+local Buttons = subclass(Value)
+valuetypes.Buttons = Buttons
+
+function Buttons:get(button)
+  -- button is a string code representing a button, such as 'A', 'B', or '>'.
+  -- Return 1 if the button is currently being pressed, 0 otherwise.
+  error("Not implemented")
+end
+
+function Buttons:display(options)
+  if not options.button then error("Must specify a button") end
+  if self:get(options.button) == 1 then
+    return options.button
+  else
+    return " "
+  end
+end
+
+
+
 return valuetypes
 
