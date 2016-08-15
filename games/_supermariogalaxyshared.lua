@@ -578,8 +578,10 @@ end
 
 
 function SMGshared:inputDisplay(options)
-  local displayStickX = self.stickX:displayValue{afterDecimal=3, signed=true}
-  local displayStickY = self.stickY:displayValue{afterDecimal=3, signed=true}
+  local displayStickX =
+    self.stickX:display{nolabel=true, afterDecimal=3, signed=true}
+  local displayStickY =
+    self.stickY:display{nolabel=true, afterDecimal=3, signed=true}
   local displayButtons1 = string.format("%s%s%s%s%s",
     self.buttons:display{button="C"},
     self.buttons:display{button="^"}, self.buttons:display{button="v"},

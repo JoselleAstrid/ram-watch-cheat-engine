@@ -4,7 +4,7 @@ local classInstantiate = utils.classInstantiate
 
 
 
-local function initWindow(options)
+local function createWindow(options)
   -- Create Cheat Engine window
   local window = createForm(true)
   
@@ -17,12 +17,6 @@ local function initWindow(options)
   
   -- Window title
   window:setCaption("RAM Display")
-  
-  -- Font
-  local font = window:getFont()
-  -- TODO: Allow customization
-  font:setName("Calibri")
-  font:setSize(16)
   
   return window
 end
@@ -37,18 +31,41 @@ local function start(options)
   local GameClass = require(gameModuleName)
   local game = classInstantiate(GameClass, options)
 
-  local window = initWindow(options)
+  local window = createWindow(options)
+  
+  -- Figure out which layout modules we are checking.
+  local layoutModuleNames = {
+    -- Layouts that could be used for multiple games
+    'layouts_generic',
+    -- User-defined layouts (not under version control)
+    'layouts_custom',
+    -- Example layouts that aren't as directly practical as the ones in the
+    -- game-specific modules or the generic module, but still show off some
+    -- useful things
+    'layouts_examples',
+  }
+  -- Game-specific layout modules
+  for _, name in pairs(game.layoutModuleNames) do
+    table.insert(layoutModuleNames, name)
+  end
   
   -- Get the requested layout.
   local layout = nil
-  for _, layoutModuleName in pairs(game.layoutModuleNames) do
+  for _, layoutModuleName in pairs(layoutModuleNames) do
+    -- Due to the way we're checking the existence of layout modules, we must
+    -- first ensure the module is not considered loaded OR preloaded.
+    package.preload[layoutModuleName] = nil
     package.loaded[layoutModuleName] = nil
-    local layoutModule = require(layoutModuleName)
+    -- Check that the layout module exists. In particular we want to tolerate
+    -- non-existence of the custom module.
+    if utils.isModuleAvailable(layoutModuleName) then
+      local layoutModule = require(layoutModuleName)
     
-    for name, layoutCandidate in pairs(layoutModule.layouts) do
-      if name == layoutName then
-        layout = layoutCandidate
-        break
+      for name, layoutCandidate in pairs(layoutModule.layouts) do
+        if name == layoutName then
+          layout = layoutCandidate
+          break
+        end
       end
     end
   end

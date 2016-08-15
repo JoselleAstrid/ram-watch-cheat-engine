@@ -43,35 +43,32 @@ end
 
 function Value:displayValue(options)
   -- Subclasses with non-float values should override this.
-  -- This is separate from display() for
-  -- (1) Ease of overriding this function, and
-  -- (2) Providing a more bare-bones display function, which allows callers
-  -- some flexibility on how to display values.
+  -- This is separate from display() for ease of overriding this function.
   return utils.floatToStr(self.value, options)
 end
 
 function Value:display(passedOptions)
+  self:update()
+  
   local options = {}
   -- First apply default options
   if self.displayDefaults then
-    for key, value in pairs(self.displayDefaults) do
-      options[key] = value
-    end
+    utils.updateTable(options, self.displayDefaults)
   end
   -- Then apply passed-in options, replacing default options of the same keys
   if passedOptions then
-    for key, value in pairs(passedOptions) do
-      options[key] = value
-    end
+    utils.updateTable(options, passedOptions)
   end
   
-  local label = options.label or self.label
-  
-  self:update()
-  if options.narrow then
-    return label..":\n "..self:displayValue(options)
+  if options.nolabel then
+    return self:displayValue(options)
   else
-    return label..": "..self:displayValue(options)
+    local label = options.label or self.label
+    if options.narrow then
+      return label..":\n "..self:displayValue(options)
+    else
+      return label..": "..self:displayValue(options)
+    end
   end
 end
 

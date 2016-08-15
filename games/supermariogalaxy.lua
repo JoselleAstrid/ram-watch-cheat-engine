@@ -232,9 +232,9 @@ SMG1.pos = V(
   Vector3Value,
   MV("Pos X", 0x0, SMG1.PosBlockValue, FloatValue),
   MV("Pos Y", 0x4, SMG1.PosBlockValue, FloatValue),
-  MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatValue),
-  "Position"
+  MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatValue)
 )
+SMG1.pos.label = "Position"
 SMG1.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
 SMG1.pos_early1 = V(

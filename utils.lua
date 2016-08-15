@@ -48,12 +48,46 @@ end
 
 
 
+-- Return true if the module named name can be found, false otherwise.
+-- Throw an error if the module exists but has a syntax error.
+--
+-- This is useful for loading a module only if it exists.
+-- The built-in require() will get an error if the module doesn't exist.
+-- So, use this function and then call require() only if true is returned.
+--
+-- Source: http://stackoverflow.com/questions/15429236/
+local function isModuleAvailable(name)
+  if package.loaded[name] then
+    return true
+  else
+    for _, searcher in ipairs(package.searchers or package.loaders) do
+      local loader = searcher(name)
+      if type(loader) == 'function' then
+        package.preload[name] = loader
+        return true
+      end
+    end
+    return false
+  end
+end
+
+
+
 local function tableContentsToStr(t)
   local items = {}
   for key, value in pairs(t) do
     table.insert(items, tostring(key)..": "..tostring(value))
   end
   return table.concat(items, "\n")
+end
+
+
+local function updateTable(tableToUpdate, table2)
+  -- Update tableToUpdate with the values in table2. If a key exists in both
+  -- tables, overwrite.
+  for key, value in pairs(table2) do
+    tableToUpdate[key] = value
+  end
 end
 
 
@@ -369,8 +403,10 @@ end
 return {
   setDebugLabel = setDebugLabel,
   debugDisp = debugDisp,
+  isModuleAvailable = isModuleAvailable,
   
   tableContentsToStr = tableContentsToStr,
+  updateTable = updateTable,
   curry = curry,
   
   readIntBE = readIntBE,

@@ -1,5 +1,6 @@
 package.loaded.utils = nil
 local utils = require "utils"
+local subclass = utils.subclass
 local classInstantiate = utils.classInstantiate
 
 
@@ -23,6 +24,10 @@ function Layout:init(window, game)
         self:createImage(element.ImageClass, element.initOptions)
       element.uiObj = imageClassObj.image
       element.updateFunc = utils.curry(imageClassObj.update, imageClassObj)
+    elseif element.type == 'fileWriter' then
+      local fileWriterObj = self:createFileWriter(
+        element.filename, element.outputStringGetter, element.initOptions)
+      element.uiObj = fileWriterObj
     end
     table.insert(self.uiObjs, element.uiObj)
   end
@@ -44,6 +49,10 @@ function Layout:update()
       element.uiObj:setCaption(labelDisplay)
     elseif element.type == 'image' then
       element.updateFunc()
+    elseif element.type == 'fileWriter' then
+      if element.uiObj.currentlyTakingStats then
+        element.uiObj:takeStat()
+      end
     end
   end
 
@@ -70,7 +79,7 @@ function Layout:createLabel(options)
   label:setPosition(options.x or 0, options.y or 0)
   label:setCaption(options.text or "")
   
-  font = label:getFont()
+  local font = label:getFont()
   if options.fontSize ~= nil then font:setSize(options.fontSize) end
   if options.fontName ~= nil then font:setName(options.fontName) end
   if options.fontColor ~= nil then font:setColor(options.fontColor) end
@@ -174,7 +183,18 @@ function Layout:autoPositionElements()
     if self.autoPositioningCoord == 'x' then return element_:getTop()
     else return element_:getLeft() end
   end
+  local function applyAutoPosition(element_, pos_)
+    -- Apply the auto-calculated position coordinate while maintaining the
+    -- other coordinate.
+    if self.autoPositioningCoord == 'x' then
+      element_:setPosition(pos_, element_:getTop())
+    else
+      element_:setPosition(element_:getLeft(), pos_)
+    end
+  end
 
+  -- Figure out the total length of the elements if they were put
+  -- side by side without any spacing.
   local lengthSum = 0
   for _, element in pairs(self.uiObjs) do
     local length = getElementLength(element)
@@ -182,6 +202,12 @@ function Layout:autoPositionElements()
   end
   
   local windowLength = getWindowLength()
+  -- Have a gutter of 6 pixels at each end of the window,
+  -- and space out the elements uniformly.
+  --
+  -- It's possible for the spacing to be negative, meaning elements will
+  -- overlap. The user should rectify this situation by making the
+  -- window bigger.
   local minPos = 6
   local maxPos = windowLength - 6
   local numSpaces = #(self.uiObjs) - 1
@@ -189,8 +215,7 @@ function Layout:autoPositionElements()
   
   local currentPos = minPos
   for _, element in pairs(self.uiObjs) do
-    local otherCoordPos = getElementOtherCoordPos(element)
-    element:setPosition(otherCoordPos, currentPos)
+    applyAutoPosition(element, currentPos)
     
     local length = getElementLength(element)
     currentPos = currentPos + length + elementSpacing
@@ -212,9 +237,62 @@ end
 
 
 
+-- A UI element that holds other elements.
+
+local CompoundElement = {
+  elements = {},
+  position = nil,
+}
+
+function CompoundElement:addElement(relativePosition, uiObj)
+  table.insert(self.elements, {relativePosition=relativePosition, uiObj=uiObj})
+end
+
+function CompoundElement:getWidth()
+  local width = 0
+  for _, element in pairs(self.elements) do
+    width = math.max(
+      width, element.relativePosition[1] + element.uiObj:getWidth())
+  end
+  return width
+end
+
+function CompoundElement:getHeight()
+  local height = 0
+  for _, element in pairs(self.elements) do
+    height = math.max(
+      height, element.relativePosition[2] + element.uiObj:getHeight())
+  end
+  return height
+end
+
+function CompoundElement:getLeft()
+  return self.position[1]
+end
+function CompoundElement:getTop()
+  return self.position[2]
+end
+
+function CompoundElement:positionElements()
+  for _, element in pairs(self.elements) do
+    element.uiObj:setPosition(
+      self.position[1] + element.relativePosition[1],
+      self.position[2] + element.relativePosition[2]
+    )
+  end
+end
+
+function CompoundElement:setPosition(x, y)
+  self.position = {x, y}
+  self:positionElements()
+end
+
+
+
 -- Writing stats to a file.
 
-local StatRecorder = {
+local FileWriter = subclass(CompoundElement)
+utils.updateTable(FileWriter, {
   button = nil,
   timeLimitField = nil,
   secondsLabel = nil,
@@ -225,9 +303,71 @@ local StatRecorder = {
   currentlyTakingStats = false,
   currentFrame = nil,
   valuesTaken = nil,
-}
+})
+    
+function FileWriter:init(layout, filename, outputStringGetter, options)
+  self.layout = layout
+  self.window = layout.window
+  self.filename = filename
+  self.outputStringGetter = outputStringGetter
+  self:initializeUI(options)
   
-function StatRecorder:startTakingStats()
+  -- TODO: Make framerate a variable on the game class
+  self.framerate = 60
+end
+
+function FileWriter:initializeUI(options)
+  self.button = createButton(self.window)
+  self.button:setCaption("Take stats")
+  self.button:setOnClick(utils.curry(self.startTakingStats, self))
+  
+  self.timeLimitField = createEdit(self.window)
+  self.timeLimitField.Text = "10"
+  
+  self.secondsLabel = self.layout:createLabel(options)
+  self.secondsLabel:setCaption("seconds")
+  
+  self.timeElapsedLabel = self.layout:createLabel(options)
+  -- Allow auto-layout to detect an appropriate width for this element
+  -- even though it's not active yet. (Example display: 10.00)
+  self.timeElapsedLabel:setCaption("     ")
+  
+  -- We initialize these elements directly through Cheat Engine's functions,
+  -- and thus there is no 'options' interface on the creation function.
+  -- So we set attributes here instead.
+  local nonLabelElements = {self.button, self.timeLimitField}
+  for _, element in pairs(nonLabelElements) do
+    local font = element:getFont()
+    if options.fontSize ~= nil then font:setSize(options.fontSize) end
+    if options.fontName ~= nil then font:setName(options.fontName) end
+    if options.fontColor ~= nil then font:setColor(options.fontColor) end
+  end
+  
+  -- Add the elements to the layout.
+  local buttonX = 10
+  local buttonFontSize = self.button:getFont():getSize()
+  local buttonWidth = buttonFontSize * 10
+  local buttonHeight = buttonFontSize * 2.0 + 8
+  self:addElement({buttonX, 0}, self.button)
+  self.button:setSize(buttonWidth, buttonHeight)
+  
+  local timeLimitFieldX = buttonX + buttonWidth + 5
+  local timeLimitFieldFontSize = self.timeLimitField:getFont():getSize()
+  local timeLimitFieldWidth = timeLimitFieldFontSize * 5
+  local timeLimitFieldHeight = buttonFontSize * 1.5
+  self:addElement({timeLimitFieldX, 0}, self.timeLimitField)
+  self.timeLimitField:setSize(timeLimitFieldWidth, timeLimitFieldHeight)
+  
+  local secondsLabelX = timeLimitFieldX + timeLimitFieldWidth + 5
+  local secondsLabelY = 3
+  self:addElement({secondsLabelX, secondsLabelY}, self.secondsLabel)
+  
+  local timeElapsedLabelX = secondsLabelX + self.secondsLabel:getWidth() + 15
+  local timeElapsedLabelY = 3
+  self:addElement({timeElapsedLabelX, timeElapsedLabelY}, self.timeElapsedLabel)
+end
+  
+function FileWriter:startTakingStats()
   -- Get the time limit from the field. If it's not a valid number,
   -- don't take any stats.
   local seconds = tonumber(self.timeLimitField.Text)
@@ -240,16 +380,17 @@ function StatRecorder:startTakingStats()
   
   -- Change the Start taking stats button to a Stop taking stats button
   self.button:setCaption("Stop stats")
-  self.button:setOnClick(curry(self.stopTakingStats, self))
+  self.button:setOnClick(utils.curry(self.stopTakingStats, self))
   -- Disable the time limit field
   self.timeLimitField:setEnabled(false)
 end
   
-function StatRecorder:takeStat(str)
-  self.valuesTaken[self.currentFrame] = str
+function FileWriter:takeStat()
+  self.valuesTaken[self.currentFrame] = self.outputStringGetter()
   
   -- Display the current frame count
-  self.timeElapsedLabel:setCaption(string.format("%.2f", self.currentFrame / self.framerate))
+  self.timeElapsedLabel:setCaption(
+    string.format("%.2f", self.currentFrame / self.framerate))
   
   self.currentFrame = self.currentFrame + 1
   if self.currentFrame > self.endFrame then
@@ -257,7 +398,7 @@ function StatRecorder:takeStat(str)
   end
 end
   
-function StatRecorder:stopTakingStats()
+function FileWriter:stopTakingStats()
   -- Collect the stats in string form and write them to a file.
   --
   -- This file will be created in either:
@@ -265,7 +406,7 @@ function StatRecorder:stopTakingStats()
   -- (B) The same directory as the Cheat Engine .exe file, it you don't
   --   have a cheat table open.
   local statsStr = table.concat(self.valuesTaken, "\n")
-  local statsFile = io.open("stats.txt", "w")
+  local statsFile = io.open(self.filename, "w")
   statsFile:write(statsStr)
   statsFile:close()
   
@@ -275,55 +416,51 @@ function StatRecorder:stopTakingStats()
   self.endFrame = nil
   
   self.button:setCaption("Take stats")
-  self.button:setOnClick(curry(self.startTakingStats, self))
+  self.button:setOnClick(utils.curry(self.startTakingStats, self))
   self.timeLimitField:setEnabled(true)
   
   self.timeElapsedLabel:setCaption("")
 end
-    
-function StatRecorder:new(window, baseYPos, framerate)
 
-  -- Make an object of the "class" StatRecorder.
-  -- Idea from http://www.lua.org/pil/16.1.html
-  local obj = {}
-  setmetatable(obj, self)
-  self.__index = self
+
+function Layout:createFileWriter(filename, outputStringGetter, options)
+  local fileWriter = classInstantiate(
+    FileWriter, self, filename, outputStringGetter, options)
   
-  obj:initializeUI(window, baseYPos)
+  fileWriter:setPosition(options.x or 0, options.y or 0)
   
-  if framerate ~= nil then
-    obj.framerate = framerate
-  else
-    obj.framerate = 60
-  end
-  
-  return obj
+  return fileWriter
 end
 
-function StatRecorder:initializeUI(window, baseYPos)
-  self.button = createButton(window)
-  self.button:setPosition(10, baseYPos)
-  self.button:setCaption("Take stats")
-  self.button:setOnClick(curry(self.startTakingStats, self))
-  local buttonFont = self.button:getFont()
-  buttonFont:setSize(10)
+
+function Layout:addFileWriter(
+    item, filename, passedOutputOptions, passedInitOptions)
+  -- Create a callable that will get a display of the tracked value
+  -- for file writing.
+  local outputOptions = {nolabel=true}
+  if passedOutputOptions then
+    utils.updateTable(outputOptions, passedOutputOptions)
+  end
+  local outputStringGetter = utils.curry(item.display, item, outputOptions)
   
-  self.timeLimitField = createEdit(window)
-  self.timeLimitField:setPosition(100, baseYPos)
-  self.timeLimitField:setSize(60, 20)
-  self.timeLimitField.Text = "10"
-  local fieldFont = self.timeLimitField:getFont()
-  fieldFont:setSize(10)
+  -- Options for displaying the fileWriter's UI elements.
+  local initOptions = {}
+  -- First apply default options
+  if self.labelDefaults then
+    utils.updateTable(initOptions, self.labelDefaults)
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedInitOptions then
+    utils.updateTable(initOptions, passedInitOptions)
+  end
   
-  self.secondsLabel = initLabel(window, 165, baseYPos+3, "seconds")
-  local secondsFont = self.secondsLabel:getFont()
-  secondsFont:setSize(10)
-  
-  self.timeElapsedLabel = initLabel(window, 240, baseYPos-5, "")
+  local fileWriter = {
+    type='fileWriter', uiObj=nil, initOptions=initOptions,
+    filename=filename, outputStringGetter=outputStringGetter}
+  table.insert(self.displayElements, fileWriter)
 end
 
 
 return {
-  layouts = {},
   Layout = Layout,
 }
