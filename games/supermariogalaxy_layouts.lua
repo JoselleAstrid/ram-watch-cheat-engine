@@ -22,8 +22,9 @@ local fixedWidthFontName = "Consolas"
 local inputColor = 0x880000
 
 
-layouts.addressTest = subclass(Layout)
-function layouts.addressTest:init(window, game)
+-- SMG1 only
+layouts.addressTestSMG1 = subclass(Layout)
+function layouts.addressTestSMG1:init(window, game)
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
   self.windowSize = {400, 300}
@@ -46,6 +47,31 @@ function layouts.addressTest:init(window, game)
 end
 
 
+-- SMG2 only
+layouts.addressTestSMG2 = subclass(Layout)
+function layouts.addressTestSMG2:init(window, game)
+  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+
+  self.windowSize = {400, 300}
+  
+  self:addLabel{
+    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addItem(game:F(
+    function()
+      local names = {'o', 'refPointer', 'refPointer2', 'posRefPointer'}
+      local lines = {}
+      for _, name in pairs(names) do
+        table.insert(
+          lines, name..": "..utils.intToHexStr(self.game.addrs[name]))
+      end
+      return table.concat(lines, '\n')
+    end
+  ))
+  
+  Layout.init(self, window, game)
+end
+
+
 layouts.stageTime = subclass(Layout)
 function layouts.stageTime:init(window, game)
   self:setBreakpointUpdateMethod()
@@ -55,6 +81,22 @@ function layouts.stageTime:init(window, game)
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game:V(game.StageTime))
+  
+  Layout.init(self, window, game)
+end
+
+
+-- SMG2 only
+layouts.stageAndFileTime = subclass(Layout)
+function layouts.stageAndFileTime:init(window, game)
+  self:setBreakpointUpdateMethod()
+
+  self.windowSize = {500, 100}
+  
+  self:addLabel{
+    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addItem(game:V(game.StageTime))
+  self:addItem(game:V(game.FileTime))
   
   Layout.init(self, window, game)
 end
@@ -112,6 +154,7 @@ function layouts.velYRecording:init(window, game)
 end
 
 
+-- SMG1 only for now
 layouts.messages = subclass(Layout)
 function layouts.messages:init(window, game)
   self:setBreakpointUpdateMethod()

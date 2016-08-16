@@ -2,41 +2,23 @@
 
 
 
--- Imports.
+-- Imports
 
 -- First make sure that the imported modules get de-cached as needed. That way,
 -- if we change the code in those modules and then re-run the script, we won't
 -- need to restart Cheat Engine to see the code changes take effect.
---
--- Make sure this game module de-caches all packages that are used, directly
--- or through another module.
---
--- And don't let other modules do the de-caching, because if any of the loaded
--- modules accept state changes from outside, then having their data cleared
--- multiple times during initialization can mess things up.
 package.loaded.utils = nil
 package.loaded.utils_math = nil
-package.loaded.dolphin = nil
 package.loaded.valuetypes = nil
-package.loaded.valuedisplay = nil
 package.loaded._supermariogalaxyshared = nil
 
 local utils = require "utils"
 local utils_math = require "utils_math"
-local dolphin = require "dolphin"
 local vtypes = require "valuetypes"
-local vdisplay = require "valuedisplay"
 local SMGshared = require "_supermariogalaxyshared"
 
 local readIntBE = utils.readIntBE
-local readFloatBE = utils.readFloatBE
-local floatToStr = utils.floatToStr
-local initLabel = utils.initLabel
-local debugDisp = utils.debugDisp
-local StatRecorder = utils.StatRecorder
 local subclass = utils.subclass
-
-local Vector3 = utils_math.Vector3
 
 local MemoryValue = vtypes.MemoryValue
 local FloatValue = vtypes.FloatValue
@@ -47,9 +29,6 @@ local SignedIntValue = vtypes.SignedIntValue
 local StringValue = vtypes.StringValue
 local BinaryValue = vtypes.BinaryValue
 local Vector3Value = vtypes.Vector3Value
-local addAddressToList = vtypes.addAddressToList
-
-local ValueDisplay = vdisplay.ValueDisplay
 
 
 
@@ -173,35 +152,6 @@ function SMG1.MessageInfoValue:getAddress()
 end
 
 
-  
--- Unlike SMG2, SMG1 does not exactly have an in-game timer. However, this
--- address seems to be the next best thing.
--- It counts up by 1 per frame starting from the level-beginning cutscenes.
--- It also pauses for a few frames when you get the star.
--- It resets to 0 if you die.
-SMG1.stageTimeFrames =
-  MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntValue)
-
-
-
--- Inputs and spin state.
-
-SMG1.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
-  {binarySize=8, binaryStartBit=7})
-SMG1.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
-  {binarySize=8, binaryStartBit=7})
-
-SMG1.wiimoteShakeBit = MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteValue)
-SMG1.nunchukShakeBit = MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteValue)
-SMG1.spinCooldownTimer =
-  MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
-SMG1.spinAttackTimer =
-  MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteValue)
-
-SMG1.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
-SMG1.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
-
-
 
 -- General-interest state values.
 
@@ -224,6 +174,16 @@ SMG1.generalState1d = MV(
 function SMG1:onGround()
   return (self.generalState1a:get()[2] == 1)
 end
+
+
+  
+-- Unlike SMG2, SMG1 does not exactly have an in-game timer. However, this
+-- address seems to be the next best thing.
+-- It counts up by 1 per frame starting from the level-beginning cutscenes.
+-- It also pauses for a few frames when you get the star.
+-- It resets to 0 if you die.
+SMG1.stageTimeFrames =
+  MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntValue)
   
 
 
@@ -246,6 +206,26 @@ SMG1.pos_early1 = V(
 SMG1.pos_early1.label = "Position"
 SMG1.pos_early1.displayDefaults =
   {signed=true, beforeDecimal=5, afterDecimal=1}
+
+
+-- Velocity directly from a memory value.
+-- Not all kinds of movement are covered. For example, launch stars and
+-- riding moving platforms aren't accounted for.
+--
+-- It's usually preferable to use velocity based on position change, because
+-- that's more accurate to observable velocity. But this velocity value
+-- can still have its uses. For example, this is actually the velocity
+-- observed on the NEXT frame, so if we want advance knowledge of the velocity,
+-- then we might use this.
+SMG1.baseVel = V(
+  Vector3Value,
+  MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatValue),
+  MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatValue),
+  MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatValue)
+)
+SMG1.baseVel.label = "Base Vel"
+SMG1.baseVel.displayDefaults = {signed=true}
+
 
 -- Mario/Luigi's direction of gravity.
 SMG1.upVectorGravity = V(
@@ -280,23 +260,25 @@ SMG1.upVectorTilt.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 
--- Velocity directly from a memory value.
--- Not all kinds of movement are covered. For example, launch stars and
--- riding moving platforms aren't accounted for.
---
--- It's usually preferable to use velocity based on position change, because
--- that's more accurate to observable velocity. But this velocity value
--- can still have its uses. For example, this is actually the velocity
--- observed on the NEXT frame, so if we want advance knowledge of the velocity,
--- then we might use this.
-SMG1.baseVel = V(
-  Vector3Value,
-  MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatValue),
-  MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatValue),
-  MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatValue)
-)
-SMG1.baseVel.label = "Base Vel"
-SMG1.baseVel.displayDefaults = {signed=true}
+
+-- Inputs and spin state.
+
+SMG1.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7})
+SMG1.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7})
+
+SMG1.wiimoteShakeBit =
+  MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteValue)
+SMG1.nunchukShakeBit =
+  MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteValue)
+SMG1.spinCooldownTimer =
+  MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
+SMG1.spinAttackTimer =
+  MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteValue)
+
+SMG1.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
+SMG1.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
 
 
 
