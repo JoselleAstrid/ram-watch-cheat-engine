@@ -33,6 +33,8 @@ function DolphinGame:init(options)
     value.obj.game = self
     value.initCallable()
   end
+  
+  self.initCalled = true
     
   -- Subclasses of DolphinGame must set a gameId attribute in their init().
 end
@@ -41,6 +43,32 @@ end
 -- Like classInstantiate(), except the game attribute is set
 -- before init() is called.
 -- If the Game object isn't initialized yet, use VDeferredInit() instead.
+
+
+function DolphinGame:add(Class, ...)
+  local newObject = subclass(Class)
+  
+  if self.initCalled then
+    -- The game is initialized already, so it should be safe to initialize
+    -- this object too.
+    newObject.game = self
+    newObject:init(...)
+  else
+    -- Save the object in a table.
+    -- Later, when we have an initialized Game,
+    -- we'll iterate over this table, set the game attribute for each object,
+    -- and initialize each object.
+    -- TODO: Rename valuesToInitialize to objectsToInitialize.
+    local initCallable = utils.curry(Class.init, newObject, ...)
+    table.insert(
+      self.valuesToInitialize, {obj=newObject, initCallable=initCallable})
+  end
+  
+  return newObject
+end
+
+
+-- TODO: Replace usages with add().
 function DolphinGame:V(ValueClass, ...)
   local newValue = subclass(ValueClass)
   newValue.game = self
@@ -54,7 +82,7 @@ function DolphinGame:F(func, ...)
 end
 
 
--- Create Values which are initialized after <value>.game is set.
+-- TODO: Replace usages with add().
 function DolphinGame:VDeferredInit(ValueClass, ...)
   local newValue = subclass(ValueClass)
   local initCallable = utils.curry(ValueClass.init, newValue, ...)
@@ -70,6 +98,29 @@ function DolphinGame:VDeferredInit(ValueClass, ...)
 end
 
 
+-- TODO: Check if needed.
+-- This should return a MemoryValue subclass.
+function DolphinGame:MVClass(
+    label, offset, mvSuperClass, typeMixin, defaultExtraArgs)
+    
+  local newClass = subclass(mvSuperClass, typeMixin)
+  
+  local function f(superClass_, label_, offset_, defaultExtraArgs, extraArgs_)
+    -- We'll curry in the defaultExtraArgs, and pass in extraArgs_ later.
+    utils.updateTable(combinedExtraArgs, defaultExtraArgs)
+    utils.updateTable(combinedExtraArgs, extraArgs_)
+    -- We're assuming any MemoryValue subclass's init() has this signature.
+    -- TODO: Check this.
+    superClass_.init(self, label_, offset_, combinedExtraArgs)
+  end
+  
+  defaultExtraArgs = defaultExtraArgs or {}
+  newClass.init = utils.curry(f, mvSuperClass, label, offset, defaultExtraArgs)
+  return newClass
+end
+
+
+-- TODO: Check if needed.
 -- Create MemoryValues which are initialized after <value>.game is set.
 --
 -- Creation isn't entirely straightforward because we want

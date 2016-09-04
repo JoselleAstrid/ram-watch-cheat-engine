@@ -103,6 +103,15 @@ local function curry(f,v,...)
   return curry( curry1(f,v), ... )
 end
 
+-- Curry an instance function.
+local function curryInstance(f, ...)
+  local function func(f_, args, instance)
+    return f_(instance, unpack(args))
+  end
+  -- From here, all that remains is to pass in the instance.
+  return curry(func, f, {...})
+end
+
 
 
 local function readIntBE(address, numberOfBytesToRead)
@@ -372,7 +381,15 @@ end
 local function copyFields(child, parents)
   for _, parent in pairs(parents) do
     for key, value in pairs(parent) do
-      child[key] = value
+      if type(value) == 'table' then
+        -- Simple assignment here would mean that the subclass and superclass
+        -- share the same table for this field.
+        -- Instead, we must build a new table. 
+        child[key] = {}
+        updateTable(child[key], value)
+      else
+        child[key] = value
+      end
     end
   end
 end
@@ -380,6 +397,7 @@ end
 -- Basically a shortcut for copyFields.
 local function subclass(...)
   local parents = {}
+  -- TODO: Replace arg with {...} for future Lua compatibility?
   for _,v in ipairs(arg) do
     table.insert(parents, v)
   end
@@ -408,6 +426,7 @@ return {
   tableContentsToStr = tableContentsToStr,
   updateTable = updateTable,
   curry = curry,
+  curryInstance = curryInstance,
   
   readIntBE = readIntBE,
   readIntLE = readIntLE,

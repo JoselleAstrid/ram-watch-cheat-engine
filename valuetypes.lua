@@ -12,10 +12,110 @@ local valuetypes = {}
 
 
 
+local Block = {}
+Block.values = {}
+-- TODO: Check if needed
+-- Block.valuesToInitialize = {}
+-- Block.ValueClass = nil
+Block.nextAutomaticKeyNumber = 1
+valuetypes.Block = Block
+
+function Block:init()
+  -- self.a = new object of class self.values.a, whose init() must take 0 args.
+  -- init() might require game or block to be set, so set first, then init().
+  for key, value in pairs(self.values) do
+    self[key] = subclass(value)
+    self[key].game = self.game
+    self[key].block = self
+    self[key]:init()
+  end
+end
+
+function Block:addWithAutomaticKey(value)
+  -- This works as long as no manually-specified keys are named _1, _2, etc.
+  local key = '_'..tostring(self.nextAutomaticKeyNumber)
+  self.values[key] = value
+  self.nextAutomaticKeyNumber = self.nextAutomaticKeyNumber + 1
+  return key
+end
+
+
+
+function valuetypes.V(valueClass, ...)
+  local newValue = subclass(valueClass)
+  
+  newValue.init = utils.curryInstance(valueClass.init, ...)
+  
+  return newValue
+end
+
+function valuetypes.MV(label, offset, valueClass, typeMixinClass, extraArgs)
+  local newValue = subclass(valueClass, typeMixinClass)
+  
+  local function f(
+      newV_, label_, offset_, valueClass_, typeMixinClass_, extraArgs_)
+    valueClass_.init(newV_, label_, offset_)
+    typeMixinClass_.init(newV_, extraArgs_)
+  end
+  
+  newValue.init = utils.curryInstance(
+    f, label, offset, valueClass, typeMixinClass, extraArgs)
+    
+  return newValue
+end
+
+-- TODO: Check if needed
+
+-- function Block:init()
+--   for _, value in pairs(self.valuesToInitialize) do
+--     value.obj.game = self.game
+--     value.obj.block = self
+--     value.initCallable()
+--   end
+-- end
+
+-- function Block:addV(valueClass, ...)
+--   local newValue = subclass(valueClass)
+--   local initCallable = utils.curry(valueClass.init, newValue, ...)
+  
+--   -- Save the object in a table.
+--   -- Later, when we have an initialized Block object,
+--   -- we'll iterate over this table, set the game attribute for each object,
+--   -- and call each object's initialization callable.
+--   table.insert(
+--     self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
+--   return newValue
+-- end
+
+-- function Block:addMV(label, offset, valueClass, typeMixinClass, extraArgs)
+--   local newValue = subclass(valueClass, typeMixinClass)
+  
+--   local function f(
+--       newV_, label_, offset_, valueClass_, typeMixinClass_, extraArgs_)
+--     valueClass_.init(newV_, label_, offset_)
+--     typeMixinClass_.init(newV_, extraArgs_)
+--   end
+  
+--   local initCallable = utils.curry(
+--     f, newValue, label, offset, valueClass, typeMixinClass, extraArgs)
+  
+--   -- Save the object in a table.
+--   -- Later, when we have an initialized Block object,
+--   -- we'll iterate over this table, set the game attribute for each object,
+--   -- and call each object's initialization callable.
+--   table.insert(
+--     self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
+    
+--   return newValue
+-- end
+
+
+
 Value = {}
 valuetypes.Value = Value
 Value.label = "Label not specified"
 Value.initialValue = nil
+Value.invalidDisplay = "<Invalid value>"
 
 function Value:init()
   self.value = self.initialValue
@@ -41,10 +141,25 @@ function Value:get()
   return self.value
 end
 
+function Value:isValid()
+  -- Is there currently a valid value here? Or is there a problem which could
+  -- make the standard value-getting functions return something nonsensical
+  -- (or trigger an error)?
+  -- For example, if there is a memory value whose pointer becomes
+  -- invalid sometimes, then it can return false in those cases.
+  return true
+end
+
 function Value:displayValue(options)
   -- Subclasses with non-float values should override this.
   -- This is separate from display() for ease of overriding this function.
   return utils.floatToStr(self.value, options)
+end
+
+function Value:getLabel()
+  -- If there is anything dynamic about a Value's label display,
+  -- this function can be overridden to accommodate that.
+  return self.label
 end
 
 function Value:display(passedOptions)
@@ -60,14 +175,24 @@ function Value:display(passedOptions)
     utils.updateTable(options, passedOptions)
   end
   
-  if options.nolabel then
-    return self:displayValue(options)
+  local valueDisplay = nil
+  local valueDisplayFunction =
+    options.valueDisplayFunction or utils.curry(self.displayValue, self)
+    
+  if self:isValid() then
+    valueDisplay = valueDisplayFunction(options)
   else
-    local label = options.label or self.label
+    valueDisplay = self.invalidDisplay
+  end
+  
+  if options.nolabel then
+    return valueDisplay
+  else
+    local label = options.label or self:getLabel()
     if options.narrow then
-      return label..":\n "..self:displayValue(options)
+      return label..":\n "..valueDisplay
     else
-      return label..": "..self:displayValue(options)
+      return label..": "..valueDisplay
     end
   end
 end
@@ -216,13 +341,6 @@ function MemoryValue:set(v)
   self:write(self:getAddress(), v)
 end
 
-function MemoryValue:isValid()
-  -- Is there currently a valid value in memory here? Would it be okay to
-  -- take this value and use it for computations, assume it will change
-  -- something if edited, etc.?
-  return true
-end
-
 function MemoryValue:getEditFieldText()
   return self:toStrForEditField(self:get())
 end
@@ -256,7 +374,11 @@ end
 function TypeMixin:toStrForEditField(v, options)
   error("Must be implemented by subclass")
 end
+function TypeMixin:equals(obj2)
+  return self:get() == obj2:get()
+end
 
+-- TODO: Consider renaming the following classes: FloatValue -> FloatType, etc.
 local FloatValue = subclass(TypeMixin)
 valuetypes.FloatValue = FloatValue
 function FloatValue:read(address)
@@ -308,16 +430,29 @@ valuetypes.ByteValue = ByteValue
 ByteValue.numOfBytes = 1
 ByteValue.addressListType = vtByte
 
-local SignedIntValue = subclass(TypeMixin)
-valuetypes.SignedIntValue = SignedIntValue
-function SignedIntValue:read(address)
+-- Floats are interpreted as signed by default, while integers are interpreted
+-- as unsigned by default. We'll define a few classes to interpret integers
+-- as signed.
+local function readSigned(self, address)
   local v = utils.readIntBE(address, self.numOfBytes)
   return utils.unsignedToSigned(v, self.numOfBytes)
 end
-function SignedIntValue:write(address, v)
+local function writeSigned(self, address, v)
   local v2 = utils.signedToUnsigned(v, self.numOfBytes)
   return utils.writeIntBE(address, v2, self.numOfBytes)
 end
+
+valuetypes.SignedIntValue = subclass(IntValue)
+valuetypes.SignedIntValue.read = readSigned
+valuetypes.SignedIntValue.write = writeSigned
+
+valuetypes.SignedShortValue = subclass(ShortValue)
+valuetypes.SignedShortValue.read = readSigned
+valuetypes.SignedShortValue.write = writeSigned
+
+valuetypes.SignedByteValue = subclass(ByteValue)
+valuetypes.SignedByteValue.read = readSigned
+valuetypes.SignedByteValue.write = writeSigned
 
 
 local StringValue = subclass(TypeMixin)
@@ -346,24 +481,25 @@ StringValue.addressListType = vtString
 local BinaryValue = subclass(TypeMixin)
 valuetypes.BinaryValue = BinaryValue
 BinaryValue.addressListType = vtBinary
+BinaryValue.initialValue = {}
 
 function BinaryValue:init(extraArgs)
   TypeMixin.init(self)
-  if not extraArgs.binarySize then error(self.label) end
   self.binarySize = extraArgs.binarySize
     or error("Must specify size of the binary value (number of bits)")
+  -- Possible binaryStartBit values from left to right: 76543210
   self.binaryStartBit = extraArgs.binaryStartBit
     or error("Must specify binary start bit (which bit within the byte)")
 end
-function BinaryValue:read(address, startBit)
+
+function BinaryValue:read(address)
   -- address is the byte address
-  -- Possible startBit values from left to right: 76543210
   -- Returns: a table of the bits
   -- For now, we only support binary values contained in a single byte.
   local byte = utils.readIntBE(address, 1)
-  local endBit = startBit - self.binarySize + 1
+  local endBit = self.binaryStartBit - self.binarySize + 1
   local bits = {}
-  for bitNumber = startBit, endBit, -1 do
+  for bitNumber = self.binaryStartBit, endBit, -1 do
     -- Check if the byte has 1 or 0 in this position.
     if 2^bitNumber == bAnd(byte, 2^bitNumber) then
       table.insert(bits, 1)
@@ -374,20 +510,16 @@ function BinaryValue:read(address, startBit)
   return bits
 end
 
-function BinaryValue:updateValue()
-  self.value = self:read(self:getAddress(), self.binaryStartBit)
-end
-
-function BinaryValue:write(address, startBit, v)
+function BinaryValue:write(address, v)
   -- v is a table of the bits
   -- For now, we only support binary values contained in a single byte.
   
   -- Start with the current byte value. Then write the bits that need to
   -- be written.
   local byte = utils.readIntBE(address, 1)
-  local endBit = startBit - self.binarySize + 1
+  local endBit = self.binaryStartBit - self.binarySize + 1
   local bitCount = 0
-  for bitNumber = startBit, endBit, -1 do
+  for bitNumber = self.binaryStartBit, endBit, -1 do
     bitCount = bitCount + 1
     if v[bitCount] == 1 then
       byte = bOr(byte, 2^bitNumber)
@@ -396,10 +528,6 @@ function BinaryValue:write(address, startBit, v)
     end
   end
   utils.writeIntBE(address, byte, 1)
-end
-
-function BinaryValue:set(v)
-  self:write(self:getAddress(), self.binaryStartBit, v)
 end
 
 function BinaryValue:strToValue(s)
@@ -427,6 +555,19 @@ function BinaryValue:displayValue()
   return s
 end
 BinaryValue.toStrForEditField = BinaryValue.displayValue
+
+function BinaryValue:equals(obj2)
+  -- Lua doesn't do value-based equality of tables, so we need to compare
+  -- the elements one by one.
+  local v1 = self:get()
+  local v2 = obj2:get()
+  for index = 1, #v1 do
+    if v1[index] ~= v2[index] then return false end
+  end
+  -- Also compare table lengths; this accounts for the case where v1 is just
+  -- the first part of v2.
+  return #v1 == #v2
+end
 
 
 

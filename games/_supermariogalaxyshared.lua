@@ -83,7 +83,7 @@ end
 -- Velocity calculated as position change.
 
 SMGshared.Velocity = subclass(Value)
-SMGshared.Velocity.label = "Label to be passed as argument"
+SMGshared.Velocity.label = "Label to be determined"
 SMGshared.Velocity.initialValue = 0.0
 
 function SMGshared.Velocity:init(coordinates)
@@ -578,6 +578,8 @@ end
 
 
 function SMGshared:inputDisplay(options)
+  options = options or {}
+  
   local displayStickX =
     self.stickX:display{nolabel=true, afterDecimal=3, signed=true}
   local displayStickY =
