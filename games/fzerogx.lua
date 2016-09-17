@@ -378,7 +378,7 @@ function StatWithBase:updateStatBasesIfMachineChanged()
   local isCustom = (machineOrPartId >= 50)
   if isCustom then
     local customPartTypeWithBase = self.customPartsWithBase[1]
-    machineOrPartId = self.state.customPartIds[customPartTypeWithBase]:get()
+    machineOrPartId = self.state:customPartIds(customPartTypeWithBase):get()
   end
   
   if self.machineOrPartId == machineOrPartId and self.isCustom == isCustom then
@@ -691,18 +691,21 @@ function GX.settingsSlider:displayValue(options)
   return IntValue.displayValue(self, options).."%"
 end
 
--- TODO: Uncomment all this stuff and get it working.
 
--- MSV.customBodyId =
---   MV("Custom body ID", 0x0, CustomPartId, ByteValue)
--- MSV.customCockpitId =
---   MV("Custom cockpit ID", 0x8, CustomPartId, ByteValue)
--- MSV.customBoosterId =
---   MV("Custom booster ID", 0x10, CustomPartId, ByteValue)
+-- Custom part IDs
+MSV.customBodyId =
+  MV("Custom body ID", 0x0, CustomPartId, ByteValue)
+MSV.customCockpitId =
+  MV("Custom cockpit ID", 0x8, CustomPartId, ByteValue)
+MSV.customBoosterId =
+  MV("Custom booster ID", 0x10, CustomPartId, ByteValue)
 
--- TODO: Don't think this will work...
--- MS.customPartIds =
---   {MSV.customBodyId, MSV.customCockpitId, MSV.customBoosterId}
+function MachineState:customPartIds(number)
+  local ids = {self.customBodyId, self.customCockpitId, self.customBoosterId}
+  -- 1 for body, 2 for cockpit, 3 for booster
+  return ids[number]
+end
+
   
 MSV.machineId = MV("Machine ID", 0x6, StateValue, ShortValue)
 MSV.machineName =
