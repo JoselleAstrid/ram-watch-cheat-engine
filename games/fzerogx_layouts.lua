@@ -98,14 +98,14 @@ end
 -- TODO: Support this as a parameterized layout
 layouts.oneMachineStat = subclass(Layout)
 function layouts.oneMachineStat:init(window, game, numOfMachines, statName)
-  numOfMachines = numOfMachines or 2
+  numOfMachines = numOfMachines or 6
   statName = statName or 'accel'
   
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
   -- TODO: Determine window's height dynamically from numOfMachines
-  self.windowSize = {500, 160}
+  self.windowSize = {500, 320}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -113,7 +113,7 @@ function layouts.oneMachineStat:init(window, game, numOfMachines, statName)
   for i = 0, numOfMachines-1 do
     self:addItem(game:getMachineState(i)[statName])
     self:addItem(
-      function () return game:getMachineState(i)[statName].base:display() end)
+      function () return game:getMachineState(i)[statName]:displayBase() end)
   end
   
   Layout.init(self, window, game)
@@ -125,7 +125,7 @@ function layouts.allMachineStats:init(window, game)
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {400, 600}
+  self.windowSize = {400, 700}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   

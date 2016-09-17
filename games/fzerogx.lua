@@ -355,7 +355,6 @@ GX.StatWithBase = StatWithBase
 function StatWithBase:init()
   -- MemoryValue containing current stat value
   self.current = self.state[self.currentKey]
-  self.displayDefaults = self.current.displayDefaults
 end
 
 function StatWithBase:updateStatBasesIfMachineChanged()
@@ -444,10 +443,7 @@ function StatWithBase:displayBaseValue(options)
 end
 
 function StatWithBase:displayBase(options)
-  options = options or {}
-  options.valueDisplayFunction =
-    utils.curry(self.displayBaseValue, self)
-  return self:display(options)
+  return self.base:display(options)
 end
 
 function StatWithBase:displayCurrentAndBaseValues(options)
@@ -527,6 +523,90 @@ function StatTiedToBase:addAddressesToList()
 end
 
 
+-- Machine-size stats.
+--
+-- There are 24 such stats, but they have a lot of redundancy in practice.
+-- For example, it seems that no machine has a different back length on the
+-- left side versus the right side. And the tilt vs. wall collision values
+-- are always a constant offset from each other.
+--
+-- We'll put the 24 machine-size coordinates in 6 objects, with each object
+-- having 4 coordinates within a constant offset/factor.
+
+local SizeStat = subclass(Value)
+GX.SizeStat = SizeStat
+
+function SizeStat:init()
+  self.stats = {}
+  for n = 1, 4 do
+    table.insert(self.stats, self.state[self.statKeys[n]])
+  end
+end
+
+function SizeStat:set(v)
+  -- Take v to be the value for stat 1. Use the formulas to find appropriate
+  -- values for the other stats.
+  -- If you want more customization, and are fine with seeing phenomena you'd
+  -- never see in normal play (e.g. left side 'heavier' than right), then call
+  -- mySizeStat.stats[n]:set(v) instead.
+  for n = 1, 4 do
+    self.stats[n]:set(
+      -- A couple of formulas require the machine ID.
+      -- The other formulas will just safely ignore the ID.
+      self.formulas[n](v, self.state.machineId:get())
+    )
+  end
+end
+
+function SizeStat:isValid()
+  return (
+    self.stats[1]:isValid() and self.stats[2]:isValid()
+    and self.stats[3]:isValid() and self.stats[4]:isValid()
+  )
+end
+
+function SizeStat:hasChanged()
+  -- If we only call set() of this class then it'd suffice to check stat 1,
+  -- but here we check for tweaking of individual stats as well.
+  return (
+    self.stats[1]:hasChanged() or self.stats[2]:hasChanged()
+    or self.stats[3]:hasChanged() or self.stats[4]:hasChanged()
+  )
+end
+
+function SizeStat:addAddressesToList()
+  -- Only add the actual stats here. Changing the base size values
+  -- doesn't change the actual values, so no particular use in adding
+  -- base values to the list.
+  for n = 1, 4 do
+    addAddressToList(self, {
+      address = self.stats[n]:getAddress(),
+      description = self.stats[n]:getLabel(),
+    })
+  end
+end
+
+SizeStat.getLabel = StateValue.getLabel
+
+function SizeStat:updateValue()
+  self.stats[1]:updateValue()
+end
+
+function SizeStat:displayValue(options)
+  return self.stats[1]:displayValue(options)
+end
+function SizeStat:displayBase(options)
+  options = options or {}
+  options.label = options.label or self:getLabel().." (B)"
+  return self.stats[1]:displayBase(options)
+end
+function SizeStat:displayCurrentAndBase(options)
+  options = options or {}
+  options.label = options.label or self:getLabel()
+  return self.stats[1]:displayCurrentAndBase(options)
+end
+
+
 
 local FloatStat = subclass(FloatValue)
 GX.FloatStat = FloatStat
@@ -555,8 +635,9 @@ local function defineStatWithBase(
   obj.baseExtraArgs = baseExtraArgs
   
   -- Add to the current stats
-  obj.currentKey = MachineState:addWithAutomaticKey(
-    MV(label, offset, StateValue, typeMixinClass, extraArgs))
+  local current = MV(label, offset, StateValue, typeMixinClass, extraArgs)
+  obj.currentKey = MachineState:addWithAutomaticKey(current)
+  obj.displayDefaults = current.displayDefaults
   
   -- Add to the base stats
   obj.baseKey = MachineBaseStats:addWithAutomaticKey(
@@ -567,6 +648,30 @@ local function defineStatWithBase(
     MV(
       label.." (B)", baseOffset,
       BaseStat2Value, typeMixinClass, baseExtraArgs))
+  
+  return obj
+end
+
+local function defineSizeStat(
+    label, specificLabels, offsets, baseOffsets, formulas)
+  local obj = V(SizeStat)
+  
+  obj.label = label
+  obj.statKeys = {}
+  for n = 1, 4 do
+    local stat = defineStatWithBase(
+      specificLabels[n], offsets[n], baseOffsets[n],
+      StatWithBase, FloatStat,
+      -- SizeStats on custom machines are always influenced by only the body,
+      -- not the cockpit or booster.
+      {1}
+    )
+    table.insert(obj.statKeys, MachineState:addWithAutomaticKey(stat))
+    
+    if n == 1 then obj.displayDefaults = stat.displayDefaults end
+  end
+  
+  obj.formulas = formulas
   
   return obj
 end
@@ -669,15 +774,126 @@ MSV.unknown49b = defineStatWithBase(
   "Drift camera", 0x2, 0x49, StatTiedToBase, BinaryValue, {2},
   {binarySize=1, binaryStartBit=0}, {binarySize=1, binaryStartBit=0})
   
--- TODO: SizeStats
+MSV.frontWidth = defineSizeStat(
+  "Size, front width",
+  -- Specific labels
+  {
+    "Tilt, front width, right",
+    "Tilt, front width, left",
+    "Wall collision, front width, right",
+    "Wall collision, front width, left",
+  },
+  -- Offsets
+  {0x24C, 0x2A8, 0x3B4, 0x3E4},
+  -- Base-block offsets
+  {0x54, 0x60, 0x84, 0x90},
+  -- Formulas
+  {
+    function(v) return v end,
+    function(v) return -v end,
+    function(v) return v+0.2 end,
+    function(v) return -(v+0.2) end,
+  }
+)
+MSV.frontHeight = defineSizeStat(
+  "Size, front height",
+  {
+    "Tilt, front height, right",
+    "Tilt, front height, left",
+    "Wall collision, front height, right",
+    "Wall collision, front height, left",
+  },
+  {0x250, 0x2AC, 0x3B8, 0x3E8},
+  {0x58, 0x64, 0x88, 0x94},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v-0.1 end,
+    function(v) return v-0.1 end,
+  }
+)
+MSV.frontLength = defineSizeStat(
+  "Size, front length",
+  {
+    "Tilt, front length, right",
+    "Tilt, front length, left",
+    "Wall collision, front length, right",
+    "Wall collision, front length, left",
+  },
+  {0x254, 0x2B0, 0x3BC, 0x3EC},
+  {0x5C, 0x68, 0x8C, 0x98},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v-0.2 end,
+    function(v) return v-0.2 end,
+  }
+)
+MSV.backWidth = defineSizeStat(
+  "Size, back width",
+  {
+    "Tilt, back width, right",
+    "Tilt, back width, left",
+    "Wall collision, back width, right",
+    "Wall collision, back width, left",
+  },
+  {0x304, 0x360, 0x414, 0x444},
+  {0x6C, 0x78, 0x9C, 0xA8},
+  {
+    function(v) return v end,
+    function(v) return -v end,
+    -- For these formulas, Black Bull is +0.3, everyone else is +0.2
+    function(v, machineId)
+      if machineId == 29 then return v+0.3 else return v+0.2 end
+    end,
+    function(v, machineId)
+      if machineId == 29 then return -(v+0.3) else return -(v+0.2) end
+    end,
+  }
+)
+MSV.backHeight = defineSizeStat(
+  "Size, back height",
+  {
+    "Tilt, back height, right",
+    "Tilt, back height, left",
+    "Wall collision, back height, right",
+    "Wall collision, back height, left",
+  },
+  {0x308, 0x364, 0x418, 0x448},
+  {0x70, 0x7C, 0xA0, 0xAC},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v-0.1 end,
+    function(v) return v-0.1 end,
+  }
+)
+MSV.backLength = defineSizeStat(
+  "Size, back length",
+  {
+    "Tilt, back length, right",
+    "Tilt, back length, left",
+    "Wall collision, back length, right",
+    "Wall collision, back length, left",
+  },
+  {0x30C, 0x368, 0x41C, 0x44C},
+  {0x74, 0x80, 0xA4, 0xB0},
+  {
+    function(v) return v end,
+    function(v) return v end,
+    function(v) return v+0.2 end,
+    function(v) return v+0.2 end,
+  }
+)
 
--- TODO: Complete
 GX.statNames = {
   'accel', 'body', 'boostDuration', 'boostStrength', 'cameraReorienting',
   'cameraRepositioning', 'drag', 'driftAccel', 'grip1', 'grip2', 'grip3',
   'maxSpeed', 'strafe', 'strafeTurn', 'trackCollision', 'turnDecel',
   'turning1', 'turning2', 'turning3', 'weight',
   'obstacleCollision', 'unknown48', 'unknown49a', 'unknown49b',
+  'frontWidth', 'frontHeight', 'frontLength',
+  'backWidth', 'backHeight', 'backLength',
 }
 
 
