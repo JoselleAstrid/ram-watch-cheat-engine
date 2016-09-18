@@ -206,18 +206,9 @@ end
 
 
 
--- 0x620-byte memory block that's dense with useful information.
--- There's one such block per machine in a race.
-local StateValue = subclass(MemoryValue)
-GX.StateValue = StateValue
+local MachineStateMember = {}
 
-function StateValue:getAddress()
-  return (self.game.addrs.machineStateBlocks
-    + (0x620 * self.state.machineIndex)
-    + self.offset)
-end
-
-function StateValue:getLabel()
+function MachineStateMember:getLabel()
   if self.state.machineIndex == 0 then
     return self.label
   else
@@ -228,6 +219,19 @@ function StateValue:getLabel()
     -- doesn't exist.
     return string.format("%s, %s", self.label, self.state.machineName:get())
   end
+end
+
+
+
+-- 0x620-byte memory block that's dense with useful information.
+-- There's one such block per machine in a race.
+local StateValue = subclass(MemoryValue, MachineStateMember)
+GX.StateValue = StateValue
+
+function StateValue:getAddress()
+  return (self.game.addrs.machineStateBlocks
+    + (0x620 * self.state.machineIndex)
+    + self.offset)
 end
 
 
@@ -266,33 +270,22 @@ end
 
 
 local MachineState = subclass(Block)
+MachineState.blockAlias = 'state'
 GX.MachineState = MachineState
 GX.MachineStateBlocks = {}
 local MS = MachineState
 local MSV = MachineState.values
-
+-- TODO: Fix other blocks' init() functions similarly.
 function MachineState:init(machineIndex)
   self.machineIndex = machineIndex
   
-  -- Assign everything to the block namespace first.
-  for key, value in pairs(self.values) do
-    self[key] = subclass(value)
-    self[key].game = self.game
-    self[key].state = self
-  end
-  
-  -- THEN init. Some objects' init functions may require other objects
-  -- to already be assigned to the block namespace.
-  for key, value in pairs(self.values) do
-    self[key]:init()
-  end
+  Block.init(self)
 end
 
 function GX:getMachineState(machineIndex)
   machineIndex = machineIndex or 0
   -- Create the block if it doesn't exist
   if not self.MachineStateBlocks[machineIndex] then
-    -- TODO: If add() works here, do it for the other types of blocks too
     self.MachineStateBlocks[machineIndex] =
       self:add(MachineState, machineIndex)
   end
@@ -711,14 +704,14 @@ MSV.machineId = MV("Machine ID", 0x6, StateValue, ShortValue)
 MSV.machineName =
   MV("Machine name", 0x3C, StateValue, StringValue, {maxLength=64})
   
--- MSV.pos = MS:addV(
---   Vector3Value,
---   MS:addStateFloat("Pos X", 0x7C),
---   MS:addStateFloat("Pos Y", 0x80),
---   MS:addStateFloat("Pos Z", 0x84)
--- )
--- MSV.pos.label = "Position"
--- MSV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
+MSV.pos = V(
+  subclass(Vector3Value, MachineStateMember),
+  MS:addWithAutomaticKey(defineStateFloat("Pos X", 0x7C)),
+  MS:addWithAutomaticKey(defineStateFloat("Pos Y", 0x80)),
+  MS:addWithAutomaticKey(defineStateFloat("Pos Z", 0x84))
+)
+MSV.pos.label = "Position"
+MSV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
 MSV.kmh = defineStateFloat("km/h (next)", 0x17C)
 MSV.energy = defineStateFloat("Energy", 0x184)

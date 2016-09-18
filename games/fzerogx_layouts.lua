@@ -95,6 +95,24 @@ function layouts.energy:init(window, game, numOfMachines)
 end
 
 
+layouts.position = subclass(Layout)
+function layouts.position:init(window, game)
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {350, 200}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+  
+  self:addLabel()
+  self:addItem(game:getMachineState().pos)
+  self:addItem(game:getMachineState(1).pos)
+  
+  Layout.init(self, window, game)
+end
+
+
 -- TODO: Support this as a parameterized layout
 layouts.oneMachineStat = subclass(Layout)
 function layouts.oneMachineStat:init(window, game, numOfMachines, statName)

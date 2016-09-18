@@ -17,16 +17,23 @@ Block.values = {}
 -- TODO: Check if needed
 -- Block.valuesToInitialize = {}
 -- Block.ValueClass = nil
+Block.blockAlias = 'block'
 Block.nextAutomaticKeyNumber = 1
 valuetypes.Block = Block
 
 function Block:init()
   -- self.a = new object of class self.values.a, whose init() must take 0 args.
-  -- init() might require game or block to be set, so set first, then init().
+  -- Assign everything to the block namespace first...
   for key, value in pairs(self.values) do
     self[key] = subclass(value)
     self[key].game = self.game
     self[key].block = self
+    self[key][self.blockAlias] = self
+  end
+  
+  -- ...THEN init. Some objects' init functions may require other objects
+  -- to already be assigned to the block namespace.
+  for key, value in pairs(self.values) do
     self[key]:init()
   end
 end
@@ -159,6 +166,7 @@ end
 function Value:getLabel()
   -- If there is anything dynamic about a Value's label display,
   -- this function can be overridden to accommodate that.
+  -- TODO: Ensure all the display() functions respect getLabel().
   return self.label
 end
 
@@ -571,15 +579,32 @@ end
 
 
 
+-- TODO: Ensure this is used in all applicable Value subclasses.
+function Value:getPassedValue(v)
+  -- Use this in init() functions for Value subclasses that
+  -- take other Value objects.
+  --
+  -- This allows init() to pass in a Value object directly, OR
+  -- pass in a Block string key from which the Value object can be retrieved.
+  -- The latter is required if the Value object is part of a Block.
+  if type(v) == 'string' then
+    return self.block[v]
+  else
+    return v
+  end
+end
+
+
+
 local Vector3Value = subclass(Value)
 valuetypes.Vector3Value = Vector3Value
 Vector3Value.initialValue = "Value field not used"
 
 function Vector3Value:init(x, y, z)
   Value.init(self)
-  self.x = x
-  self.y = y
-  self.z = z
+  self.x = self:getPassedValue(x)
+  self.y = self:getPassedValue(y)
+  self.z = self:getPassedValue(z)
 end
 
 function Vector3Value:get()
@@ -618,7 +643,7 @@ function Vector3Value:display(passedOptions)
     end
   end
   
-  local label = options.label or self.label
+  local label = options.label or self:getLabel()
 
   local format = nil
   if options.narrow then
