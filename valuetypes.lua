@@ -183,14 +183,13 @@ function Value:display(passedOptions)
     utils.updateTable(options, passedOptions)
   end
   
-  local valueDisplay = nil
-  local valueDisplayFunction =
-    options.valueDisplayFunction or utils.curry(self.displayValue, self)
-    
+  local valueDisplay = self.invalidDisplay
   if self:isValid() then
-    valueDisplay = valueDisplayFunction(options)
-  else
-    valueDisplay = self.invalidDisplay
+    if options.valueDisplayFunction then
+      valueDisplay = options.valueDisplayFunction(options)
+    else
+      valueDisplay = self:displayValue(options)
+    end
   end
   
   if options.nolabel then

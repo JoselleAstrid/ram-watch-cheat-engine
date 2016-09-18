@@ -34,7 +34,7 @@ function layouts.addressTest:init(window, game)
   self:addItem(game:F(
     function()
       local names = {
-        'o', 'refPointer', 'machineStateBlocks', 'machineState2Blocks',
+        'o', 'refPointer', 'racerStateBlocks', 'racerState2Blocks',
         'machineBaseStatsBlocks', 'machineBaseStatsBlocks2',
       }
       local lines = {}
@@ -49,7 +49,7 @@ function layouts.addressTest:init(window, game)
   Layout.init(self, window, game)
 end
 
-
+-- TODO: Get this working again...
 layouts.kmhRecording = subclass(Layout)
 function layouts.kmhRecording:init(window, game)
   self:setBreakpointUpdateMethod()
@@ -59,36 +59,36 @@ function layouts.kmhRecording:init(window, game)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local state = game:getMachineState()
+  local racer = game:getRacer()
     
   self:addLabel()
   self:addItem(game.settingsSlider)
-  self:addItem(state.kmh)
+  self:addItem(racer.kmh)
   
   self:addFileWriter(
-    state.kmh, "ram_watch_output.txt",
+    racer.kmh, "ram_watch_output.txt",
     {beforeDecimal=1, afterDecimal=10})
   
   Layout.init(self, window, game)
 end
 
 
--- TODO: Support this as a parameterized layout, passing in numOfMachines
+-- TODO: Support this as a parameterized layout, passing in numOfRacers
 layouts.energy = subclass(Layout)
-function layouts.energy:init(window, game, numOfMachines)
-  numOfMachines = numOfMachines or 6
+function layouts.energy:init(window, game, numOfRacers)
+  numOfRacers = numOfRacers or 6
   
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  -- TODO: Determine window's height dynamically from numOfMachines
+  -- TODO: Determine window's height dynamically from numOfRacers
   self.windowSize = {400, 300}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
-  for i = 0, numOfMachines-1 do
-    self:addItem(game:getMachineState(i).energy)
+  for i = 0, numOfRacers-1 do
+    self:addItem(game:getRacer(i).energy)
   end
   
   Layout.init(self, window, game)
@@ -106,8 +106,8 @@ function layouts.position:init(window, game)
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
-  self:addItem(game:getMachineState().pos)
-  self:addItem(game:getMachineState(1).pos)
+  self:addItem(game:getRacer().pos)
+  self:addItem(game:getRacer(1).pos)
   
   Layout.init(self, window, game)
 end
@@ -115,23 +115,23 @@ end
 
 -- TODO: Support this as a parameterized layout
 layouts.oneMachineStat = subclass(Layout)
-function layouts.oneMachineStat:init(window, game, numOfMachines, statName)
-  numOfMachines = numOfMachines or 6
+function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
+  numOfRacers = numOfRacers or 6
   statName = statName or 'accel'
   
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  -- TODO: Determine window's height dynamically from numOfMachines
+  -- TODO: Determine window's height dynamically from numOfRacers
   self.windowSize = {500, 320}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
-  for i = 0, numOfMachines-1 do
-    self:addItem(game:getMachineState(i)[statName])
+  for i = 0, numOfRacers-1 do
+    self:addItem(game:getRacer(i)[statName])
     self:addItem(
-      function () return game:getMachineState(i)[statName]:displayBase() end)
+      function () return game:getRacer(i)[statName]:displayBase() end)
   end
   
   Layout.init(self, window, game)
@@ -147,7 +147,7 @@ function layouts.allMachineStats:init(window, game)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local state = game:getMachineState()
+  local state = game:getRacer()
   
   self:addLabel()
   for _, statName in pairs(game.statNames) do
