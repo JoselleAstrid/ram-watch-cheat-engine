@@ -35,6 +35,7 @@ local IntValue = valuetypes.IntValue
 local ShortValue = valuetypes.ShortValue
 local ByteValue = valuetypes.ByteValue
 local SignedIntValue = valuetypes.SignedIntValue
+local SignedByteValue = valuetypes.SignedByteValue
 local StringValue = valuetypes.StringValue
 local BinaryValue = valuetypes.BinaryValue
 local Vector3Value = valuetypes.Vector3Value
@@ -662,7 +663,7 @@ RV.pos = V(
   Racer:addWithAutomaticKey(defineStateFloat("Pos Z", 0x84))
 )
 RV.pos.label = "Position"
-RV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
+RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
 
 RV.kmh = defineStateFloat("km/h (next)", 0x17C)
 RV.energy = defineStateFloat("Energy", 0x184)
@@ -842,6 +843,39 @@ GX.statNames = {
   'frontWidth', 'frontHeight', 'frontLength',
   'backWidth', 'backHeight', 'backLength',
 }
+
+
+RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatValue)
+
+RV.checkpointMain = MV("Main checkpoint", 0x618, State2Value, SignedIntValue)
+RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatValue)
+RV.checkpointLateralOffset = MV("CP lateral", 0x668, State2Value, FloatValue)
+RV.checkpointRightVector = V(
+  subclass(Vector3Value, RacerValue),
+  Racer:addWithAutomaticKey(MV("CP Right X", 0x560, State2Value, FloatValue)),
+  Racer:addWithAutomaticKey(MV("CP Right Y", 0x570, State2Value, FloatValue)),
+  Racer:addWithAutomaticKey(MV("CP Right Z", 0x580, State2Value, FloatValue))
+)
+RV.checkpointRightVector.label = "CP Right"
+RV.checkpointRightVector.displayDefaults = {
+  signed=true, beforeDecimal=1, afterDecimal=5}
+RV.sectionCheckpoint = MV("Section CP", 0x61C, State2Value, SignedIntValue)
+RV.checkpointPositional = MV("Positional CP", 0x5FC, State2Value, SignedIntValue)
+RV.checkpointLastContact = MV("Last contact CP", 0x1CC, StateValue, IntValue)
+RV.checkpointGround = MV("Ground CP", 0x680, State2Value, SignedIntValue)
+RV.checkpointNumber74 = MV("Checkpoint 74", 0x74, State2Value, SignedIntValue)
+RV.checkpointNumberD0 = MV("Checkpoint D0", 0xD0, State2Value, SignedIntValue)
+RV.checkpointNumber154 = MV("Checkpoint 154", 0x154, State2Value, SignedIntValue)
+RV.checkpointNumber1B0 = MV("Checkpoint 1B0", 0x1B0, State2Value, SignedIntValue)
+RV.checkpointNumber234 = MV("Checkpoint 234", 0x234, State2Value, SignedIntValue)
+RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntValue)
+RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntValue)
+RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntValue)
+
+RV.lapNumber = MV("Lap num", 0x67B, State2Value, ByteValue)
+RV.lapNumberPosition = MV("Lap num, position", 0x67F, State2Value, SignedByteValue)
+RV.lapNumberGround = MV("Lap num, ground", 0x6B7, State2Value, ByteValue)
+RV.lapNumberPositionGround = MV("Lap num, pos/gr", 0x6BB, State2Value, SignedByteValue)
 
 
 return GX

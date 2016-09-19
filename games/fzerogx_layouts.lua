@@ -150,13 +150,13 @@ function layouts.allMachineStats:init(window, game)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local state = game:getBlock(game.Racer)
+  local racer = game:getBlock(game.Racer)
   
   self:addLabel()
   for _, statName in pairs(game.statNames) do
     self:addItem(
       function ()
-        local stat = state[statName]
+        local stat = racer[statName]
         if stat.displayCurrentAndBase then
           return stat:displayCurrentAndBase()
         else
@@ -164,6 +164,32 @@ function layouts.allMachineStats:init(window, game)
         end
       end)
   end
+  
+  Layout.init(self, window, game)
+end
+
+
+layouts.checkpoints = subclass(Layout)
+function layouts.checkpoints:init(window, game)
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {250, 400}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+  
+  local racer = game:getBlock(game.Racer)
+  
+  self:addLabel()
+  self:addItem(racer.lapNumberPosition)
+  self:addItem(racer.checkpointMain)
+  self:addItem(racer.checkpointFraction)
+  self:addItem(racer.checkpointLateralOffset)
+  
+  self:addLabel()
+  self:addItem(racer.pos)
+  self:addItem(racer.checkpointRightVector)
   
   Layout.init(self, window, game)
 end
