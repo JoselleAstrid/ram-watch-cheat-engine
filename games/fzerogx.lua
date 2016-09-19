@@ -24,22 +24,22 @@ package.loaded.dolphin = nil
 local dolphin = require "dolphin"
 
 package.loaded.valuetypes = nil
-local vtypes = require "valuetypes"
-local V = vtypes.V
-local MV = vtypes.MV
-local Block = vtypes.Block
-local Value = vtypes.Value
-local MemoryValue = vtypes.MemoryValue
-local FloatValue = vtypes.FloatValue
-local IntValue = vtypes.IntValue
-local ShortValue = vtypes.ShortValue
-local ByteValue = vtypes.ByteValue
-local SignedIntValue = vtypes.SignedIntValue
-local StringValue = vtypes.StringValue
-local BinaryValue = vtypes.BinaryValue
-local Vector3Value = vtypes.Vector3Value
-local RateOfChange = vtypes.RateOfChange
-local addAddressToList = vtypes.addAddressToList
+local valuetypes = require "valuetypes"
+local V = valuetypes.V
+local MV = valuetypes.MV
+local Block = valuetypes.Block
+local Value = valuetypes.Value
+local MemoryValue = valuetypes.MemoryValue
+local FloatValue = valuetypes.FloatValue
+local IntValue = valuetypes.IntValue
+local ShortValue = valuetypes.ShortValue
+local ByteValue = valuetypes.ByteValue
+local SignedIntValue = valuetypes.SignedIntValue
+local StringValue = valuetypes.StringValue
+local BinaryValue = valuetypes.BinaryValue
+local Vector3Value = valuetypes.Vector3Value
+local RateOfChange = valuetypes.RateOfChange
+local addAddressToList = valuetypes.addAddressToList
 
 package.loaded.valuedisplay = nil
 local vdisplay = require "valuedisplay"
@@ -206,7 +206,7 @@ end
 
 
 
-local RacerValue = {}
+local RacerValue = subclass(valuetypes.BlockValue)
 
 function RacerValue:getLabel()
   if self.racer.racerIndex == 0 then
