@@ -59,7 +59,7 @@ function layouts.kmhRecording:init(window, game)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local racer = game:getRacer()
+  local racer = game:getBlock(game.Racer)
     
   self:addLabel()
   self:addItem(game.settingsSlider)
@@ -88,7 +88,7 @@ function layouts.energy:init(window, game, numOfRacers)
   
   self:addLabel()
   for i = 0, numOfRacers-1 do
-    self:addItem(game:getRacer(i).energy)
+    self:addItem(game:getBlock(game.Racer, i).energy)
   end
   
   Layout.init(self, window, game)
@@ -106,8 +106,8 @@ function layouts.position:init(window, game)
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
-  self:addItem(game:getRacer().pos)
-  self:addItem(game:getRacer(1).pos)
+  self:addItem(game:getBlock(game.Racer).pos)
+  self:addItem(game:getBlock(game.Racer, 1).pos)
   
   Layout.init(self, window, game)
 end
@@ -129,9 +129,12 @@ function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
   
   self:addLabel()
   for i = 0, numOfRacers-1 do
-    self:addItem(game:getRacer(i)[statName])
+    self:addItem(game:getBlock(game.Racer, i)[statName])
     self:addItem(
-      function () return game:getRacer(i)[statName]:displayBase() end)
+      function ()
+        return game:getBlock(game.Racer, i)[statName]:displayBase()
+      end
+    )
   end
   
   Layout.init(self, window, game)
@@ -147,7 +150,7 @@ function layouts.allMachineStats:init(window, game)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local state = game:getRacer()
+  local state = game:getBlock(game.Racer)
   
   self:addLabel()
   for _, statName in pairs(game.statNames) do

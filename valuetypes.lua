@@ -13,27 +13,26 @@ local valuetypes = {}
 
 
 local Block = {}
-Block.values = {}
--- TODO: Check if needed
--- Block.valuesToInitialize = {}
--- Block.ValueClass = nil
+Block.blockValues = {}
 Block.blockAlias = 'block'
+Block.blockInstances = {}
 Block.nextAutomaticKeyNumber = 1
 valuetypes.Block = Block
 
 function Block:init()
-  -- self.a = new object of class self.values.a, whose init() must take 0 args.
+  -- self.a = new object of class self.blockValues.a,
+  -- whose init() must take 0 args.
   -- Assign everything to the block namespace first...
-  for key, value in pairs(self.values) do
+  for key, value in pairs(self.blockValues) do
     self[key] = subclass(value)
-    self[key].game = self.game
     self[key].block = self
-    self[key][self.blockAlias] = self
+    if self.game then self[key].game = self.game end
+    if self.blockAlias then self[key][self.blockAlias] = self end
   end
   
   -- ...THEN init. Some objects' init functions may require other objects
   -- to already be assigned to the block namespace.
-  for key, value in pairs(self.values) do
+  for key, value in pairs(self.blockValues) do
     self[key]:init()
   end
 end
@@ -41,9 +40,14 @@ end
 function Block:addWithAutomaticKey(value)
   -- This works as long as no manually-specified keys are named _1, _2, etc.
   local key = '_'..tostring(self.nextAutomaticKeyNumber)
-  self.values[key] = value
+  self.blockValues[key] = value
   self.nextAutomaticKeyNumber = self.nextAutomaticKeyNumber + 1
   return key
+end
+
+function Block:getBlockKey(...)
+  -- Subclasses should override this.
+  return error("Function not implemented")
 end
 
 
@@ -70,51 +74,6 @@ function valuetypes.MV(label, offset, valueClass, typeMixinClass, extraArgs)
     
   return newValue
 end
-
--- TODO: Check if needed
-
--- function Block:init()
---   for _, value in pairs(self.valuesToInitialize) do
---     value.obj.game = self.game
---     value.obj.block = self
---     value.initCallable()
---   end
--- end
-
--- function Block:addV(valueClass, ...)
---   local newValue = subclass(valueClass)
---   local initCallable = utils.curry(valueClass.init, newValue, ...)
-  
---   -- Save the object in a table.
---   -- Later, when we have an initialized Block object,
---   -- we'll iterate over this table, set the game attribute for each object,
---   -- and call each object's initialization callable.
---   table.insert(
---     self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
---   return newValue
--- end
-
--- function Block:addMV(label, offset, valueClass, typeMixinClass, extraArgs)
---   local newValue = subclass(valueClass, typeMixinClass)
-  
---   local function f(
---       newV_, label_, offset_, valueClass_, typeMixinClass_, extraArgs_)
---     valueClass_.init(newV_, label_, offset_)
---     typeMixinClass_.init(newV_, extraArgs_)
---   end
-  
---   local initCallable = utils.curry(
---     f, newValue, label, offset, valueClass, typeMixinClass, extraArgs)
-  
---   -- Save the object in a table.
---   -- Later, when we have an initialized Block object,
---   -- we'll iterate over this table, set the game attribute for each object,
---   -- and call each object's initialization callable.
---   table.insert(
---     self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
-    
---   return newValue
--- end
 
 
 

@@ -64,14 +64,8 @@ function GX:init(options)
   self:initConstantAddresses()
 end
 
+local GV = GX.blockValues
 
--- Shortcuts for creating game-wide Values and MemoryValues.
-local function GV(...)
-  return GX:VDeferredInit(...)
-end
-local function GMV(...)
-  return GX:MVDeferredInit(...)
-end
 
 
 -- These are addresses that should stay constant for the most part,
@@ -268,31 +262,21 @@ end
 local Racer = subclass(Block)
 Racer.blockAlias = 'racer'
 GX.Racer = Racer
-GX.RacerBlocks = {}
-local RV = Racer.values
+local RV = Racer.blockValues
 
 function Racer:init(racerIndex)
-  self.racerIndex = racerIndex
+  self.racerIndex = racerIndex or 0
   Block.init(self)
 end
 
-function GX:getRacer(racerIndex)
+function Racer:getBlockKey(racerIndex)
   racerIndex = racerIndex or 0
-  -- Create the block if it doesn't exist
-  if not self.RacerBlocks[racerIndex] then
-    self.RacerBlocks[racerIndex] =
-      self:add(Racer, racerIndex)
-  end
-  
-  -- Return the block
-  return self.RacerBlocks[racerIndex]
+  return racerIndex
 end
-
 
 
 local MachineBaseStats = subclass(Block)
 GX.MachineBaseStats = MachineBaseStats
-GX.MachineBaseStatsBlocks = {}
 
 function MachineBaseStats:init(machineOrPartId, isCustom)
   self.machineOrPartId = machineOrPartId
@@ -300,39 +284,15 @@ function MachineBaseStats:init(machineOrPartId, isCustom)
   Block.init(self)
 end
 
-function GX:getMachineBaseStats(machineOrPartId, isCustom)
-  local blockKey = tostring(machineOrPartId)
-  if isCustom then blockKey = blockKey..'C' end
-  
-  -- Create the block if it doesn't exist
-  if not self.MachineBaseStatsBlocks[blockKey] then
-    self.MachineBaseStatsBlocks[blockKey] =
-      self:add(MachineBaseStats, machineOrPartId, isCustom)
-  end
-      
-  -- Return the block
-  return self.MachineBaseStatsBlocks[blockKey]
+function MachineBaseStats:getBlockKey(machineOrPartId, isCustom)
+  local key = tostring(machineOrPartId)
+  if isCustom then key = key..'C' end
+  return key
 end
-
 
 
 local MachineBaseStats2 = subclass(MachineBaseStats)
 GX.MachineBaseStats2 = MachineBaseStats2
-GX.MachineBaseStats2Blocks = {}
-
-function GX:getMachineBaseStats2(machineOrPartId, isCustom)
-  local blockKey = tostring(machineOrPartId)
-  if isCustom then blockKey = blockKey..'C' end
-  
-  -- Create the block if it doesn't exist
-  if not self.MachineBaseStats2Blocks[blockKey] then
-    self.MachineBaseStats2Blocks[blockKey] =
-      self:add(MachineBaseStats2, machineOrPartId, isCustom)
-  end
-      
-  -- Return the block
-  return self.MachineBaseStats2Blocks[blockKey]
-end
 
 
 
@@ -376,9 +336,9 @@ function StatWithBase:updateStatBasesIfMachineChanged()
   self.machineOrPartId = machineOrPartId
   self.isCustom = isCustom
   self.base =
-    self.game:getMachineBaseStats(machineOrPartId, isCustom)[self.baseKey]
+    self.game:getBlock(MachineBaseStats, machineOrPartId, isCustom)[self.baseKey]
   self.base2 =
-    self.game:getMachineBaseStats2(machineOrPartId, isCustom)[self.base2Key]
+    self.game:getBlock(MachineBaseStats2, machineOrPartId, isCustom)[self.base2Key]
 end
 
 function StatWithBase:getResetValue()
@@ -663,15 +623,15 @@ end
 
 
 -- Number of machines competing in the race when it began
-GX.numOfRaceEntrants =
-  GMV("# Race entrants", 0x1BAEE0, RefValue, ByteValue)
+GV.numOfRacers =
+  MV("# Racers", 0x1BAEE0, RefValue, ByteValue)
 -- Number of human racers
-GX.numOfHumanRacers = GMV("# Human racers", 0x245309, RefValue, ByteValue)
+GV.numOfHumanRacers = MV("# Human racers", 0x245309, RefValue, ByteValue)
 
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 -- TODO: This is only for P1, find the formula for the others.
-GX.settingsSlider = GMV("Settings slider", 0x2453A0, RefValue, IntValue)
-function GX.settingsSlider:displayValue(options)
+GV.settingsSlider = MV("Settings slider", 0x2453A0, RefValue, IntValue)
+function GV.settingsSlider:displayValue(options)
   return IntValue.displayValue(self, options).."%"
 end
 

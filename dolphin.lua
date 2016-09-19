@@ -9,14 +9,13 @@ local utils = require 'utils'
 local readIntLE = utils.readIntLE
 local subclass = utils.subclass
 package.loaded.valuetypes = nil
-local vtypes = require 'valuetypes'
-local MemoryValue = vtypes.MemoryValue
+local valuetypes = require 'valuetypes'
+local MemoryValue = valuetypes.MemoryValue
 
 
 
-local DolphinGame = {
-  valuesToInitialize = {},
-}
+local DolphinGame = subclass(valuetypes.Block)
+DolphinGame.blockAlias = 'game'
 
 function DolphinGame:init(options)
   self.gameVersion =
@@ -29,14 +28,29 @@ function DolphinGame:init(options)
   self.constantGameStartAddress =
     options.constantGameStartAddress or nil
   
-  for _, value in pairs(self.valuesToInitialize) do
-    value.obj.game = self
-    value.initCallable()
-  end
+  valuetypes.Block.init(self)
   
   self.initCalled = true
     
   -- Subclasses of DolphinGame must set a gameId attribute in their init().
+end
+
+function DolphinGame:getBlock(BlockClass, ...)
+  -- Assumes getBlockKey() and init() take the same arguments.
+  local key = BlockClass:getBlockKey(...)
+  
+  -- Create the block if it doesn't exist
+  if not BlockClass.blockInstances[key] then
+    local blockInstance = subclass(BlockClass)
+    -- Block instances need a game attribute so that they can give block
+    -- members a game attribute.
+    blockInstance.game = self
+    blockInstance:init(...)
+    BlockClass.blockInstances[key] = blockInstance
+  end
+  
+  -- Return the block
+  return BlockClass.blockInstances[key]
 end
 
 
@@ -44,31 +58,6 @@ end
 -- before init() is called.
 -- If the Game object isn't initialized yet, use VDeferredInit() instead.
 
-
-function DolphinGame:add(Class, ...)
-  local newObject = subclass(Class)
-  
-  if self.initCalled then
-    -- The game is initialized already, so it should be safe to initialize
-    -- this object too.
-    newObject.game = self
-    newObject:init(...)
-  else
-    -- Save the object in a table.
-    -- Later, when we have an initialized Game,
-    -- we'll iterate over this table, set the game attribute for each object,
-    -- and initialize each object.
-    -- TODO: Rename valuesToInitialize to objectsToInitialize.
-    local initCallable = utils.curry(Class.init, newObject, ...)
-    table.insert(
-      self.valuesToInitialize, {obj=newObject, initCallable=initCallable})
-  end
-  
-  return newObject
-end
-
-
--- TODO: Replace usages with add().
 function DolphinGame:V(ValueClass, ...)
   local newValue = subclass(ValueClass)
   newValue.game = self
@@ -76,13 +65,12 @@ function DolphinGame:V(ValueClass, ...)
   return newValue
 end
 
-
 function DolphinGame:F(func, ...)
   return utils.curry(func, self, ...)
 end
 
 
--- TODO: Replace usages with add().
+-- TODO: Make this consistent with the Block interface.
 function DolphinGame:VDeferredInit(ValueClass, ...)
   local newValue = subclass(ValueClass)
   local initCallable = utils.curry(ValueClass.init, newValue, ...)
@@ -97,30 +85,7 @@ function DolphinGame:VDeferredInit(ValueClass, ...)
   return newValue
 end
 
-
--- TODO: Check if needed.
--- This should return a MemoryValue subclass.
-function DolphinGame:MVClass(
-    label, offset, mvSuperClass, typeMixin, defaultExtraArgs)
-    
-  local newClass = subclass(mvSuperClass, typeMixin)
-  
-  local function f(superClass_, label_, offset_, defaultExtraArgs, extraArgs_)
-    -- We'll curry in the defaultExtraArgs, and pass in extraArgs_ later.
-    utils.updateTable(combinedExtraArgs, defaultExtraArgs)
-    utils.updateTable(combinedExtraArgs, extraArgs_)
-    -- We're assuming any MemoryValue subclass's init() has this signature.
-    -- TODO: Check this.
-    superClass_.init(self, label_, offset_, combinedExtraArgs)
-  end
-  
-  defaultExtraArgs = defaultExtraArgs or {}
-  newClass.init = utils.curry(f, mvSuperClass, label, offset, defaultExtraArgs)
-  return newClass
-end
-
-
--- TODO: Check if needed.
+-- TODO: Make this consistent with the Block interface.
 -- Create MemoryValues which are initialized after <value>.game is set.
 --
 -- Creation isn't entirely straightforward because we want
