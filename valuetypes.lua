@@ -129,6 +129,10 @@ function Value:getLabel()
   return self.label
 end
 
+function Value:getEditWindowTitle()
+  return string.format("Edit: %s", self:getLabel())
+end
+
 function Value:display(passedOptions)
   local options = {}
   -- First apply default options
@@ -190,78 +194,6 @@ function BlockValue:getPassedValue(stringKey)
   return self.block[stringKey]
 end
 
-
-
--- TODO: Move to layouts?
-function valuetypes.openEditWindow(mvObj, updateDisplayFunction)
-  -- mvObj = MemoryValue object
-
-  local font = nil
-  
-  -- Create an edit window
-  local window = createForm(true)
-  window:setSize(400, 50)
-  window:centerScreen()
-  window:setCaption(mvObj:getEditWindowTitle())
-  font = window:getFont()
-  font:setName("Calibri")
-  font:setSize(10)
-  
-  -- Add a text box with the current value
-  local textField = createEdit(window)
-  textField:setPosition(70, 10)
-  textField:setSize(200, 20)
-  textField.Text = mvObj:getEditFieldText()
-  
-  -- Put an OK button in the window, which would change the value
-  -- to the text field contents, and close the window
-  local okButton = createButton(window)
-  okButton:setPosition(300, 10)
-  okButton:setCaption("OK")
-  okButton:setSize(30, 25)
-  local confirmValueAndCloseWindow = function(mvObj, window, textField)
-    local newValue = mvObj:strToValue(textField.Text)
-    if newValue == nil then return end
-    mvObj:set(newValue)
-    
-    -- Delay for a bit first, because it seems that the
-    -- write to the memory address needs a bit of time to take effect.
-    -- TODO: Use Timer instead of sleep?
-    sleep(50)
-    -- Update the display.
-    updateDisplayFunction()
-    -- Close the edit window.
-    window:close()
-  end
-  
-  local okAction = utils.curry(confirmValueAndCloseWindow, mvObj, window, textField)
-  okButton:setOnClick(okAction)
-  
-  -- Put a Cancel button in the window, which would close the window
-  local cancelButton = createButton(window)
-  cancelButton:setPosition(340, 10)
-  cancelButton:setCaption("Cancel")
-  cancelButton:setSize(50, 25)
-  local closeWindow = function(window)
-    window:close()
-  end
-  cancelButton:setOnClick(utils.curry(closeWindow, window))
-  
-  -- Add a reset button, if applicable
-  if mvObj.getResetValue then
-    local resetButton = createButton(window)
-    resetButton:setPosition(5, 10)
-    resetButton:setCaption("Reset")
-    resetButton:setSize(50, 25)
-    local resetValue = function(textField)
-      textField.Text = mvObj:toStrForEditField(mvObj:getResetValue())
-    end
-    resetButton:setOnClick(utils.curry(resetValue, textField))
-  end
-  
-  -- Put the initial focus on the text field.
-  textField:setFocus()
-end
 
 
 -- TODO: Move to layouts?
@@ -338,9 +270,6 @@ end
 function MemoryValue:getEditFieldText()
   return self:toStrForEditField(self:get())
 end
-function MemoryValue:getEditWindowTitle()
-  return string.format("Edit: %s", self.label)
-end
 
 function MemoryValue:addAddressesToList()
   -- TODO: Where is this function from now?
@@ -388,6 +317,7 @@ end
 function FloatValue:toStrForEditField(v, options)
   -- Here we have less concern of looking good, and more concern of
   -- giving more info.
+  options = options or {}
   options.afterDecimal = options.afterDecimal or 10
   options.trimTrailingZeros = options.trimTrailingZeros or false
   return utils.floatToStr(v, options)

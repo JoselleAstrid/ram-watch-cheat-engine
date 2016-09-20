@@ -93,6 +93,25 @@ function layouts.energy:init(window, game, numOfRacers)
 end
 
 
+layouts.energyEditable = subclass(Layout)
+function layouts.energyEditable:init(window, game, numOfRacers)
+  numOfRacers = numOfRacers or 6
+  
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {470, 28*numOfRacers + 25}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  for i = 0, numOfRacers-1 do
+    self:addEditableValue(game:getBlock(game.Racer, i).energy, {buttonX=400})
+  end
+  
+  Layout.init(self, window, game)
+end
+
+
 layouts.position = subclass(Layout)
 function layouts.position:init(window, game, numOfRacers)
   numOfRacers = numOfRacers or 1
@@ -167,6 +186,25 @@ function layouts.allMachineStats:init(window, game)
           return stat:display()
         end
       end)
+  end
+  
+  Layout.init(self, window, game)
+end
+
+
+layouts.allMachineStatsEditable = subclass(Layout)
+function layouts.allMachineStatsEditable:init(window, game)
+  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {420, 28*#game.statNames + 25}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  local racer = game:getBlock(game.Racer)
+  
+  for _, statName in pairs(game.statNames) do
+    self:addEditableValue(racer[statName], {buttonX=350})
   end
   
   Layout.init(self, window, game)

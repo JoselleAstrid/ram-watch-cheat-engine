@@ -25,9 +25,11 @@ function Layout:init(window, game)
       element.uiObj = imageClassObj.image
       element.updateFunc = utils.curry(imageClassObj.update, imageClassObj)
     elseif element.type == 'fileWriter' then
-      local fileWriterObj = self:createFileWriter(
+      element.uiObj = self:createFileWriter(
         element.filename, element.outputStringGetter, element.initOptions)
-      element.uiObj = fileWriterObj
+    elseif element.type == 'editableValue' then
+      element.uiObj = self:createEditableValue(
+        element.valueObj, element.initOptions)
     end
     table.insert(self.uiObjs, element.uiObj)
   end
@@ -53,6 +55,8 @@ function Layout:update()
       if element.uiObj.currentlyTakingStats then
         element.uiObj:takeStat()
       end
+    elseif element.type == 'editableValue' then
+      element.uiObj:updateDisplay()
     end
   end
 
@@ -459,6 +463,149 @@ function Layout:addFileWriter(
     filename=filename, outputStringGetter=outputStringGetter}
   table.insert(self.displayElements, fileWriter)
 end
+
+
+
+local EditableValue = subclass(CompoundElement)
+utils.updateTable(EditableValue, {
+  valueObj = nil,
+  valueLabel = nil,
+  editButton = nil,
+})
+    
+function EditableValue:init(layout, valueObj, options)
+  self.layout = layout
+  self.window = layout.window
+  self.valueObj = valueObj
+  self:initializeUI(options)
+end
+
+function EditableValue:initializeUI(options)
+  options = options or {}
+  
+  self.valueLabel = self.layout:createLabel(options)
+
+  self.button = createButton(self.window)
+  self.button:setCaption("Edit")
+  self.button:setOnClick(utils.curry(self.openEditWindow, self))
+  
+  -- Set non-label font attributes.
+  for _, element in pairs({self.button}) do
+    local font = element:getFont()
+    if options.fontSize ~= nil then font:setSize(options.fontSize) end
+    if options.fontName ~= nil then font:setName(options.fontName) end
+    if options.fontColor ~= nil then font:setColor(options.fontColor) end
+  end
+  
+  -- Add the elements to the layout.
+  self:addElement({10, 3}, self.valueLabel)
+  
+  local buttonX = options.buttonX or 300
+  local buttonFontSize = self.button:getFont():getSize()
+  local buttonWidth = buttonFontSize * 4
+  local buttonHeight = buttonFontSize * 2.0 + 8
+  self:addElement({buttonX, 0}, self.button)
+  self.button:setSize(buttonWidth, buttonHeight)
+end
+
+function EditableValue:updateDisplay()
+  self.valueLabel:setCaption(self.valueObj:display())
+end
+
+function EditableValue:openEditWindow()
+  -- Create an edit window
+  local window = createForm(true)
+  window:setSize(400, 50)
+  window:centerScreen()
+  window:setCaption(self.valueObj:getEditWindowTitle())
+  
+  -- Add a text box with the current value
+  local textField = createEdit(window)
+  textField:setPosition(70, 10)
+  textField:setSize(200, 20)
+  textField.Text = self.valueObj:getEditFieldText()
+  
+  -- Add an OK button in the window, which would change the value
+  -- to the text field contents, and close the window
+  local okButton = createButton(window)
+  okButton:setPosition(300, 10)
+  okButton:setCaption("OK")
+  okButton:setSize(30, 25)
+  
+  local okAction = utils.curry(
+    self.editWindowOKAction, self, window, textField)
+  okButton:setOnClick(okAction)
+  
+  -- Add a Cancel button in the window, which would just close the window
+  local cancelButton = createButton(window)
+  cancelButton:setPosition(340, 10)
+  cancelButton:setCaption("Cancel")
+  cancelButton:setSize(50, 25)
+  cancelButton:setOnClick(utils.curry(window.close, window))
+  
+  -- Add a reset button, if applicable
+  if self.valueObj.getResetValue then
+    local resetButton = createButton(window)
+    resetButton:setPosition(5, 10)
+    resetButton:setCaption("Reset")
+    resetButton:setSize(50, 25)
+    local resetValue = function(valueObj, textField_)
+      textField_.Text = valueObj:toStrForEditField(valueObj:getResetValue())
+    end
+    resetButton:setOnClick(utils.curry(resetValue, self.valueObj, textField))
+  end
+  
+  -- Put the initial focus on the text field.
+  textField:setFocus()
+end
+
+function EditableValue:editWindowOKAction(window, textField)
+  local newValue = self.valueObj:strToValue(textField.Text)
+  
+  -- Do nothing if the entered value is empty or invalid
+  if newValue == nil then return end
+  
+  self.valueObj:set(newValue)
+  
+  -- Delay for a bit first, because it seems that the
+  -- write to the memory address needs a bit of time to take effect.
+  -- TODO: Use Timer instead of sleep?
+  sleep(50)
+  -- Update the display
+  self:updateDisplay()
+  -- Close the edit window
+  window:close()
+end
+
+
+function Layout:createEditableValue(valueObj, options)
+  local editableValue = classInstantiate(
+    EditableValue, self, valueObj, options)
+  
+  editableValue:setPosition(options.x or 0, options.y or 0)
+  
+  return editableValue
+end
+
+
+function Layout:addEditableValue(valueObj, passedInitOptions)
+  -- Options for displaying the UI elements.
+  local initOptions = {}
+  -- First apply default options
+  if self.labelDefaults then
+    utils.updateTable(initOptions, self.labelDefaults)
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedInitOptions then
+    utils.updateTable(initOptions, passedInitOptions)
+  end
+  
+  local editableValue = {
+    type='editableValue', uiObj=nil,
+    valueObj=valueObj, initOptions=initOptions}
+  table.insert(self.displayElements, editableValue)
+end
+
 
 
 return {

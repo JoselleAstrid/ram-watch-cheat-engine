@@ -362,10 +362,6 @@ function StatWithBase:updateStatBasesIfMachineChanged()
     self.game:getBlock(MachineBaseStats2, machineOrPartId, isCustom)[self.base2Key]
 end
 
-function StatWithBase:getResetValue()
-  return self.base2:get()
-end
-
 function StatWithBase:isValid()
   local isValid = self.current:isValid()
   self.invalidDisplay = self.current.invalidDisplay
@@ -385,6 +381,23 @@ function StatWithBase:hasChanged()
   -- the base value yet. So the "this is changed" display can be misleading
   -- if you forget that.
   return not self.current:equals(self.base2)
+end
+
+function StatWithBase:getResetValue()
+  return self.base2:get()
+end
+
+function StatWithBase:set(v)
+  self.current:set(v)
+end
+function StatWithBase:strToValue(s)
+  return self.current:strToValue(s)
+end
+function StatWithBase:toStrForEditField(v, options)
+  return self.current:toStrForEditField(v, options)
+end
+function StatWithBase:getEditFieldText()
+  return self.current:getEditFieldText()
 end
 
 function StatWithBase:updateValue()
@@ -451,17 +464,6 @@ end
 local StatTiedToBase = subclass(StatWithBase)
 GX.StatTiedToBase = StatTiedToBase
 
-function StatTiedToBase:set(v)
-  self:write(self.base:getAddress(), v)
-end
-
-function StatTiedToBase:getEditFieldText()
-  return self:toStrForEditField(self.base:get())
-end
-function StatTiedToBase:getEditWindowTitle()
-  return string.format("Edit: %s (base value)", self:getLabel())
-end
-
 function StatTiedToBase:hasChanged()
   -- Implementation: Check if the primary and backup base values are different.
   --
@@ -479,6 +481,22 @@ function StatTiedToBase:hasChanged()
   -- the base value yet. So the "this is changed" display can be misleading
   -- if you forget that.
   return not self.base:equals(self.base2)
+end
+
+function StatTiedToBase:set(v)
+  self.base:set(v)
+end
+function StatTiedToBase:strToValue(s)
+  return self.base:strToValue(s)
+end
+function StatTiedToBase:toStrForEditField(v, options)
+  return self.base:toStrForEditField(v, options)
+end
+function StatTiedToBase:getEditFieldText()
+  return self.base:getEditFieldText()
+end
+function StatTiedToBase:getEditWindowTitle()
+  return string.format("Edit: %s (base value)", self:getLabel())
 end
 
 function StatTiedToBase:addAddressesToList()
@@ -520,21 +538,6 @@ function SizeStat:init()
   end
 end
 
-function SizeStat:set(v)
-  -- Take v to be the value for stat 1. Use the formulas to find appropriate
-  -- values for the other stats.
-  -- If you want more customization, and are fine with seeing phenomena you'd
-  -- never see in normal play (e.g. left side 'heavier' than right), then call
-  -- mySizeStat.stats[n]:set(v) instead.
-  for n = 1, 4 do
-    self.stats[n]:set(
-      -- A couple of formulas require the machine ID.
-      -- The other formulas will just safely ignore the ID.
-      self.formulas[n](v, self.racer.machineId:get())
-    )
-  end
-end
-
 function SizeStat:isValid()
   return (
     self.stats[1]:isValid() and self.stats[2]:isValid()
@@ -549,6 +552,34 @@ function SizeStat:hasChanged()
     self.stats[1]:hasChanged() or self.stats[2]:hasChanged()
     or self.stats[3]:hasChanged() or self.stats[4]:hasChanged()
   )
+end
+
+function SizeStat:getResetValue()
+  return self.stats[1]:getResetValue()
+end
+
+function SizeStat:set(v)
+  -- Take v to be the value for stat 1. Use the formulas to find appropriate
+  -- values for the other stats.
+  -- If you want more customization, and are fine with seeing phenomena you'd
+  -- never see in normal play (e.g. left side 'heavier' than right), then call
+  -- mySizeStat.stats[n]:set(v) instead.
+  for n = 1, 4 do
+    self.stats[n]:set(
+      -- A couple of formulas require the machine ID.
+      -- The other formulas will just safely ignore the ID.
+      self.formulas[n](v, self.racer.machineId:get())
+    )
+  end
+end
+function SizeStat:strToValue(s)
+  return self.stats[1]:strToValue(s)
+end
+function SizeStat:toStrForEditField(v, options)
+  return self.stats[1]:toStrForEditField(v, options)
+end
+function SizeStat:getEditFieldText()
+  return self.stats[1]:getEditFieldText()
 end
 
 function SizeStat:addAddressesToList()
