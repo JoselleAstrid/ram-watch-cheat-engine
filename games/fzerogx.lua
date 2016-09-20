@@ -206,10 +206,30 @@ local RacerValue = subclass(valuetypes.BlockValue)
 function RacerValue:getLabel()
   if self.racer.racerIndex == 0 then
     return self.label
-  else
+  end
+  
+  if self.racer.machineName:isValid() then
     return string.format(
       "%s, %s", self.label, self.racer.machineName:get())
   end
+  
+  return self.label
+end
+
+function RacerValue:isValid()
+  if self.game.addrs.racerStateBlocks == nil then
+    self.invalidDisplay = "<Race not active>"
+    return false
+  end
+    
+  -- index 5 is invalid if there's less than 6 machines
+  if self.game.numOfRacers:get() < self.racer.racerIndex + 1 then
+    self.invalidDisplay = string.format(
+      "<Racer %d not active>", self.racer.racerIndex)
+    return false
+  end
+    
+  return true
 end
 
 
@@ -347,7 +367,9 @@ function StatWithBase:getResetValue()
 end
 
 function StatWithBase:isValid()
-  return self.current:isValid()
+  local isValid = self.current:isValid()
+  self.invalidDisplay = self.current.invalidDisplay
+  return isValid
 end
 
 function StatWithBase:hasChanged()
@@ -387,7 +409,12 @@ function StatWithBase:displayBase(options)
   -- when racerIndex > 0.
   options = options or {}
   options.label = options.label or self:getLabel().." (B)"
-  return self.base:display(options)
+  
+  if self:isValid() then
+    return self.base:display(options)
+  end
+  -- If not valid, self.base might not be set, so we just use self:display()
+  return self:display(options)
 end
 
 function StatWithBase:displayCurrentAndBaseValues(options)
@@ -403,8 +430,14 @@ end
 
 function StatWithBase:displayCurrentAndBase(options)
   options = options or {}
-  options.valueDisplayFunction =
-    utils.curry(self.displayCurrentAndBaseValues, self)
+  
+  if self:isValid() then
+    options.valueDisplayFunction =
+      utils.curry(self.displayCurrentAndBaseValues, self)
+    return self:display(options)
+  end
+  -- If not valid, just use self:display(),
+  -- which should display the invalid-value message
   return self:display(options)
 end
 

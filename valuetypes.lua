@@ -130,8 +130,6 @@ function Value:getLabel()
 end
 
 function Value:display(passedOptions)
-  self:update()
-  
   local options = {}
   -- First apply default options
   if self.displayDefaults then
@@ -142,8 +140,10 @@ function Value:display(passedOptions)
     utils.updateTable(options, passedOptions)
   end
   
+  local isValid = self:isValid()
   local valueDisplay = self.invalidDisplay
-  if self:isValid() then
+  if isValid then
+    self:update()
     if options.valueDisplayFunction then
       valueDisplay = options.valueDisplayFunction(options)
     else
@@ -601,15 +601,11 @@ function Vector3Value:display(passedOptions)
   local options = {}
   -- First apply default options
   if self.displayDefaults then
-    for key, value in pairs(self.displayDefaults) do
-      options[key] = value
-    end
+    utils.updateTable(options, self.displayDefaults)
   end
   -- Then apply passed-in options, replacing default options of the same keys
   if passedOptions then
-    for key, value in pairs(passedOptions) do
-      options[key] = value
-    end
+    utils.updateTable(options, passedOptions)
   end
   
   local label = options.label or self:getLabel()
@@ -621,14 +617,18 @@ function Vector3Value:display(passedOptions)
     format = "%s: X %s | Y %s | Z %s"
   end
   
-  self:update()
-  return string.format(
-    format,
-    label,
-    self.x:displayValue(options),
-    self.y:displayValue(options),
-    self.z:displayValue(options)
-  )
+  local isValid = self:isValid()
+  local x = self.invalidDisplay
+  local y = self.invalidDisplay
+  local z = self.invalidDisplay
+  if isValid then
+    self:update()
+    x = self.x:displayValue(options)
+    y = self.y:displayValue(options)
+    z = self.z:displayValue(options)
+  end
+  
+  return string.format(format, label, x, y, z)
 end
 
 

@@ -115,9 +115,9 @@ end
 
 
 layouts.oneMachineStat = subclass(Layout)
-function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
-  numOfRacers = numOfRacers or 6
+function layouts.oneMachineStat:init(window, game, statName, numOfRacers)
   statName = statName or 'accel'
+  numOfRacers = numOfRacers or 6
   
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
