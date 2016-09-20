@@ -49,7 +49,7 @@ function layouts.addressTest:init(window, game)
   Layout.init(self, window, game)
 end
 
--- TODO: Get this working again...
+
 layouts.kmhRecording = subclass(Layout)
 function layouts.kmhRecording:init(window, game)
   self:setBreakpointUpdateMethod()
@@ -73,7 +73,6 @@ function layouts.kmhRecording:init(window, game)
 end
 
 
--- TODO: Support this as a parameterized layout, passing in numOfRacers
 layouts.energy = subclass(Layout)
 function layouts.energy:init(window, game, numOfRacers)
   numOfRacers = numOfRacers or 6
@@ -81,8 +80,7 @@ function layouts.energy:init(window, game, numOfRacers)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  -- TODO: Determine window's height dynamically from numOfRacers
-  self.windowSize = {400, 300}
+  self.windowSize = {400, 23*numOfRacers + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -96,24 +94,26 @@ end
 
 
 layouts.position = subclass(Layout)
-function layouts.position:init(window, game)
+function layouts.position:init(window, game, numOfRacers)
+  numOfRacers = numOfRacers or 1
+  
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {350, 200}
+  self.windowSize = {350, 23*4*numOfRacers + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
-  self:addItem(game:getBlock(game.Racer).pos)
-  self:addItem(game:getBlock(game.Racer, 1).pos)
+  for i = 0, numOfRacers-1 do
+    self:addItem(game:getBlock(game.Racer, i).pos)
+  end
   
   Layout.init(self, window, game)
 end
 
 
--- TODO: Support this as a parameterized layout
 layouts.oneMachineStat = subclass(Layout)
 function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
   numOfRacers = numOfRacers or 6
@@ -122,8 +122,7 @@ function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  -- TODO: Determine window's height dynamically from numOfRacers
-  self.windowSize = {500, 320}
+  self.windowSize = {500, 23*2*numOfRacers + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -132,7 +131,12 @@ function layouts.oneMachineStat:init(window, game, numOfRacers, statName)
     self:addItem(game:getBlock(game.Racer, i)[statName])
     self:addItem(
       function ()
-        return game:getBlock(game.Racer, i)[statName]:displayBase()
+        local stat = game:getBlock(game.Racer, i)[statName]
+        if stat.displayBase then
+          return stat:displayBase()
+        else
+          return "<No base>"
+        end
       end
     )
   end

@@ -73,7 +73,8 @@ local function start(options)
     error("Couldn't find layout named: " .. layoutName)
   end
     
-  layout:init(window, game)
+  local layoutOptions = options.layoutOptions or {}
+  layout:init(window, game, unpack(layoutOptions))
   
   game:startUpdating(layout)
 end
