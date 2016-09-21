@@ -400,6 +400,12 @@ function StatWithBase:getEditFieldText()
   return self.current:getEditFieldText()
 end
 
+function StatWithBase:getAddressListEntries()
+  -- We won't add the base stat; it's not all that useful since editing it
+  -- doesn't change the actual stat mid-race.
+  return self.current:getAddressListEntries()
+end
+
 function StatWithBase:updateValue()
   -- TODO: Call this less frequently?
   self:updateStatBasesIfMachineChanged()
@@ -499,22 +505,15 @@ function StatTiedToBase:getEditWindowTitle()
   return string.format("Edit: %s (base value)", self:getLabel())
 end
 
-function StatTiedToBase:addAddressesToList()
-  -- We'll add two entries: actual stat and base stat.
-  -- The base stat is more convenient to edit, because the actual stat usually
-  -- needs disabling an instruction (which writes to the address every frame)
-  -- before it can be edited.
-  -- On the other hand, editing the actual stat avoids having to
-  -- consider the base -> actual conversion math.
-  
-  -- Actual stat
-  addAddressToList(self, {})
-  
-  -- Base stat
-  addAddressToList(self, {
-    address = self.base:getAddress(),
-    description = self:getLabel() .. " (base)",
-  })
+function StatTiedToBase:getAddressListEntries()
+  local entries = {}
+  for _, e in pairs(self.current:getAddressListEntries()) do
+    table.insert(entries, e)
+  end
+  for _, e in pairs(self.base:getAddressListEntries()) do
+    table.insert(entries, e)
+  end
+  return entries
 end
 
 
@@ -582,16 +581,14 @@ function SizeStat:getEditFieldText()
   return self.stats[1]:getEditFieldText()
 end
 
-function SizeStat:addAddressesToList()
-  -- Only add the actual stats here. Changing the base size values
-  -- doesn't change the actual values, so no particular use in adding
-  -- base values to the list.
+function SizeStat:getAddressListEntries()
+  local entries = {}
   for n = 1, 4 do
-    addAddressToList(self, {
-      address = self.stats[n]:getAddress(),
-      description = self.stats[n]:getLabel(),
-    })
+    for _, e in pairs(self.stats[n]:getAddressListEntries()) do
+      table.insert(entries, e)
+    end
   end
+  return entries
 end
 
 SizeStat.getLabel = StateValue.getLabel

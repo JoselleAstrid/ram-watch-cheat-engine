@@ -485,12 +485,16 @@ function EditableValue:initializeUI(options)
   
   self.valueLabel = self.layout:createLabel(options)
 
-  self.button = createButton(self.window)
-  self.button:setCaption("Edit")
-  self.button:setOnClick(utils.curry(self.openEditWindow, self))
+  self.editButton = createButton(self.window)
+  self.editButton:setCaption("Edit")
+  self.editButton:setOnClick(utils.curry(self.openEditWindow, self))
+
+  self.listButton = createButton(self.window)
+  self.listButton:setCaption("List")
+  self.listButton:setOnClick(utils.curry(self.addAddressesToList, self))
   
   -- Set non-label font attributes.
-  for _, element in pairs({self.button}) do
+  for _, element in pairs({self.editButton, self.listButton}) do
     local font = element:getFont()
     if options.fontSize ~= nil then font:setSize(options.fontSize) end
     if options.fontName ~= nil then font:setName(options.fontName) end
@@ -501,11 +505,15 @@ function EditableValue:initializeUI(options)
   self:addElement({10, 3}, self.valueLabel)
   
   local buttonX = options.buttonX or 300
-  local buttonFontSize = self.button:getFont():getSize()
+  local buttonFontSize = self.editButton:getFont():getSize()
   local buttonWidth = buttonFontSize * 4
   local buttonHeight = buttonFontSize * 2.0 + 8
-  self:addElement({buttonX, 0}, self.button)
-  self.button:setSize(buttonWidth, buttonHeight)
+  
+  self:addElement({buttonX, 0}, self.editButton)
+  self.editButton:setSize(buttonWidth, buttonHeight)
+  
+  self:addElement({buttonX + buttonWidth + 4, 0}, self.listButton)
+  self.listButton:setSize(buttonWidth, buttonHeight)
 end
 
 function EditableValue:updateDisplay()
@@ -575,6 +583,35 @@ function EditableValue:editWindowOKAction(window, textField)
   self:updateDisplay()
   -- Close the edit window
   window:close()
+end
+
+function EditableValue:addAddressesToList()
+  local addressList = getAddressList()
+  local entries = self.valueObj:getAddressListEntries()
+  
+  for _, entry in pairs(entries) do
+    local memoryRecord = addressList:createMemoryRecord()
+    
+    -- setAddress doesn't work for some reason, despite being in CE's Help docs.
+    -- So we'll just set the address property directly.
+    memoryRecord.Address = entry.Address
+    
+    memoryRecord:setDescription(entry.Description)
+    memoryRecord.Type = entry.Type
+    
+    if entry.Type == vtCustom then
+      memoryRecord.CustomTypeName = entry.CustomTypeName
+    elseif entry.Type == vtBinary then
+      -- TODO: Can't figure out how to set Binary start bit and size.
+      -- And this entry is useless if it's a 0-sized Binary display (which is
+      -- default). So, best we can do is to make this entry a Byte...
+      memoryRecord.Type = vtByte
+      
+      -- This didn't work.
+      --memoryRecord.Binary.Startbit = entry.BinaryStartBit
+      --memoryRecord.Binary.Size = entry.BinarySize
+    end
+  end
 end
 
 

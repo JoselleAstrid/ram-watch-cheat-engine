@@ -196,55 +196,6 @@ end
 
 
 
--- TODO: Move to layouts?
-function valuetypes.addAddressToList(mvObj, args)
-  -- mvObj = MemoryValue object
-  -- args = table of custom arguments for the address list entry, otherwise
-  -- it's assumed that certain fields of the mvObj should be used
-  
-  local addressList = getAddressList()
-  local memoryRecord = addressList:createMemoryRecord()
-  
-  local address = mvObj:getAddress()
-  if args.address then address = args.address end
-  
-  local description = mvObj.label
-  if args.description then description = args.description end
-  
-  local displayType = mvObj.addressListType
-  
-  -- setAddress doesn't work for some reason, despite being in the Help docs?
-  memoryRecord.Address = utils.intToHexStr(address)
-  memoryRecord:setDescription(description)
-  memoryRecord.Type = displayType
-  
-  if displayType == vtCustom then
-  
-    local customTypeName = mvObj.addressListCustomTypeName
-    memoryRecord.CustomTypeName = customTypeName
-    
-  elseif displayType == vtBinary then
-  
-    -- TODO: Can't figure out how to set the start bit and size.
-    -- And this entry is useless if it's a 0-sized Binary display (which is
-    -- default). So, best we can do is to make this entry a Byte...
-    memoryRecord.Type = vtByte
-    
-    local binaryStartBit = mvObj.binaryStartBit
-    if args.binaryStartBit then binaryStartBit = args.binaryStartBit end
-    
-    local binarySize = mvObj.binarySize
-    if args.binarySize then binarySize = args.binarySize end
-    
-    -- This didn't work.
-    --memoryRecord.Binary.Startbit = binaryStartBit
-    --memoryRecord.Binary.Size = binarySize
-    
-  end
-end
-
-
-
 local MemoryValue = subclass(Value)
 valuetypes.MemoryValue = MemoryValue
 
@@ -271,9 +222,15 @@ function MemoryValue:getEditFieldText()
   return self:toStrForEditField(self:get())
 end
 
-function MemoryValue:addAddressesToList()
-  -- TODO: Where is this function from now?
-  addAddressToList(self, {})
+function MemoryValue:getAddressListEntries()
+  return {{
+    Address = utils.intToHexStr(self:getAddress()),
+    Description = self:getLabel(),
+    Type = self.addressListType,
+    CustomTypeName = self.addressListCustomTypeName,
+    BinaryStartBit = self.binaryStartBit,
+    BinarySize = self.binarySize,
+  }}
 end
 
 

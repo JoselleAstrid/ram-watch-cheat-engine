@@ -100,7 +100,7 @@ function layouts.energyEditable:init(window, game, numOfRacers)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {470, 28*numOfRacers + 25}
+  self.windowSize = {520, 28*numOfRacers + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -197,7 +197,7 @@ function layouts.allMachineStatsEditable:init(window, game)
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {420, 28*#game.statNames + 25}
+  self.windowSize = {470, 28*#game.statNames + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
