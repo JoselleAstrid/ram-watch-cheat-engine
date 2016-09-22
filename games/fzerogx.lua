@@ -295,6 +295,8 @@ function Racer:getBlockKey(racerIndex)
   return racerIndex
 end
 
+local racerAdd = utils.curry(Racer.addWithAutomaticKey, Racer)
+
 
 local MachineBaseStats = subclass(Block)
 GX.MachineBaseStats = MachineBaseStats
@@ -912,8 +914,14 @@ RV.generalState1d = MV(
   "State bits 25-32", 0x3, StateValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
+function Racer:sideAttackOn()
+  return (self.generalState1b:get()[7] == 1)
+end
 function Racer:finishedRace()
   return (self.generalState1b:get()[8] == 1)
+end
+function Racer:spinAttackOn()
+  return (self.generalState1d:get()[5] == 1)
 end
 
 RV.pos = V(
@@ -927,6 +935,28 @@ RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
 
 RV.kmh = defineStateFloat("km/h (next)", 0x17C)
 RV.energy = defineStateFloat("Energy", 0x184)
+RV.boostFramesLeft = MV("Boost frames left", 0x18A, StateValue, ByteValue)
+RV.score = MV("Score", 0x210, StateValue, ShortValue)
+RV.terrainState218 = MV(
+  "Terrain state", 0x218, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.gripAndAirState = MV(
+  "Grip and air state", 0x247, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.damageLastHit = defineStateFloat("Damage, last hit", 0x4AC)
+RV.boostDelay = MV("Boost delay", 0x4C6, StateValue, ShortValue)
+RV.boostEnergyUsageFactor =
+  defineStateFloat("Boost energy usage factor", 0x4DC)
+RV.terrainState4FD = MV(
+  "Terrain state 4FD", 0x4FD, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.generalState58F = MV(
+  "State 58F", 0x58F, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
 
 
 RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatValue)
@@ -1014,20 +1044,20 @@ end
 local raceTimer = V(subclass(Value, RacerValue))
 RV.raceTimer = raceTimer
 
-local add = utils.curry(Racer.addWithAutomaticKey, Racer)
 raceTimer.keys = {}
-raceTimer.keys.total = add(Timer.define("Total", 0x744))
-raceTimer.keys.currLap = add(Timer.define("This lap", 0x6C0))
-raceTimer.keys.prevLap = add(Timer.define("Prev. lap", 0x6CC))
-raceTimer.keys.back2Laps = add(Timer.define("2 laps ago", 0x6D8))
-raceTimer.keys.back3Laps = add(Timer.define("3 laps ago", 0x6E4))
-raceTimer.keys.back4Laps = add(Timer.define("4 laps ago", 0x6F0))
-raceTimer.keys.back5Laps = add(Timer.define("5 laps ago", 0x6FC))
-raceTimer.keys.back6Laps = add(Timer.define("6 laps ago", 0x708))
-raceTimer.keys.back7Laps = add(Timer.define("7 laps ago", 0x714))
-raceTimer.keys.back8Laps = add(Timer.define("8 laps ago", 0x720))
-raceTimer.keys.bestLap = add(Timer.define("Best lap", 0x72C))
-raceTimer.keys.sumOfFinishedLaps = add(Timer.define("Sum of finished laps", 0x738))
+raceTimer.keys.total = racerAdd(Timer.define("Total", 0x744))
+raceTimer.keys.currLap = racerAdd(Timer.define("This lap", 0x6C0))
+raceTimer.keys.prevLap = racerAdd(Timer.define("Prev. lap", 0x6CC))
+raceTimer.keys.back2Laps = racerAdd(Timer.define("2 laps ago", 0x6D8))
+raceTimer.keys.back3Laps = racerAdd(Timer.define("3 laps ago", 0x6E4))
+raceTimer.keys.back4Laps = racerAdd(Timer.define("4 laps ago", 0x6F0))
+raceTimer.keys.back5Laps = racerAdd(Timer.define("5 laps ago", 0x6FC))
+raceTimer.keys.back6Laps = racerAdd(Timer.define("6 laps ago", 0x708))
+raceTimer.keys.back7Laps = racerAdd(Timer.define("7 laps ago", 0x714))
+raceTimer.keys.back8Laps = racerAdd(Timer.define("8 laps ago", 0x720))
+raceTimer.keys.bestLap = racerAdd(Timer.define("Best lap", 0x72C))
+raceTimer.keys.sumOfFinishedLaps =
+  racerAdd(Timer.define("Sum of finished laps", 0x738))
 
 function raceTimer:init()
   for name, key in pairs(self.keys) do
@@ -1069,6 +1099,118 @@ function raceTimer:display(options)
   end
   
   return s
+end
+
+
+function GX:displayAnalog(v, format, posSymbol, negSymbol)
+  -- Display a signed analog value, e.g. something that ranges
+  -- anywhere from -100 to 100.
+  local s = string.format(format, math.abs(v))
+  if v == 0 then s = "  "..s
+  elseif v > 0 then s = posSymbol.." "..s
+  else s = negSymbol.." "..s end
+  return s
+end
+
+
+-- Racer control state.
+-- Unlike controller input, this:
+-- - corresponds directly to controls (accel, brake, etc.) rather than buttons
+-- - is only active during races
+-- - lets you view controls for CPUs and Replays
+-- And because it fits in better here, a display of the boost status (time
+-- remaining, delay frames) is also included.
+--
+-- Limitation: We only know the net strafe amount (R minus L), not the
+-- input amounts for each shoulder. Since no L or R results in different
+-- properties from full L+R, we know this means we're missing some info.
+  
+local controlState = V(subclass(Value, RacerValue))
+RV.controlState = controlState
+
+controlState.keys = {
+  steerY = racerAdd(defineStateFloat("Control, steering Y", 0x1F4)),
+  strafe = racerAdd(defineStateFloat("Control, strafe", 0x1F8)),
+  steerX = racerAdd(defineStateFloat("Control, steering X", 0x1FC)),
+  accel = racerAdd(defineStateFloat("Control, accel", 0x200)),
+  boost = racerAdd(defineStateFloat("Control, boost", 0x200)),
+  brake = racerAdd(defineStateFloat("Control, brake", 0x204)),
+}
+
+function controlState:init()
+  for name, key in pairs(self.keys) do
+    self[name] = self.racer[key]
+  end
+end
+
+function controlState:buttonDisplay(buttonName)
+  if buttonName == "Accel" then
+    -- Can only be at two float values: 1.0 or 0.0.
+    if self.accel:get() > 0.5 then return "Accel" else return "     " end
+  elseif buttonName == "Brake" then
+    if self.brake:get() > 0.5 then return "Brake" else return "     " end
+  elseif buttonName == "Side" then
+    -- Can only be at 1 or 0.
+    if self.racer:sideAttackOn() then return "Side"
+      else return "    " end
+  elseif buttonName == "Spin" then
+    if self.racer:spinAttackOn() then return "Spin"
+      else return "    " end
+  end
+end
+
+function controlState:boostDisplay()
+  local framesLeft = self.racer.boostFramesLeft:get()
+  local delay = self.racer.boostDelay:get()
+  
+  if framesLeft > 0 then
+    -- Show boost frames left
+    return string.format("%03d", framesLeft)
+  elseif delay > 0 then
+    -- Show boost delay frames with a + in front of the number
+    return string.format("+%02d", delay)
+  else
+    return "   "
+  end
+end
+
+function controlState:display(options)
+  if not self:isValid() then return self.invalidDisplay end
+  
+  options = options or {}
+  
+  local steerX = self.game:displayAnalog(
+    self.steerX:get()*100.0, "%05.1f", ">", "<")
+  local steerY = self.game:displayAnalog(
+    self.steerY:get()*100.0, "%05.1f", "^", "v")
+  local strafe = self.game:displayAnalog(
+    self.strafe:get()*100.0, "%05.1f", ">", "<")
+  
+  if options.narrow then
+    -- Use less horizontal space
+    return string.format(
+      "Strafe:\n%s\n"
+      .."Stick:\n%s %s\n"
+      .."  %s %s\n"
+      .."  %s %s\n"
+      .."Boost:\n%s",
+      strafe, steerX, steerY,
+      self:buttonDisplay("Accel"), self:buttonDisplay("Side"),
+      self:buttonDisplay("Brake"), self:buttonDisplay("Spin"),
+      self:boostDisplay()
+    )
+  else
+    return string.format(
+      "Strafe: %s\n"
+      .."Stick:  %s   %s\n"
+      .."  %s  %s  %s  %s\n"
+      .."Boost:  %s",
+      strafe, steerX, steerY,
+      self:buttonDisplay("Accel"), self:buttonDisplay("Side"),
+      self:buttonDisplay("Brake"), self:buttonDisplay("Spin"),
+      self:boostDisplay()
+    )
+  end
 end
 
 

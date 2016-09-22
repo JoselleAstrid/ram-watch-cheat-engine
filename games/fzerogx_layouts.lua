@@ -211,6 +211,33 @@ function layouts.allMachineStatsEditable:init(window, game)
 end
 
 
+layouts.replayInfo = subclass(Layout)
+function layouts.replayInfo:init(window, game, racerIndex, narrow)
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  racerIndex = racerIndex or 0
+  narrow = narrow or false
+  
+  if narrow then
+    self.windowSize = {200, 220}
+  else
+    self.windowSize = {300, 150}
+  end
+  
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=narrow}
+  
+  local racer = game:getBlock(game.Racer, racerIndex)
+  
+  self:addLabel()
+  self:addItem(racer.controlState)
+  
+  Layout.init(self, window, game)
+end
+
+
 layouts.checkpoints = subclass(Layout)
 function layouts.checkpoints:init(window, game)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
