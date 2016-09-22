@@ -237,6 +237,33 @@ function layouts.checkpoints:init(window, game)
 end
 
 
+layouts.timer = subclass(Layout)
+function layouts.timer:init(
+  window, game, racerIndex, maxPrevLaps, withFrameFraction)
+  
+  racerIndex = racerIndex or 0
+  maxPrevLaps = maxPrevLaps or 4
+  withFrameFraction = withFrameFraction or false
+
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {450, 250}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  local racer = game:getBlock(game.Racer, racerIndex)
+  
+  self:addLabel()
+  self:addItem(
+    racer.raceTimer,
+    {maxPrevLaps=maxPrevLaps, withFrameFraction=withFrameFraction}
+  )
+  
+  Layout.init(self, window, game)
+end
+
+
 
 return {
   layouts = layouts,

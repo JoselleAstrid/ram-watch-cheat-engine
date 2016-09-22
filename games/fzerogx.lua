@@ -716,18 +716,6 @@ end
 RV.machineId = MV("Machine ID", 0x6, StateValue, ShortValue)
 RV.machineName =
   MV("Machine name", 0x3C, StateValue, StringValue, {maxLength=64})
-  
-RV.pos = V(
-  subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos X", 0x7C)),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos Y", 0x80)),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos Z", 0x84))
-)
-RV.pos.label = "Position"
-RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
-
-RV.kmh = defineStateFloat("km/h (next)", 0x17C)
-RV.energy = defineStateFloat("Energy", 0x184)
 
 RV.accel = defineStatWithBase(
   "Accel", 0x220, 0x8, StatTiedToBase, FloatStat, {3})
@@ -905,6 +893,41 @@ GX.statNames = {
   'backWidth', 'backHeight', 'backLength',
 }
 
+  
+-- General-interest state values
+
+RV.generalState1a = MV(
+  "State bits 01-08", 0x0, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.generalState1b = MV(
+  "State bits 09-16", 0x1, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.generalState1c = MV(
+  "State bits 17-24", 0x2, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+RV.generalState1d = MV(
+  "State bits 25-32", 0x3, StateValue, BinaryValue,
+  {binarySize=8, binaryStartBit=7}
+)
+function Racer:finishedRace()
+  return (self.generalState1b:get()[8] == 1)
+end
+
+RV.pos = V(
+  subclass(Vector3Value, RacerValue),
+  Racer:addWithAutomaticKey(defineStateFloat("Pos X", 0x7C)),
+  Racer:addWithAutomaticKey(defineStateFloat("Pos Y", 0x80)),
+  Racer:addWithAutomaticKey(defineStateFloat("Pos Z", 0x84))
+)
+RV.pos.label = "Position"
+RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
+
+RV.kmh = defineStateFloat("km/h (next)", 0x17C)
+RV.energy = defineStateFloat("Energy", 0x184)
+
 
 RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatValue)
 
@@ -937,6 +960,116 @@ RV.lapNumber = MV("Lap num", 0x67B, State2Value, ByteValue)
 RV.lapNumberPosition = MV("Lap num, position", 0x67F, State2Value, SignedByteValue)
 RV.lapNumberGround = MV("Lap num, ground", 0x6B7, State2Value, ByteValue)
 RV.lapNumberPositionGround = MV("Lap num, pos/gr", 0x6BB, State2Value, SignedByteValue)
+
+
+local Timer = subclass(Value, RacerValue)
+GX.Timer = Timer
+
+function Timer.define(label, offset)
+  local obj = V(Timer)
+
+  obj.label = label
+  
+  local add = utils.curry(Racer.addWithAutomaticKey, Racer)
+  obj.keys = {}
+  obj.keys.frames = add(MV(label..", frames", offset,
+    State2Value, IntValue))
+  obj.keys.frameFraction = add(MV(label..", frame fraction", offset+4,
+    State2Value, FloatValue))
+  obj.keys.mins = add(MV(label..", minutes", offset+8,
+    State2Value, ByteValue))
+  obj.keys.secs = add(MV(label..", seconds", offset+9,
+    State2Value, ByteValue))
+  obj.keys.millis = add(MV(label..", milliseconds", offset+10,
+    State2Value, ShortValue))
+    
+  return obj
+end
+
+function Timer:init()
+  for name, key in pairs(self.keys) do
+    self[name] = self.racer[key]
+  end
+end
+
+function Timer:updateValue()
+  for name, key in pairs(self.keys) do
+    self[name]:update()
+  end
+end
+
+function Timer:displayValue(options)
+  options = options or {}
+  
+  local s = string.format(
+    "%d'%02d\"%03d", self.mins:get(), self.secs:get(), self.millis:get()
+  )
+  if options.withFrameFraction then
+    s = s.." + "..string.format("%.4f", self.frameFraction:get())
+  end
+  return s
+end
+
+
+local raceTimer = V(subclass(Value, RacerValue))
+RV.raceTimer = raceTimer
+
+local add = utils.curry(Racer.addWithAutomaticKey, Racer)
+raceTimer.keys = {}
+raceTimer.keys.total = add(Timer.define("Total", 0x744))
+raceTimer.keys.currLap = add(Timer.define("This lap", 0x6C0))
+raceTimer.keys.prevLap = add(Timer.define("Prev. lap", 0x6CC))
+raceTimer.keys.back2Laps = add(Timer.define("2 laps ago", 0x6D8))
+raceTimer.keys.back3Laps = add(Timer.define("3 laps ago", 0x6E4))
+raceTimer.keys.back4Laps = add(Timer.define("4 laps ago", 0x6F0))
+raceTimer.keys.back5Laps = add(Timer.define("5 laps ago", 0x6FC))
+raceTimer.keys.back6Laps = add(Timer.define("6 laps ago", 0x708))
+raceTimer.keys.back7Laps = add(Timer.define("7 laps ago", 0x714))
+raceTimer.keys.back8Laps = add(Timer.define("8 laps ago", 0x720))
+raceTimer.keys.bestLap = add(Timer.define("Best lap", 0x72C))
+raceTimer.keys.sumOfFinishedLaps = add(Timer.define("Sum of finished laps", 0x738))
+
+function raceTimer:init()
+  for name, key in pairs(self.keys) do
+    self[name] = self.racer[key]
+  end
+  
+  self.prevLaps = {
+    self.prevLap, self.back2Laps, self.back3Laps,
+    self.back4Laps, self.back5Laps, self.back6Laps,
+    self.back7Laps, self.back8Laps,
+  }
+end
+
+function raceTimer:display(options)
+  options = options or {}
+  options.maxPrevLaps = options.maxPrevLaps or 4
+  -- The game only saves 8 previous laps
+  if options.maxPrevLaps > 8 then options.maxPrevLaps = 8 end
+  
+  s = self.total:display(options).."\n"..self.currLap:display(options)
+  
+  if not self.racer.lapNumber:isValid() then return s end
+  
+  -- Show up to maxPrevLaps previous individual lap times
+  local completedLaps = self.racer.lapNumber:get()
+  local firstLapToShow = math.max(1, completedLaps - options.maxPrevLaps + 1)
+  for lapN = firstLapToShow, completedLaps do
+    local prevLapN = completedLaps - lapN + 1
+    
+    local lapOptions = {}
+    utils.updateTable(lapOptions, options)
+    lapOptions.label = string.format("Lap %d", lapN)
+    
+    s = s.."\n"..self.prevLaps[prevLapN]:display(lapOptions)
+  end
+  
+  if self.racer:finishedRace() then
+    s = s.."\n"..self.sumOfFinishedLaps:display(options)
+  end
+  
+  return s
+end
 
 
 return GX
