@@ -242,6 +242,27 @@ local function intToHexStr(x)
   
   return string.format("0x%08X", x)
 end
+  
+local function intToStr(x, options)
+  -- In: integer value
+  -- Out: string representation, as detailed by the options
+  if x == nil then return "nil" end
+  options = options or {}
+  
+  local f = "%"
+  if options.signed then f = f.."+" end
+  if options.digits then
+    if options.signed then
+      -- The number after the 0 should be number of digits + sign
+      f = f.."0"..(options.digits+1)
+    else
+      -- The number after the 0 should be number of digits only
+      f = f.."0"..(options.digits)
+    end
+  end
+  f = f.."d"
+  return string.format(f, x)
+end
 
 local function floatToStr(x, options)
   -- In: floating-point value
@@ -436,6 +457,7 @@ return {
   unsignedToSigned = unsignedToSigned,
   signedToUnsigned = signedToUnsigned,
   intToHexStr = intToHexStr,
+  intToStr = intToStr,
   floatToStr = floatToStr,
   
   writeIntBE = writeIntBE,

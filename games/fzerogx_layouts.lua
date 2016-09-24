@@ -211,6 +211,38 @@ function layouts.allMachineStatsEditable:init(window, game)
 end
 
 
+layouts.inputs = subclass(Layout)
+function layouts.inputs:init(window, game, calibrated, playerNumber, narrow)
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  calibrated = calibrated or false
+  playerNumber = playerNumber or 1
+  narrow = narrow or false
+  
+  if narrow then
+    self.windowSize = {200, 220}
+  else
+    self.windowSize = {300, 150}
+  end
+  
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=narrow}
+  
+  local player = game:getBlock(game.Player, playerNumber)
+  
+  self:addLabel()
+  if calibrated then
+    self:addItem(player.calibratedInput)
+  else
+    self:addItem(player.controllerInput)
+  end
+  
+  Layout.init(self, window, game)
+end
+
+
 layouts.replayInfo = subclass(Layout)
 function layouts.replayInfo:init(window, game, racerIndex, narrow)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)

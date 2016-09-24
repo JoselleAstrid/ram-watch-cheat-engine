@@ -234,6 +234,18 @@ end
 
 
 
+local PlayerValue = subclass(valuetypes.BlockValue)
+
+function PlayerValue:getLabel()
+  if self.player.playerNumber == 1 then
+    return self.label
+  else
+    return self.label..string.format(", P%d", self.player.playerNumber)
+  end
+end
+
+
+
 -- 0x620-byte memory block that's dense with useful information.
 -- There's one such block per racer.
 local StateValue = subclass(MemoryValue, RacerValue)
@@ -296,6 +308,36 @@ function Racer:getBlockKey(racerIndex)
 end
 
 local racerAdd = utils.curry(Racer.addWithAutomaticKey, Racer)
+
+
+local Player = subclass(Block)
+Player.blockAlias = 'player'
+GX.Player = Player
+local PV = Player.blockValues
+
+function Player:init(playerNumber)
+  self.playerNumber = playerNumber or 1
+  Block.init(self)
+end
+
+function Player:getBlockKey(playerNumber)
+  playerNumber = playerNumber or 1
+  return playerNumber
+end
+
+function Player:add(value, distanceBetweenPlayers)
+  -- Update the value's getAddress() function: the original function should
+  -- assume Player 1, and we want a function that gets the address
+  -- for any player.
+  function f(originalGetAddress, distanceBetweenPlayers_, self_)
+    local distanceFromP1 =
+      distanceBetweenPlayers_ * (self_.player.playerNumber - 1)
+    return originalGetAddress(self_) + distanceFromP1
+  end
+  value.getAddress = utils.curry(f, value.getAddress, distanceBetweenPlayers)
+  
+  return Player:addWithAutomaticKey(value)
+end
 
 
 local MachineBaseStats = subclass(Block)
@@ -1102,14 +1144,148 @@ function raceTimer:display(options)
 end
 
 
-function GX:displayAnalog(v, format, posSymbol, negSymbol)
+function GX:displayAnalog(v, valueType, posSymbol, negSymbol, options)
   -- Display a signed analog value, e.g. something that ranges
-  -- anywhere from -100 to 100.
-  local s = string.format(format, math.abs(v))
+  -- anywhere from -100 to +100.
+  -- Can provide custom positive/negative symbols such as > and <.
+  local s = nil
+  if valueType == 'int' then s = utils.intToStr(math.abs(v), options)
+  elseif valueType == 'float' then s = utils.floatToStr(math.abs(v), options)
+  else error("Unsupported valueType: "..tostring(valueType))
+  end
+  
   if v == 0 then s = "  "..s
   elseif v > 0 then s = posSymbol.." "..s
   else s = negSymbol.." "..s end
   return s
+end
+
+
+-- Controller inputs (uncalibrated)
+local controllerInput = V(subclass(Value, PlayerValue))
+PV.controllerInput = controllerInput
+
+controllerInput.keys = {
+  ABXYS = Player:add(MV("ABXY & Start", 0x15CBD0, StaticValue, BinaryValue,
+    {binarySize=8, binaryStartBit=7}), 8),
+  DZ = Player:add(MV("D-Pad & Z", 0x15CBD1, StaticValue, BinaryValue,
+    {binarySize=8, binaryStartBit=7}), 8),
+  stickX = Player:add(MV("Stick X", 0x15CBD2, StaticValue, ByteValue), 8),
+  stickY = Player:add(MV("Stick Y", 0x15CBD3, StaticValue, ByteValue), 8),
+  CStickX = Player:add(MV("C-Stick X", 0x15CBD4, StaticValue, ByteValue), 8),
+  CStickY = Player:add(MV("C-Stick Y", 0x15CBD5, StaticValue, ByteValue), 8),
+  L = Player:add(MV("L", 0x15CBD6, StaticValue, ByteValue), 8),
+  R = Player:add(MV("R", 0x15CBD7, StaticValue, ByteValue), 8),
+}
+
+function controllerInput:init()
+  for name, key in pairs(self.keys) do
+    self[name] = self.player[key]
+  end
+end
+
+function controllerInput:buttonDisplay(buttonName)
+  local value = nil
+  if buttonName == "A" then value = self.ABXYS:get()[8]
+  elseif buttonName == "B" then value = self.ABXYS:get()[7]
+  elseif buttonName == "X" then value = self.ABXYS:get()[6]
+  elseif buttonName == "Y" then value = self.ABXYS:get()[5]
+  elseif buttonName == "S" then value = self.ABXYS:get()[4]
+  elseif buttonName == "Z" then value = self.DZ:get()[4]
+  end
+  
+  if value == 1 then
+    return buttonName
+  else
+    return " "
+  end
+end
+
+function controllerInput:stickXDisplay()
+  return self.game:displayAnalog(
+    self.stickX:get()-128, 'int', ">", "<", {digits=3})
+end
+function controllerInput:stickYDisplay()
+  return self.game:displayAnalog(
+    self.stickY:get()-128, 'int', "^", "v", {digits=3})
+end
+function controllerInput:LDisplay()
+  return utils.intToStr(self.L:get(), {digits=3})
+end
+function controllerInput:RDisplay()
+  return utils.intToStr(self.R:get(), {digits=3})
+end
+
+function controllerInput:display(options)
+  if not self:isValid() then return self.invalidDisplay end
+  
+  options = options or {}
+  
+  local stickX = self:stickXDisplay()
+  local stickY = self:stickYDisplay()
+  local L = self:LDisplay()
+  local R = self:RDisplay()
+  local buttons = string.format("%s%s%s%s%s%s",
+    self:buttonDisplay("A"), self:buttonDisplay("B"), self:buttonDisplay("X"),
+    self:buttonDisplay("Y"), self:buttonDisplay("S"), self:buttonDisplay("Z")
+  )
+  
+  if options.narrow then
+    -- Use less horizontal space
+    return string.format(
+      "L %s R %s\n"
+      .."%s %s\n"
+      .."%s",
+      L, R, stickX, stickY, buttons
+    )
+  else
+    return string.format(
+      "        L %s   R %s\n"
+      .."Stick:  %s   %s\n"
+      .."  %s",
+      L, R, stickX, stickY, buttons
+    )
+  end
+end
+
+
+-- Post-calibration values.
+-- This refers to not only stick calibration (which is user defined), but also
+-- calibration that the game does to go from raw C-stick/L/R values to more
+-- useful values.
+local calibratedInput = V(subclass(controllerInput))
+PV.calibratedInput = calibratedInput
+
+calibratedInput.keys = {
+  ABXYS = controllerInput.keys.ABXYS,
+  DZ = controllerInput.keys.DZ,
+  stickX = Player:add(
+    MV("Stick X, calibrated", 0x1BAB54, RefValue, FloatValue), 0x20),
+  stickY = Player:add(
+    MV("Stick Y, calibrated", 0x1BAB58, RefValue, FloatValue), 0x20),
+  CStickX = Player:add(
+    MV("C-Stick X, calibrated", 0x1BAB5C, RefValue, FloatValue), 0x20),
+  CStickY = Player:add(
+    MV("C-Stick Y, calibrated", 0x1BAB60, RefValue, FloatValue), 0x20),
+  L = Player:add(
+    MV("L, calibrated", 0x1BAB64, RefValue, FloatValue), 0x20),
+  R = Player:add(
+    MV("R, calibrated", 0x1BAB68, RefValue, FloatValue), 0x20),
+}
+
+function calibratedInput:stickXDisplay()
+  return self.game:displayAnalog(
+    self.stickX:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
+end
+function calibratedInput:stickYDisplay()
+  return self.game:displayAnalog(
+    self.stickY:get()*100.0, 'float', "^", "v", {beforeDecimal=3, afterDecimal=1})
+end
+function calibratedInput:LDisplay()
+  return utils.floatToStr(self.L:get()*100.0, {beforeDecimal=3, afterDecimal=1})
+end
+function calibratedInput:RDisplay()
+  return utils.floatToStr(self.R:get()*100.0, {beforeDecimal=3, afterDecimal=1})
 end
 
 
@@ -1133,7 +1309,6 @@ controlState.keys = {
   strafe = racerAdd(defineStateFloat("Control, strafe", 0x1F8)),
   steerX = racerAdd(defineStateFloat("Control, steering X", 0x1FC)),
   accel = racerAdd(defineStateFloat("Control, accel", 0x200)),
-  boost = racerAdd(defineStateFloat("Control, boost", 0x200)),
   brake = racerAdd(defineStateFloat("Control, brake", 0x204)),
 }
 
@@ -1165,10 +1340,10 @@ function controlState:boostDisplay()
   
   if framesLeft > 0 then
     -- Show boost frames left
-    return string.format("%03d", framesLeft)
+    return utils.intToStr(framesLeft, {digits=3})
   elseif delay > 0 then
     -- Show boost delay frames with a + in front of the number
-    return string.format("+%02d", delay)
+    return utils.intToStr(delay, {signed=true, digits=2})
   else
     return "   "
   end
@@ -1180,17 +1355,17 @@ function controlState:display(options)
   options = options or {}
   
   local steerX = self.game:displayAnalog(
-    self.steerX:get()*100.0, "%05.1f", ">", "<")
+    self.steerX:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
   local steerY = self.game:displayAnalog(
-    self.steerY:get()*100.0, "%05.1f", "^", "v")
+    self.steerY:get()*100.0, 'float', "^", "v", {beforeDecimal=3, afterDecimal=1})
   local strafe = self.game:displayAnalog(
-    self.strafe:get()*100.0, "%05.1f", ">", "<")
+    self.strafe:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
   
   if options.narrow then
     -- Use less horizontal space
     return string.format(
       "Strafe:\n%s\n"
-      .."Stick:\n%s %s\n"
+      .."Steer:\n%s %s\n"
       .."  %s %s\n"
       .."  %s %s\n"
       .."Boost:\n%s",
@@ -1202,7 +1377,7 @@ function controlState:display(options)
   else
     return string.format(
       "Strafe: %s\n"
-      .."Stick:  %s   %s\n"
+      .."Steer:  %s   %s\n"
       .."  %s  %s  %s  %s\n"
       .."Boost:  %s",
       strafe, steerX, steerY,
