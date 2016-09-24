@@ -85,8 +85,8 @@ function layouts.energy:init(window, game, numOfRacers)
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
-  for i = 0, numOfRacers-1 do
-    self:addItem(game:getBlock(game.Racer, i).energy)
+  for n = 1, numOfRacers do
+    self:addItem(game:getBlock(game.Racer, n).energy)
   end
   
   Layout.init(self, window, game)
@@ -104,8 +104,8 @@ function layouts.energyEditable:init(window, game, numOfRacers)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  for i = 0, numOfRacers-1 do
-    self:addEditableValue(game:getBlock(game.Racer, i).energy, {buttonX=400})
+  for n = 1, numOfRacers do
+    self:addEditableValue(game:getBlock(game.Racer, n).energy, {buttonX=400})
   end
   
   Layout.init(self, window, game)
@@ -125,8 +125,8 @@ function layouts.position:init(window, game, numOfRacers)
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
-  for i = 0, numOfRacers-1 do
-    self:addItem(game:getBlock(game.Racer, i).pos)
+  for n = 1, numOfRacers do
+    self:addItem(game:getBlock(game.Racer, n).pos)
   end
   
   Layout.init(self, window, game)
@@ -146,11 +146,11 @@ function layouts.oneMachineStat:init(window, game, statName, numOfRacers)
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
-  for i = 0, numOfRacers-1 do
-    self:addItem(game:getBlock(game.Racer, i)[statName])
+  for n = 1, numOfRacers do
+    local stat = game:getBlock(game.Racer, n)[statName]
+    self:addItem(stat)
     self:addItem(
       function ()
-        local stat = game:getBlock(game.Racer, i)[statName]
         if stat.displayBase then
           return stat:displayBase()
         else
@@ -244,11 +244,11 @@ end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(window, game, racerIndex, narrow)
+function layouts.replayInfo:init(window, game, racerNumber, narrow)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  racerIndex = racerIndex or 0
+  racerNumber = racerNumber or 1
   narrow = narrow or false
   
   if narrow then
@@ -261,7 +261,7 @@ function layouts.replayInfo:init(window, game, racerIndex, narrow)
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=narrow}
   
-  local racer = game:getBlock(game.Racer, racerIndex)
+  local racer = game:getBlock(game.Racer, racerNumber)
   
   self:addLabel()
   self:addItem(racer.controlState)
@@ -298,9 +298,9 @@ end
 
 layouts.timer = subclass(Layout)
 function layouts.timer:init(
-  window, game, racerIndex, maxPrevLaps, withFrameFraction)
+  window, game, racerNumber, maxPrevLaps, withFrameFraction)
   
-  racerIndex = racerIndex or 0
+  racerNumber = racerNumber or 1
   maxPrevLaps = maxPrevLaps or 4
   withFrameFraction = withFrameFraction or false
 
@@ -311,7 +311,7 @@ function layouts.timer:init(
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local racer = game:getBlock(game.Racer, racerIndex)
+  local racer = game:getBlock(game.Racer, racerNumber)
   
   self:addLabel()
   self:addItem(

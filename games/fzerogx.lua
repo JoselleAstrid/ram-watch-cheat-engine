@@ -221,11 +221,10 @@ function RacerValue:isValid()
     self.invalidDisplay = "<Race not active>"
     return false
   end
-    
-  -- index 5 is invalid if there's less than 6 machines
-  if self.game.numOfRacers:get() < self.racer.racerIndex + 1 then
-    self.invalidDisplay = string.format(
-      "<Racer %d not active>", self.racer.racerIndex)
+  
+  local racerNumber = self.racer.racerIndex + 1
+  if self.game.numOfRacers:get() < racerNumber then
+    self.invalidDisplay = string.format("<Racer %d not active>", racerNumber)
     return false
   end
     
@@ -237,10 +236,10 @@ end
 local PlayerValue = subclass(valuetypes.BlockValue)
 
 function PlayerValue:getLabel()
-  if self.player.playerNumber == 1 then
+  if self.player.playerIndex == 0 then
     return self.label
   else
-    return self.label..string.format(", P%d", self.player.playerNumber)
+    return self.label..string.format(", P%d", self.player.playerIndex + 1)
   end
 end
 
@@ -297,14 +296,15 @@ Racer.blockAlias = 'racer'
 GX.Racer = Racer
 local RV = Racer.blockValues
 
-function Racer:init(racerIndex)
-  self.racerIndex = racerIndex or 0
+function Racer:init(racerNumber)
+  racerNumber = racerNumber or 1
+  self.racerIndex = racerNumber - 1
   Block.init(self)
 end
 
-function Racer:getBlockKey(racerIndex)
-  racerIndex = racerIndex or 0
-  return racerIndex
+function Racer:getBlockKey(racerNumber)
+  racerNumber = racerNumber or 1
+  return racerNumber
 end
 
 local racerAdd = utils.curry(Racer.addWithAutomaticKey, Racer)
@@ -316,7 +316,8 @@ GX.Player = Player
 local PV = Player.blockValues
 
 function Player:init(playerNumber)
-  self.playerNumber = playerNumber or 1
+  playerNumber = playerNumber or 1
+  self.playerIndex = playerNumber - 1
   Block.init(self)
 end
 
@@ -330,8 +331,7 @@ function Player:add(value, distanceBetweenPlayers)
   -- assume Player 1, and we want a function that gets the address
   -- for any player.
   function f(originalGetAddress, distanceBetweenPlayers_, self_)
-    local distanceFromP1 =
-      distanceBetweenPlayers_ * (self_.player.playerNumber - 1)
+    local distanceFromP1 = distanceBetweenPlayers_ * self_.player.playerIndex
     return originalGetAddress(self_) + distanceFromP1
   end
   value.getAddress = utils.curry(f, value.getAddress, distanceBetweenPlayers)
