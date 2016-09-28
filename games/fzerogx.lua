@@ -35,6 +35,7 @@ local IntValue = valuetypes.IntValue
 local ShortValue = valuetypes.ShortValue
 local ByteValue = valuetypes.ByteValue
 local SignedIntValue = valuetypes.SignedIntValue
+local SignedShortValue = valuetypes.SignedShortValue
 local SignedByteValue = valuetypes.SignedByteValue
 local StringValue = valuetypes.StringValue
 local BinaryValue = valuetypes.BinaryValue
@@ -966,6 +967,9 @@ function Racer:spinAttackOn()
   return (self.generalState1d:get()[5] == 1)
 end
 
+
+-- Coordinates
+
 RV.pos = V(
   subclass(Vector3Value, RacerValue),
   Racer:addWithAutomaticKey(defineStateFloat("Pos X", 0x7C)),
@@ -974,6 +978,36 @@ RV.pos = V(
 )
 RV.pos.label = "Position"
 RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
+
+RV.vel = V(
+  subclass(Vector3Value, RacerValue),
+  Racer:addWithAutomaticKey(defineStateFloat("Vel X", 0x94)),
+  Racer:addWithAutomaticKey(defineStateFloat("Vel Y", 0x98)),
+  Racer:addWithAutomaticKey(defineStateFloat("Vel Z", 0x9C))
+)
+RV.vel.label = "Velocity"
+RV.vel.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
+
+-- Machine orientation in world coordinates
+RV.wOrient = V(
+  subclass(Vector3Value, RacerValue),
+  Racer:addWithAutomaticKey(defineStateFloat("W Orient X", 0xEC)),
+  Racer:addWithAutomaticKey(defineStateFloat("W Orient Y", 0xF0)),
+  Racer:addWithAutomaticKey(defineStateFloat("W Orient Z", 0xF4))
+)
+RV.wOrient.label = "Orient"
+RV.wOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
+
+-- Machine orientation in current gravity coordinates
+RV.gOrient = V(
+  subclass(Vector3Value, RacerValue),
+  Racer:addWithAutomaticKey(defineStateFloat("G Orient X", 0x10C)),
+  Racer:addWithAutomaticKey(defineStateFloat("G Orient Y", 0x110)),
+  Racer:addWithAutomaticKey(defineStateFloat("G Orient Z", 0x114))
+)
+RV.gOrient.label = "Orient (grav)"
+RV.gOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
+
 
 RV.kmh = defineStateFloat("km/h (next)", 0x17C)
 RV.energy = defineStateFloat("Energy", 0x184)
@@ -1032,6 +1066,46 @@ RV.lapNumber = MV("Lap num", 0x67B, State2Value, ByteValue)
 RV.lapNumberPosition = MV("Lap num, position", 0x67F, State2Value, SignedByteValue)
 RV.lapNumberGround = MV("Lap num, ground", 0x6B7, State2Value, ByteValue)
 RV.lapNumberPositionGround = MV("Lap num, pos/gr", 0x6BB, State2Value, SignedByteValue)
+
+
+-- Physics related
+RV.gripA4 = defineStateFloat("Grip A4", 0xA4)
+RV.collisionC4 = defineStateFloat("Collision C4", 0xC4)
+RV.accelC8 = defineStateFloat("Accel C8", 0xC8)
+RV.stabilityCC = defineStateFloat("Stability CC", 0xCC)
+RV.aerialTilt = defineStateFloat("Aerial Tilt", 0x180)
+RV.boost18C = defineStateFloat("Boost 18C", 0x18C)
+RV.stability198 = defineStateFloat("Stability 198", 0x198)
+RV.stability19C = defineStateFloat("Stability 19C", 0x19C)
+RV.stability1A0 = defineStateFloat("Stability 1A0", 0x1A0)
+RV.stability1A4 = defineStateFloat("Stability 1A4", 0x1A4)
+RV.stability1A8 = defineStateFloat("Stability 1A8", 0x1A8)
+RV.stability1AC = defineStateFloat("Stability 1AC", 0x1AC)
+RV.stability1B0 = defineStateFloat("Stability 1B0", 0x1B0)
+RV.stability1B4 = defineStateFloat("Stability 1B4", 0x1B4)
+RV.stability1B8 = defineStateFloat("Stability 1B8", 0x1B8)
+RV.groundContact = defineStateFloat("Ground contact", 0x1C8)
+RV.collision216 = MV("Collision 216", 0x216, StateValue, IntValue)
+RV.speed224 = defineStateFloat("Speed 224", 0x224)
+RV.boost228 = defineStateFloat("Boost 228", 0x228)
+RV.slopeRateOfChange288 = defineStateFloat("Slope rate of change 288", 0x288)
+RV.tilt28C = defineStateFloat("Tilt 28C", 0x28C)
+RV.orientation290 = defineStateFloat("Orientation 290", 0x290)
+RV.collision3D8 = defineStateFloat("Collision 3D8", 0x3D8)
+RV.speed478 = defineStateFloat("Speed 478", 0x478)
+RV.strafeEffect = MV("Strafe effect", 0x4B0, StateValue, SignedShortValue)
+RV.stability4B4 = defineStateFloat("Stability 4B4", 0x4B4)
+RV.turnReactionInput = defineStateFloat("T. reaction input", 0x4D4)
+RV.turnReactionEffect = defineStateFloat("T. reaction effect", 0x4D8)
+RV.collision500X = defineStateFloat("Collision 500, X", 0x500)
+RV.collision500Y = defineStateFloat("Collision 500, Y", 0x504)
+RV.collision500Z = defineStateFloat("Collision 500, Z", 0x508)
+RV.turning580 = defineStateFloat("Turning 580", 0x580)
+RV.collision5C4 = defineStateFloat("Collision 5C4", 0x5C4)
+RV.turning5C8 = defineStateFloat("Turning 5C8", 0x5C8)
+RV.turning5CC = defineStateFloat("Turning 5CC", 0x5CC)
+RV.unknown5D0 = defineStateFloat("Unknown 5D0", 0x5D0)
+RV.unknown5D4 = defineStateFloat("Unknown 5D4", 0x5D4)
 
 
 local Timer = subclass(Value, RacerValue)

@@ -323,6 +323,32 @@ function layouts.timer:init(
 end
 
 
+layouts.speed224 = subclass(Layout)
+function layouts.speed224:init(window, game, racerNumber)
+  racerNumber = racerNumber or 1
+
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {450, 250}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  local racer = game:getBlock(game.Racer, racerNumber)
+  
+  self:addLabel()
+  self:addItem(racer.speed224)
+  self:addItem(racer.kmh)
+  self:addItem(
+    function()
+      return "Ratio: "..utils.floatToStr(racer.kmh:get() / racer.speed224:get())
+    end
+  )
+  
+  Layout.init(self, window, game)
+end
+
+
 
 return {
   layouts = layouts,
