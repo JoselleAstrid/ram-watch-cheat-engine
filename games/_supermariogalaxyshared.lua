@@ -5,6 +5,8 @@
 package.loaded.dolphin = nil
 local dolphin = require "dolphin"
 package.loaded.utils = nil
+local layouts = require "layouts"
+package.loaded.layouts = nil
 local utils = require "utils"
 local subclass = utils.subclass
 package.loaded.utils_math = nil
@@ -616,17 +618,17 @@ end
 
 -- TODO: Check if this can be universally implemented, with same addresses
 -- and all, for any Wii/GC game.
-SMGshared.StickInputImage = {}
+SMGshared.StickInputImage = subclass(layouts.SimpleElement)
 
-function SMGshared.StickInputImage:init(game, window, options)
+function SMGshared.StickInputImage:init(options)
   local foregroundColor =
     options.foregroundColor or 0x000000  -- default = black
   
-  self.image = createImage(window)
-  self.image:setPosition(options.x or 0, options.y or 0)
+  self.uiObj = createImage(self.window)
+  self.uiObj:setPosition(options.x or 0, options.y or 0)
   self.size = options.size
-  self.image:setSize(self.size, self.size)
-  self.canvas = self.image:getCanvas()
+  self.uiObj:setSize(self.size, self.size)
+  self.canvas = self.uiObj:getCanvas()
   -- Brush: ellipse() fill
   self.canvas:getBrush():setColor(0xF0F0F0)
   -- Pen: ellipse() outline, line()
@@ -635,8 +637,8 @@ function SMGshared.StickInputImage:init(game, window, options)
   -- Initialize the whole image with the brush color
   self.canvas:fillRect(0,0, self.size,self.size)
   
-  self.stickX = game.stickX
-  self.stickY = game.stickY
+  self.stickX = self.game.stickX
+  self.stickY = self.game.stickY
 end
 
 function SMGshared.StickInputImage:update()

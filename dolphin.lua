@@ -316,7 +316,7 @@ function DolphinGame:startUpdating(layout)
     -- First do an initial update.
     layout:update()
     -- Set the update function to run when the update button is clicked.
-    layout.updateButton:setOnClick(layout.updateFunction)
+    layout.updateButton:setOnClick(utils.curry(layout.update, layout))
   
   end
 end

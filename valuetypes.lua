@@ -85,7 +85,10 @@ Value.invalidDisplay = "<Invalid value>"
 
 function Value:init()
   self.value = self.initialValue
-  self.lastUpdateFrame = self.game:getFrameCount()
+  
+  if self.frameCounterAddress then
+    self.lastUpdateFrame = self.game:getFrameCount()
+  end
 end
 
 function Value:updateValue()
@@ -94,10 +97,15 @@ function Value:updateValue()
 end
 
 function Value:update()
-  -- Generally this shouldn't be overridden.
-  local currentFrame = self.game:getFrameCount()
-  if self.lastUpdateFrame == currentFrame then return end
-  self.lastUpdateFrame = currentFrame
+  -- Generally this method shouldn't be overridden.
+  
+  if self.frameCounterAddress then
+    -- There's no point in updating again if we've already updated on this
+    -- game frame.
+    local currentFrame = self.game:getFrameCount()
+    if self.lastUpdateFrame == currentFrame then return end
+    self.lastUpdateFrame = currentFrame
+  end
   
   self:updateValue()
 end

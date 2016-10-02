@@ -211,6 +211,27 @@ function layouts.allMachineStatsEditable:init(window, game)
 end
 
 
+layouts.allMachineStatsButtonUpdate = subclass(Layout)
+function layouts.allMachineStatsButtonUpdate:init(window, game)
+  self:activateAutoPositioningY()
+  
+  self.windowSize = {470, 28*#game.statNames + 50}
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  local racer = game:getBlock(game.Racer)
+  
+  for _, statName in pairs(game.statNames) do
+    self:addEditableValue(racer[statName], {buttonX=350})
+  end
+  
+  local updateButton = self:addButton(window, "Update")
+  self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
+  
+  Layout.init(self, window, game)
+end
+
+
 layouts.inputs = subclass(Layout)
 function layouts.inputs:init(window, game, calibrated, playerNumber, narrow)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
