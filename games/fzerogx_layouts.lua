@@ -24,10 +24,11 @@ local inputColor = 0x880000
 
 
 layouts.addressTest = subclass(Layout)
-function layouts.addressTest:init(window, game)
+function layouts.addressTest:init()
+  local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
-  self.windowSize = {400, 300}
+  self.window:setSize(400, 300)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
@@ -45,17 +46,16 @@ function layouts.addressTest:init(window, game)
       return table.concat(lines, '\n')
     end
   ))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.kmhRecording = subclass(Layout)
-function layouts.kmhRecording:init(window, game)
+function layouts.kmhRecording:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {400, 130}
+  self.window:setSize(400, 130)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -68,19 +68,18 @@ function layouts.kmhRecording:init(window, game)
   self:addFileWriter(
     racer.kmh, "ram_watch_output.txt",
     {beforeDecimal=1, afterDecimal=10})
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.energy = subclass(Layout)
-function layouts.energy:init(window, game, numOfRacers)
+function layouts.energy:init(numOfRacers)
+  local game = self.game
   numOfRacers = numOfRacers or 6
   
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {400, 23*numOfRacers + 25}
+  self.window:setSize(400, 23*numOfRacers + 25)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -88,38 +87,36 @@ function layouts.energy:init(window, game, numOfRacers)
   for n = 1, numOfRacers do
     self:addItem(game:getBlock(game.Racer, n).energy)
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.energyEditable = subclass(Layout)
-function layouts.energyEditable:init(window, game, numOfRacers)
+function layouts.energyEditable:init(numOfRacers)
   numOfRacers = numOfRacers or 6
   
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {520, 28*numOfRacers + 25}
+  self.window:setSize(520, 28*numOfRacers + 25)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   for n = 1, numOfRacers do
     self:addEditableValue(game:getBlock(game.Racer, n).energy, {buttonX=400})
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.position = subclass(Layout)
-function layouts.position:init(window, game, numOfRacers)
+function layouts.position:init(numOfRacers)
   numOfRacers = numOfRacers or 1
   
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {350, 23*4*numOfRacers + 25}
+  self.window:setSize(350, 23*4*numOfRacers + 25)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -128,20 +125,19 @@ function layouts.position:init(window, game, numOfRacers)
   for n = 1, numOfRacers do
     self:addItem(game:getBlock(game.Racer, n).pos)
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.oneMachineStat = subclass(Layout)
-function layouts.oneMachineStat:init(window, game, statName, numOfRacers)
+function layouts.oneMachineStat:init(statName, numOfRacers)
   statName = statName or 'accel'
   numOfRacers = numOfRacers or 6
   
+  local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {500, 23*2*numOfRacers + 25}
+  self.window:setSize(500, 23*2*numOfRacers + 25)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -159,17 +155,16 @@ function layouts.oneMachineStat:init(window, game, statName, numOfRacers)
       end
     )
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.allMachineStats = subclass(Layout)
-function layouts.allMachineStats:init(window, game)
+function layouts.allMachineStats:init()
+  local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {400, 700}
+  self.window:setSize(400, 700)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -187,17 +182,16 @@ function layouts.allMachineStats:init(window, game)
         end
       end)
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.allMachineStatsEditable = subclass(Layout)
-function layouts.allMachineStatsEditable:init(window, game)
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+function layouts.allMachineStatsEditable:init(updateWithButton)
+  updateWithButton = updateWithButton or false
+
+  local game = self.game
   self:activateAutoPositioningY()
   
-  self.windowSize = {470, 28*#game.statNames + 25}
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -207,33 +201,20 @@ function layouts.allMachineStatsEditable:init(window, game)
     self:addEditableValue(racer[statName], {buttonX=350})
   end
   
-  Layout.init(self, window, game)
-end
-
-
-layouts.allMachineStatsButtonUpdate = subclass(Layout)
-function layouts.allMachineStatsButtonUpdate:init(window, game)
-  self:activateAutoPositioningY()
-  
-  self.windowSize = {470, 28*#game.statNames + 50}
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  
-  local racer = game:getBlock(game.Racer)
-  
-  for _, statName in pairs(game.statNames) do
-    self:addEditableValue(racer[statName], {buttonX=350})
+  if updateWithButton then
+    local updateButton = self:addButton("Update")
+    self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
+    self.window:setSize(470, 28*#game.statNames + 50)
+  else
+    self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+    self.window:setSize(470, 28*#game.statNames + 25)
   end
-  
-  local updateButton = self:addButton(window, "Update")
-  self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.inputs = subclass(Layout)
-function layouts.inputs:init(window, game, calibrated, playerNumber, narrow)
+function layouts.inputs:init(calibrated, playerNumber, narrow)
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
@@ -242,9 +223,9 @@ function layouts.inputs:init(window, game, calibrated, playerNumber, narrow)
   narrow = narrow or false
   
   if narrow then
-    self.windowSize = {200, 220}
+    self.window:setSize(200, 220)
   else
-    self.windowSize = {300, 150}
+    self.window:setSize(300, 150)
   end
   
   self.labelDefaults = {
@@ -259,13 +240,12 @@ function layouts.inputs:init(window, game, calibrated, playerNumber, narrow)
   else
     self:addItem(player.controllerInput)
   end
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(window, game, racerNumber, narrow)
+function layouts.replayInfo:init(racerNumber, narrow)
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
@@ -273,9 +253,9 @@ function layouts.replayInfo:init(window, game, racerNumber, narrow)
   narrow = narrow or false
   
   if narrow then
-    self.windowSize = {200, 220}
+    self.window:setSize(200, 220)
   else
-    self.windowSize = {300, 150}
+    self.window:setSize(300, 150)
   end
   
   self.labelDefaults = {
@@ -286,17 +266,16 @@ function layouts.replayInfo:init(window, game, racerNumber, narrow)
   
   self:addLabel()
   self:addItem(racer.controlState)
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.checkpoints = subclass(Layout)
-function layouts.checkpoints:init(window, game)
+function layouts.checkpoints:init()
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {250, 400}
+  self.window:setSize(250, 400)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -312,23 +291,20 @@ function layouts.checkpoints:init(window, game)
   self:addLabel()
   self:addItem(racer.pos)
   self:addItem(racer.checkpointRightVector)
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.timer = subclass(Layout)
-function layouts.timer:init(
-  window, game, racerNumber, maxPrevLaps, withFrameFraction)
-  
+function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
   racerNumber = racerNumber or 1
   maxPrevLaps = maxPrevLaps or 4
   withFrameFraction = withFrameFraction or false
 
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {450, 250}
+  self.window:setSize(450, 250)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -339,19 +315,18 @@ function layouts.timer:init(
     racer.raceTimer,
     {maxPrevLaps=maxPrevLaps, withFrameFraction=withFrameFraction}
   )
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.speed224 = subclass(Layout)
-function layouts.speed224:init(window, game, racerNumber)
+function layouts.speed224:init(racerNumber)
   racerNumber = racerNumber or 1
 
+  local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.windowSize = {450, 250}
+  self.window:setSize(450, 250)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -365,8 +340,6 @@ function layouts.speed224:init(window, game, racerNumber)
       return "Ratio: "..utils.floatToStr(racer.kmh:get() / racer.speed224:get())
     end
   )
-  
-  Layout.init(self, window, game)
 end
 
 

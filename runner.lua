@@ -74,7 +74,9 @@ local function start(options)
   end
     
   local layoutOptions = options.layoutOptions or {}
-  layout:init(window, game, unpack(layoutOptions))
+  layout.window = window
+  layout.game = game
+  layout:init(unpack(layoutOptions))
   
   game:startUpdating(layout)
 end

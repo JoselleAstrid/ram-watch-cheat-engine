@@ -620,11 +620,11 @@ end
 -- and all, for any Wii/GC game.
 SMGshared.StickInputImage = subclass(layouts.SimpleElement)
 
-function SMGshared.StickInputImage:init(options)
+function SMGshared.StickInputImage:init(window, game, options)
   local foregroundColor =
     options.foregroundColor or 0x000000  -- default = black
   
-  self.uiObj = createImage(self.window)
+  self.uiObj = createImage(window)
   self.uiObj:setPosition(options.x or 0, options.y or 0)
   self.size = options.size
   self.uiObj:setSize(self.size, self.size)
@@ -637,8 +637,8 @@ function SMGshared.StickInputImage:init(options)
   -- Initialize the whole image with the brush color
   self.canvas:fillRect(0,0, self.size,self.size)
   
-  self.stickX = self.game.stickX
-  self.stickY = self.game.stickY
+  self.stickX = game.stickX
+  self.stickY = game.stickY
 end
 
 function SMGshared.StickInputImage:update()

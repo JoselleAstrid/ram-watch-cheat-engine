@@ -9,46 +9,13 @@ local Layout = {
 }
 
 
-function Layout:init(window, game)
-  self.window = window
-  self.game = game
-  
-  self.window:setSize(self.windowSize[1], self.windowSize[2])
-  
-  self.uiObjs = {}
-  for _, element in pairs(self.displayElements) do
-    if not element.uiObj then
-      if element.type == 'label' then
-        element.uiObj = self:createLabel(element.initOptions)
-      else
-        element.uiObj = subclass(element.elementClass)
-        element.uiObj.layout = self
-        element.uiObj.window = self.window
-        element.uiObj.game = game
-        element.initCallable(element.uiObj)
-      end
-    end
-    table.insert(self.uiObjs, element.uiObj)
-  end
-end
-
-
 function Layout:update()
   local game = self.game
 
   game:updateAddresses()
   
   for _, element in pairs(self.displayElements) do
-    if element.type == 'label' then
-      local displayTexts = {}
-      for _, displayFunc in pairs(element.displayFuncs) do
-        table.insert(displayTexts, displayFunc())
-      end
-      local labelDisplay = table.concat(displayTexts, '\n')
-      element.uiObj:setCaption(labelDisplay)
-    else
-      if element.uiObj.update then element.uiObj:update() end
-    end
+    if element.update then element:update() end
   end
 
   if self.autoPositioningActive and not self.autoPositioningDone then
@@ -108,7 +75,7 @@ function Layout:autoPositionElements()
   -- side by side without any spacing.
   local lengthSum = 0
   
-  for _, element in pairs(self.uiObjs) do
+  for _, element in pairs(self.displayElements) do
     local length = getElementLength(element)
     lengthSum = lengthSum + length
   end
@@ -122,11 +89,11 @@ function Layout:autoPositionElements()
   -- window bigger.
   local minPos = 6
   local maxPos = windowLength - 6
-  local numSpaces = #(self.uiObjs) - 1
+  local numSpaces = #(self.displayElements) - 1
   local elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
   
   local currentPos = minPos
-  for _, element in pairs(self.uiObjs) do
+  for _, element in pairs(self.displayElements) do
     applyAutoPosition(element, currentPos)
     
     local length = getElementLength(element)
@@ -149,41 +116,83 @@ end
 
 
 
--- Initialize a GUI label.
--- Based on: http://forum.cheatengine.org/viewtopic.php?t=530121
-function Layout:createLabel(options)
+function Layout:addElement(creationCallable, passedOptions)
+  local options = {}
+  -- First apply default options
+  if self.labelDefaults then
+    utils.updateTable(options, self.labelDefaults)
+  end
+  -- Then apply passed-in options, replacing default options of the same keys
+  if passedOptions then
+    utils.updateTable(options, passedOptions)
+  end
 
-  -- Call the Cheat Engine function to create a label.
-  local label = createLabel(self.window)
-  if label == nil then error("Failed to create label.") end
+  local element = creationCallable(options)
   
-  label:setPosition(options.x or 0, options.y or 0)
-  label:setCaption(options.text or "")
+  element:setPosition(options.x or 0, options.y or 0)
   
-  local font = label:getFont()
-  if options.fontSize ~= nil then font:setSize(options.fontSize) end
-  if options.fontName ~= nil then font:setName(options.fontName) end
-  if options.fontColor ~= nil then font:setColor(options.fontColor) end
-  
-  return label
+  table.insert(self.displayElements, element)
+  return element
 end
 
 
-function Layout:addLabel(passedInitOptions)
-  local initOptions = {}
-  -- First apply default options
-  if self.labelDefaults then
-    for k, v in pairs(self.labelDefaults) do initOptions[k] = v end
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedInitOptions then
-    for k, v in pairs(passedInitOptions) do initOptions[k] = v end
-  end
 
-  local label = {
-    type='label', uiObj=nil, displayFuncs={}, initOptions=initOptions}
+local SimpleElement = {
+  uiObj = nil,
+  update = nil,
+}
+
+function SimpleElement:getWidth() return self.uiObj:getWidth() end
+function SimpleElement:getHeight() return self.uiObj:getHeight() end
+function SimpleElement:getLeft() return self.uiObj:getLeft() end
+function SimpleElement:getTop() return self.uiObj:getTop() end
+function SimpleElement:setPosition(x, y) self.uiObj:setPosition(x, y) end
+
+
+
+local function applyFontOptions(uiObj, options)
+  local font = uiObj:getFont()
+  if options.fontSize ~= nil then font:setSize(options.fontSize) end
+  if options.fontName ~= nil then font:setName(options.fontName) end
+  if options.fontColor ~= nil then font:setColor(options.fontColor) end
+end
+
+
+
+local LayoutLabel = subclass(SimpleElement)
+
+function LayoutLabel:setCaption(c) self.uiObj:setCaption(c) end
+
+function LayoutLabel:init(window, options)
+  options = options or {}
+  options.text = options.text or ""
+  
+  self.displayFuncs = {}
+
+  -- Call the Cheat Engine function to create a label.
+  self.uiObj = createLabel(window)
+  self:setCaption(options.text)
+  
+  applyFontOptions(self.uiObj, options)
+end
+
+function LayoutLabel:update()
+  local displayTexts = {}
+  for _, displayFunc in pairs(self.displayFuncs) do
+    table.insert(displayTexts, displayFunc())
+  end
+  local labelDisplay = table.concat(displayTexts, '\n')
+  self:setCaption(labelDisplay)
+end
+
+
+function Layout:addLabel(options)
+  local creationCallable = utils.curry(
+    classInstantiate, LayoutLabel, self.window)
+  local label = self:addElement(creationCallable, options)
+  
   self.lastAddedLabel = label
-  table.insert(self.displayElements, label)
+  return label
 end
 
 
@@ -222,18 +231,6 @@ end
 
 
 
-local SimpleElement = {
-  uiObj = nil,
-  update = nil,
-}
-
-function SimpleElement:getWidth() return self.uiObj:getWidth() end
-function SimpleElement:getHeight() return self.uiObj:getHeight() end
-function SimpleElement:getLeft() return self.uiObj:getLeft() end
-function SimpleElement:getTop() return self.uiObj:getTop() end
-function SimpleElement:setPosition(x, y) self.uiObj:setPosition(x, y) end
-
-
 -- This class is mostly redundant with Cheat Engine's defined Button class,
 -- but we define our own LayoutButton (wrapping around CE's Button) for:
 -- (1) consistency with other layout element classes
@@ -242,22 +239,15 @@ function SimpleElement:setPosition(x, y) self.uiObj:setPosition(x, y) end
 local LayoutButton = subclass(SimpleElement)
 
 function LayoutButton:setOnClick(f) self.uiObj:setOnClick(f) end
+function LayoutButton:setCaption(c) self.uiObj:setCaption(c) end
 
 function LayoutButton:init(window, text, options)
   options = options or {}
-  options.x = options.x or 0
-  options.y = options.y or 0
   
   self.uiObj = createButton(window)
-  self.uiObj:setPosition(options.x, options.y)
-  self.uiObj:setCaption(text)
+  self:setCaption(text)
   
-  for _, element in pairs({self.uiObj}) do
-    local font = element:getFont()
-    if options.fontSize ~= nil then font:setSize(options.fontSize) end
-    if options.fontName ~= nil then font:setName(options.fontName) end
-    if options.fontColor ~= nil then font:setColor(options.fontColor) end
-  end
+  applyFontOptions(self.uiObj, options)
   
   local buttonFontSize = self.uiObj:getFont():getSize()
   local buttonWidth = buttonFontSize * 6  -- Chars in 'Update'
@@ -265,36 +255,17 @@ function LayoutButton:init(window, text, options)
   self.uiObj:setSize(buttonWidth, buttonHeight)
 end
 
-function Layout:addButton(window, text, passedInitOptions)
-  local initOptions = {}
-  -- First apply default options
-  if self.labelDefaults then
-    utils.updateTable(initOptions, self.labelDefaults)
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedInitOptions then
-    utils.updateTable(initOptions, passedInitOptions)
-  end
-
-  local uiObj = classInstantiate(LayoutButton, window, text, initOptions)
-  local button = {
-    uiObj=uiObj,
-    elementClass=nil,
-    initCallable=nil,
-  }
-  table.insert(self.displayElements, button)
-  
-  return uiObj
+function Layout:addButton(text, options)
+  local creationCallable = utils.curry(
+    classInstantiate, LayoutButton, self.window, text)
+  return self:addElement(creationCallable, options)
 end
 
 
-function Layout:addImage(ImageClass, initOptions)  
-  local image = {
-    uiObj=nil,
-    elementClass=ImageClass,
-    initCallable=utils.curryInstance(ImageClass.init, initOptions),
-  }
-  table.insert(self.displayElements, image)
+function Layout:addImage(ImageClass, options)
+  local creationCallable = utils.curry(
+    classInstantiate, ImageClass, self.window, self.game)
+  return self:addElement(creationCallable, options)
 end
 
 
@@ -367,46 +338,35 @@ utils.updateTable(FileWriter, {
   valuesTaken = nil,
 })
     
-function FileWriter:init(filename, outputStringGetter, options)
+function FileWriter:init(window, filename, outputStringGetter, options)
   options = options or {}
-  options.x = options.x or 0
-  options.y = options.y or 0
   
   self.filename = filename
   self.outputStringGetter = outputStringGetter
-  self:initializeUI(options)
-  self:setPosition(options.x, options.y)
+  self:initializeUI(window, options)
   
   -- TODO: Make framerate a variable on the game class
   self.framerate = 60
 end
 
-function FileWriter:initializeUI(options)
-  self.button = createButton(self.window)
+function FileWriter:initializeUI(window, options)
+  self.button = createButton(window)
   self.button:setCaption("Take stats")
   self.button:setOnClick(utils.curry(self.startTakingStats, self))
   
-  self.timeLimitField = createEdit(self.window)
+  self.timeLimitField = createEdit(window)
   self.timeLimitField.Text = "10"
   
-  self.secondsLabel = self.layout:createLabel(options)
+  self.secondsLabel = classInstantiate(LayoutLabel, window, options)
   self.secondsLabel:setCaption("seconds")
   
-  self.timeElapsedLabel = self.layout:createLabel(options)
+  self.timeElapsedLabel = classInstantiate(LayoutLabel, window, options)
   -- Allow auto-layout to detect an appropriate width for this element
   -- even though it's not active yet. (Example display: 10.00)
   self.timeElapsedLabel:setCaption("     ")
   
-  -- We initialize these elements directly through Cheat Engine's functions,
-  -- and thus there is no 'options' interface on the creation function.
-  -- So we set attributes here instead.
-  local nonLabelElements = {self.button, self.timeLimitField}
-  for _, element in pairs(nonLabelElements) do
-    local font = element:getFont()
-    if options.fontSize ~= nil then font:setSize(options.fontSize) end
-    if options.fontName ~= nil then font:setName(options.fontName) end
-    if options.fontColor ~= nil then font:setColor(options.fontColor) end
-  end
+  applyFontOptions(self.button, options)
+  applyFontOptions(self.timeLimitField, options)
   
   -- Add the elements to the layout.
   local buttonX = 10
@@ -495,7 +455,7 @@ end
 
 
 function Layout:addFileWriter(
-    item, filename, passedOutputOptions, passedInitOptions)
+    item, filename, passedOutputOptions, initOptions)
   -- Create a callable that will get a display of the tracked value
   -- for file writing.
   local outputOptions = {nolabel=true}
@@ -504,24 +464,10 @@ function Layout:addFileWriter(
   end
   local outputStringGetter = utils.curry(item.display, item, outputOptions)
   
-  -- Options for displaying the fileWriter's UI elements.
-  local initOptions = {}
-  -- First apply default options
-  if self.labelDefaults then
-    utils.updateTable(initOptions, self.labelDefaults)
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedInitOptions then
-    utils.updateTable(initOptions, passedInitOptions)
-  end
-  
-  local fileWriter = {
-    uiObj=nil,
-    elementClass=FileWriter,
-    initCallable=utils.curryInstance(
-      FileWriter.init, filename, outputStringGetter, initOptions),
-  }
-  table.insert(self.displayElements, fileWriter)
+  local creationCallable = utils.curry(
+    classInstantiate, FileWriter,
+    self.window, filename, outputStringGetter, initOptions)
+  return self:addElement(creationCallable, options)
 end
 
 
@@ -533,34 +479,27 @@ utils.updateTable(EditableValue, {
   editButton = nil,
 })
     
-function EditableValue:init(valueObj, options)
+function EditableValue:init(window, valueObj, options)
   options = options or {}
-  options.x = options.x or 0
-  options.y = options.y or 0
   
   self.valueObj = valueObj
-  self:initializeUI(options)
-  self:setPosition(options.x, options.y)
+  self:initializeUI(window, options)
 end
 
-function EditableValue:initializeUI(options)
-  self.valueLabel = self.layout:createLabel(options)
+function EditableValue:initializeUI(window, options)
+  self.valueLabel = classInstantiate(LayoutLabel, window, options)
 
-  self.editButton = createButton(self.window)
+  self.editButton = createButton(window)
   self.editButton:setCaption("Edit")
   self.editButton:setOnClick(utils.curry(self.openEditWindow, self))
 
-  self.listButton = createButton(self.window)
+  self.listButton = createButton(window)
   self.listButton:setCaption("List")
   self.listButton:setOnClick(utils.curry(self.addAddressesToList, self))
   
   -- Set non-label font attributes.
-  for _, element in pairs({self.editButton, self.listButton}) do
-    local font = element:getFont()
-    if options.fontSize ~= nil then font:setSize(options.fontSize) end
-    if options.fontName ~= nil then font:setName(options.fontName) end
-    if options.fontColor ~= nil then font:setColor(options.fontColor) end
-  end
+  applyFontOptions(self.editButton, options)
+  applyFontOptions(self.listButton, options)
   
   -- Add the elements to the layout.
   self:addElement({10, 3}, self.valueLabel)
@@ -641,7 +580,7 @@ function EditableValue:editWindowOKAction(window, textField)
   -- TODO: Use Timer instead of sleep?
   sleep(50)
   -- Update the display
-  self:updateDisplay()
+  self:update()
   -- Close the edit window
   window:close()
 end
@@ -676,24 +615,10 @@ function EditableValue:addAddressesToList()
 end
 
 
-function Layout:addEditableValue(valueObj, passedInitOptions)
-  -- Options for displaying the UI elements.
-  local initOptions = {}
-  -- First apply default options
-  if self.labelDefaults then
-    utils.updateTable(initOptions, self.labelDefaults)
-  end
-  -- Then apply passed-in options, replacing default options of the same keys
-  if passedInitOptions then
-    utils.updateTable(initOptions, passedInitOptions)
-  end
-  
-  local editableValue = {
-    uiObj=nil,
-    elementClass=EditableValue,
-    initCallable=utils.curryInstance(EditableValue.init, valueObj, initOptions),
-  }
-  table.insert(self.displayElements, editableValue)
+function Layout:addEditableValue(valueObj, options)
+  local creationCallable = utils.curry(
+    classInstantiate, EditableValue, self.window, valueObj)
+  return self:addElement(creationCallable, options)
 end
 
 
