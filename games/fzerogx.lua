@@ -1,6 +1,4 @@
 -- F-Zero GX
--- US version
-local gameId = "GFZE01"
 
 
 
@@ -198,7 +196,7 @@ end
 
 
 
-local RacerValue = subclass(valuetypes.BlockValue)
+local RacerValue = {}
 
 function RacerValue:getLabel()
   if self.racer.racerIndex == 0 then
@@ -230,7 +228,7 @@ end
 
 
 
-local PlayerValue = subclass(valuetypes.BlockValue)
+local PlayerValue = {}
 
 function PlayerValue:getLabel()
   if self.player.playerIndex == 0 then

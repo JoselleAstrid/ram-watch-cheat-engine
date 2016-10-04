@@ -175,33 +175,6 @@ function Value:display(passedOptions)
   end
 end
 
-function Value:getPassedValue(v)
-  -- If a Value subclass's init() takes other Value objects as parameters,
-  -- the init() function should use
-  -- v = self:getPassedValue(paramV) instead of v = paramV.
-  --
-  -- (Unless you are sure that the parameter Values will always be passed
-  -- in directly.)
-  return v
-end
-
-
-
--- This can be used as a mixin with other Value classes.
-
-local BlockValue = {}
-valuetypes.BlockValue = BlockValue
-
-function BlockValue:getPassedValue(stringKey)
-  -- The desired Value is at self.block[key].
-  -- The Value cannot be passed directly because the Value doesn't even exist
-  -- until self.block is created.
-  --
-  -- Note that the 'self' Value and the parameter Value
-  -- must be in the same block for this to work.
-  return self.block[stringKey]
-end
-
 
 
 local MemoryValue = subclass(Value)
@@ -460,15 +433,14 @@ end
 
 
 
-local Vector3Value = subclass(Value)
+local Vector3Value = subclass(Value, Block)
 valuetypes.Vector3Value = Vector3Value
 Vector3Value.initialValue = "Value field not used"
 
 function Vector3Value:init(x, y, z)
+  self.blockValues = {x = x, y = y, z = z}
   Value.init(self)
-  self.x = self:getPassedValue(x)
-  self.y = self:getPassedValue(y)
-  self.z = self:getPassedValue(z)
+  Block.init(self)
 end
 
 function Vector3Value:get()
@@ -536,7 +508,7 @@ RateOfChange.initialValue = 0.0
 function RateOfChange:init(baseValue, label)
   Value.init(self)
   
-  self.baseValue = self:getPassedValue(baseValue)
+  self.baseValue = baseValue
   self.label = label
   -- Display the same way as the base value
   self.displayValue = self.baseValue.displayValue
@@ -602,7 +574,7 @@ MaxValue.initialValue = 0.0
 function MaxValue:init(baseValue, resetButton)
   ResettableValue.init(self, resetButton)
   
-  self.baseValue = self:getPassedValue(baseValue)
+  self.baseValue = baseValue
   self.label = "Max "..self.baseValue.label
   -- Display the same way as the base value
   self.displayValue = self.baseValue.displayValue
@@ -632,7 +604,7 @@ AverageValue.initialValue = 0.0
 function AverageValue:init(baseValue)
   ResettableValue.init(self, resetButton)
   
-  self.baseValue = self:getPassedValue(baseValue)
+  self.baseValue = baseValue
   self.label = "Avg "..self.baseValue.label
   -- Display the same way as the base value
   self.displayValue = self.baseValue.displayValue

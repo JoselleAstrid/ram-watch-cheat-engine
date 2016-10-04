@@ -13,12 +13,12 @@ package.loaded.utils_math = nil
 local utils_math = require "utils_math"
 local Vector3 = utils_math.Vector3
 package.loaded.valuetypes = nil
-local vtypes = require "valuetypes"
-local Vector3Value = vtypes.Vector3Value
-local RateOfChange = vtypes.RateOfChange
-local ResettableValue = vtypes.ResettableValue
-
-
+local valuetypes = require "valuetypes"
+local V = valuetypes.V
+local MV = valuetypes.MV
+local Vector3Value = valuetypes.Vector3Value
+local RateOfChange = valuetypes.RateOfChange
+local ResettableValue = valuetypes.ResettableValue
 
 
 
@@ -27,6 +27,9 @@ local SMGshared = subclass(dolphin.DolphinGame)
 function SMGshared:init(options)
   dolphin.DolphinGame.init(self, options)
 end
+
+local GV = SMGshared.blockValues
+
 
 
 -- Tracking time based on a memory value which represents number of frames
@@ -351,12 +354,15 @@ SMGshared.UpVelocityTiltBonus.displayDefaults = {signed=true}
 function SMGshared.UpVelocityTiltBonus:init()
   Value.init(self)
   
+  -- TODO: I think this assumes pos_early1 is already initialized,
+  -- and in general it is not. x, y, and z attributes are set in init().
+  -- Either the attributes must be set sooner, or this class must delay
+  -- grabbing pos_early1 stuff till the first update.
   self.nextVel = self.game:V(
     Vector3Value,
     self.game:V(RateOfChange, self.game.pos_early1.x),
     self.game:V(RateOfChange, self.game.pos_early1.y),
-    self.game:V(RateOfChange, self.game.pos_early1.z),
-    "Velocity"
+    self.game:V(RateOfChange, self.game.pos_early1.z)
   )
   
   self.dgrav = self.game.downVectorGravity
@@ -434,9 +440,9 @@ end
 
 
 
-SMGshared.buttons = SMGshared:VDeferredInit(vtypes.Buttons)
+GV.buttons = V(valuetypes.Buttons)
 
-function SMGshared.buttons:get(button)
+function GV.buttons:get(button)
   -- Return 1 if the button is currently being pressed, 0 otherwise.
   -- TODO: Check if this can be universally implemented, with same addresses
   -- and all, for any Wii/GC game.
@@ -473,17 +479,17 @@ end
 
 
 
-SMGshared.shake = SMGshared:VDeferredInit(Value)
-SMGshared.shake.initialValue = {wiimote=0, nunchuk=0}
+GV.shake = V(Value)
+GV.shake.initialValue = {wiimote=0, nunchuk=0}
 
-function SMGshared.shake:updateValue()
+function GV.shake:updateValue()
   self.value = {
     wiimote=self.game.wiimoteShakeBit:get(),
     nunchuk=self.game.nunchukShakeBit:get(),
   }
 end
 
-function SMGshared.shake:display()
+function GV.shake:display()
   self:update()
   
   if self.value.wiimote == 1 then return "Wiimote shake"
@@ -494,10 +500,10 @@ end
 
 
 
-SMGshared.spinStatus = SMGshared:VDeferredInit(Value)
-SMGshared.spinStatus.initialValue = {phase='noSpin', spinType='unknown'}
+GV.spinStatus = V(Value)
+GV.spinStatus.initialValue = {phase='noSpin', spinType='unknown'}
 
-function SMGshared.spinStatus:updateValue()
+function GV.spinStatus:updateValue()
   local cooldownTimer = self.game.spinCooldownTimer:get()
   local attackTimer = self.game.spinAttackTimer:get()
   local shakeValues = self.game.shake:get()
@@ -557,7 +563,7 @@ function SMGshared.spinStatus:updateValue()
   end
 end
 
-function SMGshared.spinStatus:display()
+function GV.spinStatus:display()
   self:update()
 
   if self.value.phase == 'spin' or self.value.phase == 'attackSpin' then

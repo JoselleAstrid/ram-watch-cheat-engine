@@ -24,35 +24,35 @@ local inputColor = 0x880000
 
 -- SMG1 only
 layouts.addressTestSMG1 = subclass(Layout)
-function layouts.addressTestSMG1:init(window, game)
+function layouts.addressTestSMG1:init()
+  local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
-  self.windowSize = {400, 300}
+  self.window:setSize(400, 300)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:F(
-    function()
+  self:addItem(
+    function ()
       local names = {'o', 'refPointer', 'messageInfoPointer', 'posBlock'}
       local lines = {}
       for _, name in pairs(names) do
         table.insert(
-          lines, name..": "..utils.intToHexStr(self.game.addrs[name]))
+          lines, name..": "..utils.intToHexStr(game.addrs[name]))
       end
       return table.concat(lines, '\n')
     end
-  ))
-  
-  Layout.init(self, window, game)
+  )
 end
 
 
 -- SMG2 only
 layouts.addressTestSMG2 = subclass(Layout)
-function layouts.addressTestSMG2:init(window, game)
+function layouts.addressTestSMG2:init()
+  local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
-  self.windowSize = {400, 300}
+  self.window:setSize(400, 300)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
@@ -67,47 +67,44 @@ function layouts.addressTestSMG2:init(window, game)
       return table.concat(lines, '\n')
     end
   ))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.stageTime = subclass(Layout)
-function layouts.stageTime:init(window, game)
+function layouts.stageTime:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
 
-  self.windowSize = {400, 100}
+  self.window:setSize(400, 100)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game:V(game.StageTime))
-  
-  Layout.init(self, window, game)
 end
 
 
 -- SMG2 only
 layouts.stageAndFileTime = subclass(Layout)
-function layouts.stageAndFileTime:init(window, game)
+function layouts.stageAndFileTime:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
 
-  self.windowSize = {500, 100}
+  self.window:setSize(500, 100)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game:V(game.StageTime))
   self:addItem(game:V(game.FileTime))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.velocityAndInputs = subclass(Layout)
-function layouts.velocityAndInputs:init(window, game)
+function layouts.velocityAndInputs:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {narrowWindowWidth, dolphinNativeResolutionHeight}
+  self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -118,7 +115,7 @@ function layouts.velocityAndInputs:init(window, game)
   self:addItem(game:V(game.Velocity, "XYZ"))
   self:addItem(game.pos)
   
-  self:addLabel()
+  self:addLabel{fontColor=inputColor}
   self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
   
   self:addImage(
@@ -126,17 +123,16 @@ function layouts.velocityAndInputs:init(window, game)
     
   self:addLabel()
   self:addItem(game:V(game.StageTime))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.velYRecording = subclass(Layout)
-function layouts.velYRecording:init(window, game)
+function layouts.velYRecording:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {400, 130}
+  self.window:setSize(400, 130)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -149,18 +145,17 @@ function layouts.velYRecording:init(window, game)
   self:addFileWriter(
     game:V(game.Velocity, "Y"), "ram_watch_output.txt",
     {beforeDecimal=1, afterDecimal=10})
-  
-  Layout.init(self, window, game)
 end
 
 
 -- SMG1 only for now
 layouts.messages = subclass(Layout)
-function layouts.messages:init(window, game)
+function layouts.messages:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
 
-  self.windowSize = {160, dolphinNativeResolutionHeight}
+  self.window:setSize(160, dolphinNativeResolutionHeight)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -170,7 +165,7 @@ function layouts.messages:init(window, game)
   self:addItem(game.alphaReq)
   self:addItem(game.fadeRate)
   
-  self:addLabel()
+  self:addLabel{fontColor=inputColor}
   self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
   
   self:addImage(
@@ -178,17 +173,16 @@ function layouts.messages:init(window, game)
   
   self:addLabel()
   self:addItem(game:V(game.StageTime))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.testClasses = subclass(Layout)
-function layouts.testClasses:init(window, game)
+function layouts.testClasses:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {500, 800}
+  self.window:setSize(500, 800)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -215,17 +209,16 @@ function layouts.testClasses:init(window, game)
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.tilt1 = subclass(Layout)
-function layouts.tilt1:init(window, game)
+function layouts.tilt1:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {narrowWindowWidth, dolphinNativeResolutionHeight}
+  self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -240,17 +233,16 @@ function layouts.tilt1:init(window, game)
   self:addItem(game:V(valuetypes.RateOfChange, self.velUp, "Up Accel"),
     {signed=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game:V(game.UpVelocityTiltBonus))
-  
-  Layout.init(self, window, game)
 end
 
 
 layouts.tilt2 = subclass(Layout)
-function layouts.tilt2:init(window, game)
+function layouts.tilt2:init()
+  local game = self.game
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.windowSize = {narrowWindowWidth, dolphinNativeResolutionHeight}
+  self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
@@ -272,8 +264,6 @@ function layouts.tilt2:init(window, game)
   
   self:addLabel()
   self:addItem(game:V(game.StageTime))
-  
-  Layout.init(self, window, game)
 end
 
 

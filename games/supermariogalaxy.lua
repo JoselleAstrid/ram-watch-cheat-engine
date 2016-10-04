@@ -7,28 +7,28 @@
 -- First make sure that the imported modules get de-cached as needed. That way,
 -- if we change the code in those modules and then re-run the script, we won't
 -- need to restart Cheat Engine to see the code changes take effect.
+
 package.loaded.utils = nil
-package.loaded.utils_math = nil
-package.loaded.valuetypes = nil
-package.loaded._supermariogalaxyshared = nil
-
 local utils = require "utils"
-local utils_math = require "utils_math"
-local vtypes = require "valuetypes"
-local SMGshared = require "_supermariogalaxyshared"
-
 local readIntBE = utils.readIntBE
 local subclass = utils.subclass
 
-local MemoryValue = vtypes.MemoryValue
-local FloatValue = vtypes.FloatValue
-local IntValue = vtypes.IntValue
-local ShortValue = vtypes.ShortValue
-local ByteValue = vtypes.ByteValue
-local SignedIntValue = vtypes.SignedIntValue
-local StringValue = vtypes.StringValue
-local BinaryValue = vtypes.BinaryValue
-local Vector3Value = vtypes.Vector3Value
+package.loaded.valuetypes = nil
+local valuetypes = require "valuetypes"
+local V = valuetypes.V
+local MV = valuetypes.MV
+local MemoryValue = valuetypes.MemoryValue
+local FloatValue = valuetypes.FloatValue
+local IntValue = valuetypes.IntValue
+local ShortValue = valuetypes.ShortValue
+local ByteValue = valuetypes.ByteValue
+local SignedIntValue = valuetypes.SignedIntValue
+local StringValue = valuetypes.StringValue
+local BinaryValue = valuetypes.BinaryValue
+local Vector3Value = valuetypes.Vector3Value
+
+package.loaded._supermariogalaxyshared = nil
+local SMGshared = require "_supermariogalaxyshared"
 
 
 
@@ -55,6 +55,8 @@ function SMG1:init(options)
   self.addrs = {}
   self:initConstantAddresses()
 end
+
+local GV = SMG1.blockValues
 
 
 
@@ -111,15 +113,6 @@ end
 
 
 
--- Shortcuts for creating Values and MemoryValues.
-local function V(...)
-  return SMG1:VDeferredInit(...)
-end
-local function MV(...)
-  return SMG1:MVDeferredInit(...)
-end
-
-
 -- Values at static addresses (from the beginning of the game memory).
 SMG1.StaticValue = subclass(MemoryValue)
 
@@ -155,19 +148,19 @@ end
 
 -- General-interest state values.
 
-SMG1.generalState1a = MV(
+GV.generalState1a = MV(
   "State bits 01-08", -0x128, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1b = MV(
+GV.generalState1b = MV(
   "State bits 09-16", -0x127, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1c = MV(
+GV.generalState1c = MV(
   "State bits 17-24", -0x126, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG1.generalState1d = MV(
+GV.generalState1d = MV(
   "State bits 25-32", -0x125, SMG1.PosBlockValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
@@ -182,29 +175,29 @@ end
 -- It counts up by 1 per frame starting from the level-beginning cutscenes.
 -- It also pauses for a few frames when you get the star.
 -- It resets to 0 if you die.
-SMG1.stageTimeFrames =
+GV.stageTimeFrames =
   MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntValue)
   
 
 
 -- Position, velocity, and other coordinates related stuff.
-SMG1.pos = V(
+GV.pos = V(
   Vector3Value,
   MV("Pos X", 0x0, SMG1.PosBlockValue, FloatValue),
   MV("Pos Y", 0x4, SMG1.PosBlockValue, FloatValue),
   MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatValue)
 )
-SMG1.pos.label = "Position"
-SMG1.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
+GV.pos.label = "Position"
+GV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
-SMG1.pos_early1 = V(
+GV.pos_early1 = V(
   Vector3Value,
   MV("Pos X", 0x18DC, SMG1.RefValue, FloatValue),
   MV("Pos Y", 0x18E0, SMG1.RefValue, FloatValue),
   MV("Pos Z", 0x18E4, SMG1.RefValue, FloatValue)
 )
-SMG1.pos_early1.label = "Position"
-SMG1.pos_early1.displayDefaults =
+GV.pos_early1.label = "Position"
+GV.pos_early1.displayDefaults =
   {signed=true, beforeDecimal=5, afterDecimal=1}
 
 
@@ -217,78 +210,78 @@ SMG1.pos_early1.displayDefaults =
 -- can still have its uses. For example, this is actually the velocity
 -- observed on the NEXT frame, so if we want advance knowledge of the velocity,
 -- then we might use this.
-SMG1.baseVel = V(
+GV.baseVel = V(
   Vector3Value,
   MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatValue),
   MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatValue),
   MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatValue)
 )
-SMG1.baseVel.label = "Base Vel"
-SMG1.baseVel.displayDefaults = {signed=true}
+GV.baseVel.label = "Base Vel"
+GV.baseVel.displayDefaults = {signed=true}
 
 
 -- Mario/Luigi's direction of gravity.
-SMG1.upVectorGravity = V(
+GV.upVectorGravity = V(
   Vector3Value,
   MV("Up X", 0x6A3C, SMG1.RefValue, FloatValue),
   MV("Up Y", 0x6A40, SMG1.RefValue, FloatValue),
   MV("Up Z", 0x6A44, SMG1.RefValue, FloatValue)
 )
-SMG1.upVectorGravity.label = "Grav (Up)"
-SMG1.upVectorGravity.displayDefaults =
+GV.upVectorGravity.label = "Grav (Up)"
+GV.upVectorGravity.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
-SMG1.downVectorGravity = V(
+GV.downVectorGravity = V(
   Vector3Value,
   MV("Up X", 0x1B10, SMG1.RefValue, FloatValue),
   MV("Up Y", 0x1B14, SMG1.RefValue, FloatValue),
   MV("Up Z", 0x1B18, SMG1.RefValue, FloatValue)
 )
-SMG1.downVectorGravity.label = "Grav (Down)"
-SMG1.downVectorGravity.displayDefaults =
+GV.downVectorGravity.label = "Grav (Down)"
+GV.downVectorGravity.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 -- Up vector (tilt). Offset from the gravity up vector when there is tilt.
-SMG1.upVectorTilt = V(
+GV.upVectorTilt = V(
   Vector3Value,
   MV("Up X", 0xC0, SMG1.PosBlockValue, FloatValue),
   MV("Up Y", 0xC4, SMG1.PosBlockValue, FloatValue),
   MV("Up Z", 0xC8, SMG1.PosBlockValue, FloatValue)
 )
-SMG1.upVectorTilt.label = "Tilt (Up)"
-SMG1.upVectorTilt.displayDefaults =
+GV.upVectorTilt.label = "Tilt (Up)"
+GV.upVectorTilt.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 
 
 -- Inputs and spin state.
 
-SMG1.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
+GV.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
-SMG1.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
+GV.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
 
-SMG1.wiimoteShakeBit =
+GV.wiimoteShakeBit =
   MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteValue)
-SMG1.nunchukShakeBit =
+GV.nunchukShakeBit =
   MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteValue)
-SMG1.spinCooldownTimer =
+GV.spinCooldownTimer =
   MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
-SMG1.spinAttackTimer =
+GV.spinAttackTimer =
   MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteValue)
 
-SMG1.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
-SMG1.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
+GV.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
+GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
 
 
 
 -- Text.
 
-SMG1.textProgress =
+GV.textProgress =
   MV("Text progress", 0x2D39C, SMG1.MessageInfoValue, IntValue)
-SMG1.alphaReq =
+GV.alphaReq =
   MV("Alpha req", 0x2D3B0, SMG1.MessageInfoValue, FloatValue)
-SMG1.fadeRate =
+GV.fadeRate =
   MV("Fade rate", 0x2D3B4, SMG1.MessageInfoValue, FloatValue)
 
 
