@@ -186,28 +186,37 @@ end
 
 
 layouts.allMachineStatsEditable = subclass(Layout)
-function layouts.allMachineStatsEditable:init(updateWithButton)
+function layouts.allMachineStatsEditable:init(
+  updateWithButton, initiallyShownStats)
+  
   updateWithButton = updateWithButton or false
+  initiallyShownStats = initiallyShownStats or self.game.statNames
 
   local game = self.game
-  self:activateAutoPositioningY()
+  self:activateAutoPositioningY('compact')
   
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  local racer = game:getBlock(game.Racer)
-  
-  for _, statName in pairs(game.statNames) do
-    self:addEditableValue(racer[statName], {buttonX=350})
-  end
+  local toggleElementsButton = self:addButton("Toggle elements")
+  toggleElementsButton:setOnClick(function() self:openToggleDisplayWindow() end)
   
   if updateWithButton then
     local updateButton = self:addButton("Update")
     self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
-    self.window:setSize(470, 28*#game.statNames + 50)
+    self.window:setSize(470, 25 + 27*#game.statNames + 27*2)
   else
     self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
-    self.window:setSize(470, 28*#game.statNames + 25)
+    self.window:setSize(470, 25 + 27*#game.statNames + 27)
+  end
+  
+  local racer = game:getBlock(game.Racer)
+  
+  for _, statName in pairs(game.statNames) do
+    local element = self:addEditableValue(
+      racer[statName], {buttonX=350, checkboxLabel=statName})
+      
+    element:setVisible(utils.isValueInTable(initiallyShownStats, statName))
   end
 end
 

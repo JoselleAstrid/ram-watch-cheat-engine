@@ -43,10 +43,6 @@ local Vector3Value = valuetypes.Vector3Value
 local RateOfChange = valuetypes.RateOfChange
 local addAddressToList = valuetypes.addAddressToList
 
-package.loaded.valuedisplay = nil
-local vdisplay = require "valuedisplay"
-local ValueDisplay = vdisplay.ValueDisplay
-
 
 
 local GX = subclass(dolphin.DolphinGame)

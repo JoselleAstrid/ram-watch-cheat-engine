@@ -91,6 +91,21 @@ local function updateTable(tableToUpdate, table2)
 end
 
 
+-- Check if a value is within a table's values.
+-- If you do existence checks in a large table, better to add the things to
+-- check for as table keys instead of table values.
+-- That lets you check existence with the "in" operator, which is faster.
+--
+-- However, sometimes it's easier to add as values and you don't care about
+-- performance. That's where this function comes in.
+local function isValueInTable(tbl, value)
+  for _, v in pairs(tbl) do
+    if v == value then return true end
+  end
+  return false
+end
+
+
 
 -- Curry implementation.
 -- From: http://lua-users.org/lists/lua-l/2007-01/msg00205.html
@@ -446,6 +461,7 @@ return {
   
   tableContentsToStr = tableContentsToStr,
   updateTable = updateTable,
+  isValueInTable = isValueInTable,
   curry = curry,
   curryInstance = curryInstance,
   

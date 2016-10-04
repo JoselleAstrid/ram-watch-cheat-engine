@@ -5,7 +5,7 @@ local classInstantiate = utils.classInstantiate
 
 
 local Layout = {
-  displayElements = {},
+  elements = {},
 }
 
 
@@ -14,8 +14,9 @@ function Layout:update()
 
   game:updateAddresses()
   
-  for _, element in pairs(self.displayElements) do
-    if element.update then element:update() end
+  for _, element in pairs(self.elements) do
+    -- Update elements which are not hidden and have an update function
+    if element:getVisible() and element.update then element:update() end
   end
 
   if self.autoPositioningActive and not self.autoPositioningDone then
@@ -30,24 +31,26 @@ function Layout:update()
 end
 
 
-function Layout:activateAutoPositioningX()
+function Layout:activateAutoPositioningX(positioningType)
   -- Auto-position layout elements left to right.
   self.autoPositioningActive = true
   self.autoPositioningDone = false
   self.autoPositioningCoord = 'x'
+  self.autoPositioningType = positioningType or 'fill'
 end
-function Layout:activateAutoPositioningY()
+function Layout:activateAutoPositioningY(positioningType)
   -- Auto-position layout elements top to bottom.
   self.autoPositioningActive = true
   self.autoPositioningDone = false
   self.autoPositioningCoord = 'y'
+  self.autoPositioningType = positioningType or 'fill'
 end
 
 
--- Figure out a working set of Y positions for the window elements.
+-- Figure out a working set of positions for the window elements.
 --
 -- Positions are calculated based on the window size and element sizes,
--- so that the elements get evenly spaced from top to bottom of the window.
+-- so that the elements get evenly spaced from end to end of the window.
 function Layout:autoPositionElements()
   local function getElementLength(element_)
     if self.autoPositioningCoord == 'x' then return element_:getWidth()
@@ -70,35 +73,114 @@ function Layout:autoPositionElements()
       element_:setPosition(element_:getLeft(), pos_)
     end
   end
+  
+  -- Only deal with elements that aren't hidden from view.
+  local elements = {}
+  for _, element in pairs(self.elements) do
+    if element:getVisible() then
+      table.insert(elements, element)
+    end
+  end
 
   -- Figure out the total length of the elements if they were put
   -- side by side without any spacing.
   local lengthSum = 0
-  
-  for _, element in pairs(self.displayElements) do
-    local length = getElementLength(element)
-    lengthSum = lengthSum + length
+  for _, element in pairs(elements) do
+    lengthSum = lengthSum + getElementLength(element)
   end
   
-  local windowLength = getWindowLength()
-  -- Have a gutter of 6 pixels at each end of the window,
-  -- and space out the elements uniformly.
-  --
-  -- It's possible for the spacing to be negative, meaning elements will
-  -- overlap. The user should rectify this situation by making the
-  -- window bigger.
-  local minPos = 6
-  local maxPos = windowLength - 6
-  local numSpaces = #(self.displayElements) - 1
-  local elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
+  local minPos = nil
+  local elementSpacing = nil
+  if self.autoPositioningType == 'fill' then
+    -- Have a gutter of 6 pixels at each end of the window,
+    -- and space out the elements uniformly.
+    --
+    -- It's possible for the spacing to be negative, meaning elements will
+    -- overlap. The layout specification should fix this situation by making the
+    -- window bigger.
+    minPos = 6
+    local maxPos = getWindowLength() - 6
+    local numSpaces = #(elements) - 1
+    elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
+  elseif self.autoPositioningType == 'compact' then
+    -- Have a gutter of 6 pixels at the start of the window,
+    -- and position the elements compactly one after the other from there.
+    minPos = 6
+    elementSpacing = 0
+  end
   
   local currentPos = minPos
-  for _, element in pairs(self.displayElements) do
+  for _, element in pairs(elements) do
     applyAutoPosition(element, currentPos)
     
-    local length = getElementLength(element)
-    currentPos = currentPos + length + elementSpacing
+    currentPos = currentPos + getElementLength(element) + elementSpacing
   end
+end
+
+
+function Layout:openToggleDisplayWindow()
+  -- Create a window
+  local window = createForm(true)
+  
+  -- Add checkboxes and associated labels
+  local checkboxes = {}
+  local toggleableElements = {}
+  local currentY = 6
+  for _, element in pairs(self.elements) do
+    if element.checkboxLabel then
+      local checkbox = createCheckBox(window)
+      table.insert(checkboxes, checkbox)
+      table.insert(toggleableElements, element)
+      
+      -- Initialize the checkbox according to the element's visibility.
+      -- Note that cbChecked is a Cheat Engine defined global value.
+      if element:getVisible() then
+        checkbox:setState(cbChecked)
+      end
+      
+      checkbox:setPosition(6, currentY)
+      checkbox:setCaption(element.checkboxLabel)
+      local font = checkbox:getFont()
+      font:setSize(9)
+      
+      currentY = currentY + 20
+    end
+  end
+  
+  -- Add an OK button in the window, which would apply the checkbox values
+  -- and close the window
+  local okButton = createButton(window)
+  okButton:setPosition(100, currentY)
+  okButton:setCaption("OK")
+  okButton:setSize(30, 25)
+  
+  local okAction = utils.curry(
+    self.toggleDisplayOKAction, self, window, toggleableElements, checkboxes)
+  okButton:setOnClick(okAction)
+  
+  -- Add a Cancel button in the window, which would just close the window
+  local cancelButton = createButton(window)
+  cancelButton:setPosition(140, currentY)
+  cancelButton:setCaption("Cancel")
+  cancelButton:setSize(50, 25)
+  cancelButton:setOnClick(utils.curry(window.close, window))
+  
+  window:setSize(200, currentY + 30)
+  window:centerScreen()
+  window:setCaption("Elements to show")
+end
+
+function Layout:toggleDisplayOKAction(window, toggleableElements, checkboxes)
+  -- Show/hide each toggle-able element based on checkbox values
+  for n = 1, #toggleableElements do
+    toggleableElements[n]:setVisible(checkboxes[n]:getState() == cbChecked)
+  end
+
+  -- Trigger another run of auto-positioning
+  self.autoPositioningDone = false
+  
+  -- Close the checkboxes window
+  window:close()
 end
 
 
@@ -130,8 +212,9 @@ function Layout:addElement(creationCallable, passedOptions)
   local element = creationCallable(options)
   
   element:setPosition(options.x or 0, options.y or 0)
+  element.checkboxLabel = options.checkboxLabel or nil
   
-  table.insert(self.displayElements, element)
+  table.insert(self.elements, element)
   return element
 end
 
@@ -147,12 +230,15 @@ function SimpleElement:getHeight() return self.uiObj:getHeight() end
 function SimpleElement:getLeft() return self.uiObj:getLeft() end
 function SimpleElement:getTop() return self.uiObj:getTop() end
 function SimpleElement:setPosition(x, y) self.uiObj:setPosition(x, y) end
+function SimpleElement:getVisible() return self.uiObj:getVisible() end
+function SimpleElement:setVisible(b) self.uiObj:setVisible(b) end
 
 
 
 local function applyFontOptions(uiObj, options)
   local font = uiObj:getFont()
-  if options.fontSize ~= nil then font:setSize(options.fontSize) end
+  -- Font size seems to be mandatory; the others aren't
+  font:setSize(options.fontSize or 12)
   if options.fontName ~= nil then font:setName(options.fontName) end
   if options.fontColor ~= nil then font:setColor(options.fontColor) end
 end
@@ -250,8 +336,8 @@ function LayoutButton:init(window, text, options)
   applyFontOptions(self.uiObj, options)
   
   local buttonFontSize = self.uiObj:getFont():getSize()
-  local buttonWidth = buttonFontSize * 6  -- Chars in 'Update'
-  local buttonHeight = buttonFontSize * 2.0 + 8
+  local buttonWidth = buttonFontSize * #text  -- Based on char count
+  local buttonHeight = buttonFontSize * 1.8 + 6
   self.uiObj:setSize(buttonWidth, buttonHeight)
 end
 
@@ -318,6 +404,18 @@ end
 function CompoundElement:setPosition(x, y)
   self.position = {x, y}
   self:positionElements()
+end
+
+function CompoundElement:getVisible()
+  -- We'll assume we're either hiding all or none of the sub-elements,
+  -- so checking just the first sub-element should suffice.
+  return self.elements[1].uiObj:getVisible()
+end
+
+function CompoundElement:setVisible(b)
+  for _, element in pairs(self.elements) do
+    element.uiObj:setVisible(b)
+  end
 end
 
 
@@ -507,7 +605,7 @@ function EditableValue:initializeUI(window, options)
   local buttonX = options.buttonX or 300
   local buttonFontSize = self.editButton:getFont():getSize()
   local buttonWidth = buttonFontSize * 4  -- 4 chars in both 'Edit' and 'List'
-  local buttonHeight = buttonFontSize * 2.0 + 8
+  local buttonHeight = buttonFontSize * 1.8 + 6
   
   self:addElement({buttonX, 0}, self.editButton)
   self.editButton:setSize(buttonWidth, buttonHeight)
