@@ -4,31 +4,31 @@
 
 -- Imports
 
--- First make sure that the imported modules get de-cached as needed. That way,
--- if we change the code in those modules and then re-run the script, we won't
--- need to restart Cheat Engine to see the code changes take effect.
+-- package.loaded.<module> ensures that the module gets de-cached as needed.
+-- That way, if we change the code in those modules and then re-run the script,
+-- we won't need to restart Cheat Engine to see the code changes take effect.
+
 package.loaded.utils = nil
-package.loaded.utils_math = nil
-package.loaded.valuetypes = nil
-package.loaded._supermariogalaxyshared = nil
-
 local utils = require "utils"
-local utils_math = require "utils_math"
-local vtypes = require "valuetypes"
-local SMGshared = require "_supermariogalaxyshared"
-
 local readIntBE = utils.readIntBE
 local subclass = utils.subclass
 
-local MemoryValue = vtypes.MemoryValue
-local FloatValue = vtypes.FloatValue
-local IntValue = vtypes.IntValue
-local ShortValue = vtypes.ShortValue
-local ByteValue = vtypes.ByteValue
-local SignedIntValue = vtypes.SignedIntValue
-local StringValue = vtypes.StringValue
-local BinaryValue = vtypes.BinaryValue
-local Vector3Value = vtypes.Vector3Value
+package.loaded.valuetypes = nil
+local valuetypes = require "valuetypes"
+local V = valuetypes.V
+local MV = valuetypes.MV
+local MemoryValue = valuetypes.MemoryValue
+local FloatValue = valuetypes.FloatValue
+local IntValue = valuetypes.IntValue
+local ShortValue = valuetypes.ShortValue
+local ByteValue = valuetypes.ByteValue
+local SignedIntValue = valuetypes.SignedIntValue
+local StringValue = valuetypes.StringValue
+local BinaryValue = valuetypes.BinaryValue
+local Vector3Value = valuetypes.Vector3Value
+
+package.loaded._supermariogalaxyshared = nil
+local SMGshared = require "_supermariogalaxyshared"
 
 
 
@@ -50,6 +50,8 @@ function SMG2:init(options)
   self.addrs = {}
   self:initConstantAddresses()
 end
+
+local GV = SMG2.blockValues
 
 
 
@@ -113,15 +115,6 @@ end
 
 
 
--- Shortcuts for creating Values and MemoryValues.
-local function V(...)
-  return SMG2:VDeferredInit(...)
-end
-local function MV(...)
-  return SMG2:MVDeferredInit(...)
-end
-
-
 -- Values at static addresses (from the beginning of the game memory).
 SMG2.StaticValue = subclass(MemoryValue)
 
@@ -157,19 +150,19 @@ end
 
 -- General-interest state values.
 
-SMG2.generalState1a = MV(
+GV.generalState1a = MV(
   "State bits 01-08", -0x51FC, SMG2.PosRefValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG2.generalState1b = MV(
+GV.generalState1b = MV(
   "State bits 09-16", -0x51FB, SMG2.PosRefValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG2.generalState1c = MV(
+GV.generalState1c = MV(
   "State bits 17-24", -0x51FA, SMG2.PosRefValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
-SMG2.generalState1d = MV(
+GV.generalState1d = MV(
   "State bits 25-32", -0x51F9, SMG2.PosRefValue, BinaryValue,
   {binarySize=8, binaryStartBit=7}
 )
@@ -180,12 +173,12 @@ end
 
 
 -- In-game timers.
-SMG2.stageTimeFrames =
+GV.stageTimeFrames =
   MV("Stage time, frames", 0xA75D10, SMG2.StaticValue, IntValue)
 
-SMG2.fileTimeFrames =
+GV.fileTimeFrames =
   MV("File time, frames", 0xE40E4C, SMG2.StaticValue, ShortValue)
-function SMG2.fileTimeFrames:get()
+function GV.fileTimeFrames:get()
   -- This is a weird combination of big endian and little endian, it seems.
   local address = self:getAddress()
   local lowPart = self:read(address)
@@ -196,24 +189,24 @@ end
 
 
 -- Position, velocity, and other coordinates related stuff.
-SMG2.pos = V(
+GV.pos = V(
   Vector3Value,
   MV("Pos X", -0x8670, SMG2.PosRefValue, FloatValue),
   MV("Pos Y", -0x866C, SMG2.PosRefValue, FloatValue),
   MV("Pos Z", -0x8668, SMG2.PosRefValue, FloatValue)
 )
-SMG2.pos.label = "Position"
-SMG2.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
+GV.pos.label = "Position"
+GV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
 -- 1 frame earlier than what you see on camera.
-SMG2.pos_early1 = V(
+GV.pos_early1 = V(
   Vector3Value,
   MV("Pos X", -0x8C58+0x14, SMG2.PosRefValue, FloatValue),
   MV("Pos Y", -0x8C58+0x18, SMG2.PosRefValue, FloatValue),
   MV("Pos Z", -0x8C58+0x1C, SMG2.PosRefValue, FloatValue)
 )
-SMG2.pos_early1.label = "Position"
-SMG2.pos_early1.displayDefaults =
+GV.pos_early1.label = "Position"
+GV.pos_early1.displayDefaults =
   {signed=true, beforeDecimal=5, afterDecimal=1}
   
 
@@ -226,70 +219,73 @@ SMG2.pos_early1.displayDefaults =
 -- can still have its uses. For example, this is actually the velocity
 -- observed on the NEXT frame, so if we want advance knowledge of the velocity,
 -- then we might use this.
-SMG2.baseVel = V(
+GV.baseVel = V(
   Vector3Value,
   MV("Base Vel X", -0x8C58+0x38, SMG2.PosRefValue, FloatValue),
   MV("Base Vel Y", -0x8C58+0x3C, SMG2.PosRefValue, FloatValue),
   MV("Base Vel Z", -0x8C58+0x40, SMG2.PosRefValue, FloatValue)
 )
-SMG2.baseVel.label = "Base Vel"
-SMG2.baseVel.displayDefaults = {signed=true}
+GV.baseVel.label = "Base Vel"
+GV.baseVel.displayDefaults = {signed=true}
 
 
 -- Mario/Luigi's direction of gravity.
-SMG2.downVectorGravity = V(
+GV.downVectorGravity = V(
   Vector3Value,
   MV("Down X", -0x86C4, SMG2.PosRefValue, FloatValue),
   MV("Down Y", -0x86C0, SMG2.PosRefValue, FloatValue),
   MV("Down Z", -0x86BC, SMG2.PosRefValue, FloatValue)
 )
-SMG2.downVectorGravity.label = "Grav (Down)"
-SMG2.downVectorGravity.displayDefaults =
+GV.downVectorGravity.label = "Grav (Down)"
+GV.downVectorGravity.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 -- Downward accel acting on Mario/Luigi.
--- TODO: Clarify what this is
-SMG2.downVectorAccel = V(
+-- Has its differences from both gravity and tilt.
+-- Unlike gravity, this also responds to tilting slopes.
+-- Unlike tilt, this 'straightens out' to match gravity
+-- a few frames after jumping.
+GV.downVectorAccel = V(
   Vector3Value,
   MV("Down X", -0x7D88, SMG2.PosRefValue, FloatValue),
   MV("Down Y", -0x7D84, SMG2.PosRefValue, FloatValue),
   MV("Down Z", -0x7D80, SMG2.PosRefValue, FloatValue)
 )
-SMG2.downVectorAccel.label = "Down accel\ndirection"
-SMG2.downVectorAccel.displayDefaults =
+GV.downVectorAccel.label = "Down accel\ndirection"
+GV.downVectorAccel.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 -- Up vector (tilt). Offset from the gravity vector when there is tilt.
-SMG2.upVectorTilt = V(
+GV.upVectorTilt = V(
   Vector3Value,
   MV("Up X", -0x5018, SMG2.PosRefValue, FloatValue),
   MV("Up Y", -0x5014, SMG2.PosRefValue, FloatValue),
   MV("Up Z", -0x5010, SMG2.PosRefValue, FloatValue)
 )
-SMG2.upVectorTilt.label = "Tilt (Up)"
-SMG2.upVectorTilt.displayDefaults =
+GV.upVectorTilt.label = "Tilt (Up)"
+GV.upVectorTilt.displayDefaults =
   {signed=true, beforeDecimal=1, afterDecimal=4}
 
 
 
 -- Inputs and spin state.
 
-SMG2.buttons1 = MV("Buttons 1", 0xB38A2E, SMG2.StaticValue, BinaryValue,
+GV.buttons1 = MV("Buttons 1", 0xB38A2E, SMG2.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
-SMG2.buttons2 = MV("Buttons 2", 0xB38A2F, SMG2.StaticValue, BinaryValue,
+GV.buttons2 = MV("Buttons 2", 0xB38A2F, SMG2.StaticValue, BinaryValue,
   {binarySize=8, binaryStartBit=7})
 
-SMG2.wiimoteShakeBit =
+GV.wiimoteShakeBit =
   MV("Wiimote spin bit", -0x7C4A, SMG2.PosRefValue, ByteValue)
-SMG2.nunchukShakeBit =
+GV.nunchukShakeBit =
   MV("Nunchuk spin bit", -0x7C49, SMG2.PosRefValue, ByteValue)
-SMG2.spinCooldownTimer =
+GV.spinCooldownTimer =
   MV("Spin cooldown timer", -0x7E19, SMG2.PosRefValue, ByteValue)
-SMG2.spinAttackTimer =
+GV.spinAttackTimer =
   MV("Spin attack timer", -0x7E1C, SMG2.PosRefValue, ByteValue)
 
-SMG2.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatValue)
-SMG2.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatValue)
+GV.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatValue)
+GV.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatValue)
 
 
 return SMG2

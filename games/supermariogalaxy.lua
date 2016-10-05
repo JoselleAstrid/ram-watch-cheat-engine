@@ -4,9 +4,9 @@
 
 -- Imports
 
--- First make sure that the imported modules get de-cached as needed. That way,
--- if we change the code in those modules and then re-run the script, we won't
--- need to restart Cheat Engine to see the code changes take effect.
+-- package.loaded.<module> ensures that the module gets de-cached as needed.
+-- That way, if we change the code in those modules and then re-run the script,
+-- we won't need to restart Cheat Engine to see the code changes take effect.
 
 package.loaded.utils = nil
 local utils = require "utils"
