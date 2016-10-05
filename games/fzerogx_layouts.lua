@@ -313,7 +313,7 @@ function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.window:setSize(450, 250)
+  self.window:setSize(650, 250)
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   

@@ -54,16 +54,28 @@ valuetypes.Block = Block
 function Block:init()
   -- self.a = new object of class self.blockValues.a,
   -- whose init() must take 0 args.
-  -- Assign everything to the block namespace first...
   for key, value in pairs(self.blockValues) do
+    -- Assign to the block namespace.
     self[key] = subclass(value)
     self[key].block = self
+    
+    -- Let the objects know what their 'owner' blocks/games are.
     if self.game then self[key].game = self.game end
     if self.blockAlias then self[key][self.blockAlias] = self end
+    
+    -- In some cases, if this block belongs to another block, etc., it's
+    -- also useful to give the object info about those blocks.
+    local ancestorBlock = self.block
+    while ancestorBlock do
+      if ancestorBlock.blockAlias then
+        self[key][ancestorBlock.blockAlias] = ancestorBlock
+      end
+      ancestorBlock = ancestorBlock.block
+    end
   end
   
-  -- ...THEN init. Some objects' init functions may require other objects
-  -- to already be assigned to the block namespace.
+  -- THEN init everything. Some objects' init functions may require
+  -- other objects to already be assigned to the block namespace.
   --
   -- Note that the order of objects in this for loop is undefined. However,
   -- an object A's init() might call another object B's init() if A depends

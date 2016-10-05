@@ -302,8 +302,6 @@ function Racer:getBlockKey(racerNumber)
   return racerNumber
 end
 
-local racerAdd = utils.curry(Racer.addWithAutomaticKey, Racer)
-
 
 local Player = subclass(Block)
 Player.blockAlias = 'player'
@@ -319,19 +317,6 @@ end
 function Player:getBlockKey(playerNumber)
   playerNumber = playerNumber or 1
   return playerNumber
-end
-
-function Player:add(value, distanceBetweenPlayers)
-  -- Update the value's getAddress() function: the original function should
-  -- assume Player 1, and we want a function that gets the address
-  -- for any player.
-  function f(originalGetAddress, distanceBetweenPlayers_, self_)
-    local distanceFromP1 = distanceBetweenPlayers_ * self_.player.playerIndex
-    return originalGetAddress(self_) + distanceFromP1
-  end
-  value.getAddress = utils.curry(f, value.getAddress, distanceBetweenPlayers)
-  
-  return Player:addWithAutomaticKey(value)
 end
 
 
@@ -966,18 +951,18 @@ end
 
 RV.pos = V(
   subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos X", 0x7C)),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos Y", 0x80)),
-  Racer:addWithAutomaticKey(defineStateFloat("Pos Z", 0x84))
+  defineStateFloat("Pos X", 0x7C),
+  defineStateFloat("Pos Y", 0x80),
+  defineStateFloat("Pos Z", 0x84)
 )
 RV.pos.label = "Position"
 RV.pos.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
 
 RV.vel = V(
   subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(defineStateFloat("Vel X", 0x94)),
-  Racer:addWithAutomaticKey(defineStateFloat("Vel Y", 0x98)),
-  Racer:addWithAutomaticKey(defineStateFloat("Vel Z", 0x9C))
+  defineStateFloat("Vel X", 0x94),
+  defineStateFloat("Vel Y", 0x98),
+  defineStateFloat("Vel Z", 0x9C)
 )
 RV.vel.label = "Velocity"
 RV.vel.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
@@ -985,9 +970,9 @@ RV.vel.displayDefaults = {signed=true, beforeDecimal=3, afterDecimal=3}
 -- Machine orientation in world coordinates
 RV.wOrient = V(
   subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(defineStateFloat("W Orient X", 0xEC)),
-  Racer:addWithAutomaticKey(defineStateFloat("W Orient Y", 0xF0)),
-  Racer:addWithAutomaticKey(defineStateFloat("W Orient Z", 0xF4))
+  defineStateFloat("W Orient X", 0xEC),
+  defineStateFloat("W Orient Y", 0xF0),
+  defineStateFloat("W Orient Z", 0xF4)
 )
 RV.wOrient.label = "Orient"
 RV.wOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
@@ -995,9 +980,9 @@ RV.wOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
 -- Machine orientation in current gravity coordinates
 RV.gOrient = V(
   subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(defineStateFloat("G Orient X", 0x10C)),
-  Racer:addWithAutomaticKey(defineStateFloat("G Orient Y", 0x110)),
-  Racer:addWithAutomaticKey(defineStateFloat("G Orient Z", 0x114))
+  defineStateFloat("G Orient X", 0x10C),
+  defineStateFloat("G Orient Y", 0x110),
+  defineStateFloat("G Orient Z", 0x114)
 )
 RV.gOrient.label = "Orient (grav)"
 RV.gOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
@@ -1036,9 +1021,9 @@ RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatValue)
 RV.checkpointLateralOffset = MV("CP lateral", 0x668, State2Value, FloatValue)
 RV.checkpointRightVector = V(
   subclass(Vector3Value, RacerValue),
-  Racer:addWithAutomaticKey(MV("CP Right X", 0x560, State2Value, FloatValue)),
-  Racer:addWithAutomaticKey(MV("CP Right Y", 0x570, State2Value, FloatValue)),
-  Racer:addWithAutomaticKey(MV("CP Right Z", 0x580, State2Value, FloatValue))
+  MV("CP Right X", 0x560, State2Value, FloatValue),
+  MV("CP Right Y", 0x570, State2Value, FloatValue),
+  MV("CP Right Z", 0x580, State2Value, FloatValue)
 )
 RV.checkpointRightVector.label = "CP Right"
 RV.checkpointRightVector.displayDefaults = {
@@ -1102,7 +1087,7 @@ RV.unknown5D0 = defineStateFloat("Unknown 5D0", 0x5D0)
 RV.unknown5D4 = defineStateFloat("Unknown 5D4", 0x5D4)
 
 
-local Timer = subclass(Value, RacerValue)
+local Timer = subclass(Value, RacerValue, Block)
 GX.Timer = Timer
 
 function Timer.define(label, offset)
@@ -1110,31 +1095,25 @@ function Timer.define(label, offset)
 
   obj.label = label
   
-  local add = utils.curry(Racer.addWithAutomaticKey, Racer)
-  obj.keys = {}
-  obj.keys.frames = add(MV(label..", frames", offset,
-    State2Value, IntValue))
-  obj.keys.frameFraction = add(MV(label..", frame fraction", offset+4,
-    State2Value, FloatValue))
-  obj.keys.mins = add(MV(label..", minutes", offset+8,
-    State2Value, ByteValue))
-  obj.keys.secs = add(MV(label..", seconds", offset+9,
-    State2Value, ByteValue))
-  obj.keys.millis = add(MV(label..", milliseconds", offset+10,
-    State2Value, ShortValue))
+  obj.blockValues = {
+    frames = MV(label..", frames", offset,
+      State2Value, IntValue),
+    frameFraction = MV(label..", frame fraction", offset+4,
+      State2Value, FloatValue),
+    mins = MV(label..", minutes", offset+8,
+      State2Value, ByteValue),
+    secs = MV(label..", seconds", offset+9,
+      State2Value, ByteValue),
+    millis = MV(label..", milliseconds", offset+10,
+      State2Value, ShortValue),
+  }
     
   return obj
 end
 
-function Timer:init()
-  for name, key in pairs(self.keys) do
-    self[name] = self.racer[key]
-  end
-end
-
 function Timer:updateValue()
-  for name, key in pairs(self.keys) do
-    self[name]:update()
+  for key, _ in pairs(self.blockValues) do
+    self[key]:update()
   end
 end
 
@@ -1151,28 +1130,26 @@ function Timer:displayValue(options)
 end
 
 
-local raceTimer = V(subclass(Value, RacerValue))
+local raceTimer = V(subclass(Value, RacerValue, Block))
 RV.raceTimer = raceTimer
 
-raceTimer.keys = {}
-raceTimer.keys.total = racerAdd(Timer.define("Total", 0x744))
-raceTimer.keys.currLap = racerAdd(Timer.define("This lap", 0x6C0))
-raceTimer.keys.prevLap = racerAdd(Timer.define("Prev. lap", 0x6CC))
-raceTimer.keys.back2Laps = racerAdd(Timer.define("2 laps ago", 0x6D8))
-raceTimer.keys.back3Laps = racerAdd(Timer.define("3 laps ago", 0x6E4))
-raceTimer.keys.back4Laps = racerAdd(Timer.define("4 laps ago", 0x6F0))
-raceTimer.keys.back5Laps = racerAdd(Timer.define("5 laps ago", 0x6FC))
-raceTimer.keys.back6Laps = racerAdd(Timer.define("6 laps ago", 0x708))
-raceTimer.keys.back7Laps = racerAdd(Timer.define("7 laps ago", 0x714))
-raceTimer.keys.back8Laps = racerAdd(Timer.define("8 laps ago", 0x720))
-raceTimer.keys.bestLap = racerAdd(Timer.define("Best lap", 0x72C))
-raceTimer.keys.sumOfFinishedLaps =
-  racerAdd(Timer.define("Sum of finished laps", 0x738))
+raceTimer.blockValues = {
+  total = Timer.define("Total", 0x744),
+  currLap = Timer.define("This lap", 0x6C0),
+  prevLap = Timer.define("Prev. lap", 0x6CC),
+  back2Laps = Timer.define("2 laps ago", 0x6D8),
+  back3Laps = Timer.define("3 laps ago", 0x6E4),
+  back4Laps = Timer.define("4 laps ago", 0x6F0),
+  back5Laps = Timer.define("5 laps ago", 0x6FC),
+  back6Laps = Timer.define("6 laps ago", 0x708),
+  back7Laps = Timer.define("7 laps ago", 0x714),
+  back8Laps = Timer.define("8 laps ago", 0x720),
+  bestLap = Timer.define("Best lap", 0x72C),
+  sumOfFinishedLaps = Timer.define("Sum of finished laps", 0x738),
+}
 
 function raceTimer:init()
-  for name, key in pairs(self.keys) do
-    self[name] = self.racer[key]
-  end
+  Block.init(self)
   
   self.prevLaps = {
     self.prevLap, self.back2Laps, self.back3Laps,
@@ -1230,26 +1207,26 @@ end
 
 
 -- Controller inputs (uncalibrated)
-local controllerInput = V(subclass(Value, PlayerValue))
+local controllerInput = V(subclass(Value, PlayerValue, Block))
 PV.controllerInput = controllerInput
 
-controllerInput.keys = {
-  ABXYS = Player:add(MV("ABXY & Start", 0x15CBD0, StaticValue, BinaryValue,
-    {binarySize=8, binaryStartBit=7}), 8),
-  DZ = Player:add(MV("D-Pad & Z", 0x15CBD1, StaticValue, BinaryValue,
-    {binarySize=8, binaryStartBit=7}), 8),
-  stickX = Player:add(MV("Stick X", 0x15CBD2, StaticValue, ByteValue), 8),
-  stickY = Player:add(MV("Stick Y", 0x15CBD3, StaticValue, ByteValue), 8),
-  CStickX = Player:add(MV("C-Stick X", 0x15CBD4, StaticValue, ByteValue), 8),
-  CStickY = Player:add(MV("C-Stick Y", 0x15CBD5, StaticValue, ByteValue), 8),
-  L = Player:add(MV("L", 0x15CBD6, StaticValue, ByteValue), 8),
-  R = Player:add(MV("R", 0x15CBD7, StaticValue, ByteValue), 8),
-}
-
 function controllerInput:init()
-  for name, key in pairs(self.keys) do
-    self[name] = self.player[key]
-  end
+  local blockStart = 0x15CBD0 + (self.player.playerIndex * 0x8)
+
+  self.blockValues = {
+    ABXYS = MV("ABXY & Start", blockStart + 0, StaticValue, BinaryValue,
+      {binarySize=8, binaryStartBit=7}),
+    DZ = MV("D-Pad & Z", blockStart + 1, StaticValue, BinaryValue,
+      {binarySize=8, binaryStartBit=7}),
+    stickX = MV("Stick X", blockStart + 2, StaticValue, ByteValue),
+    stickY = MV("Stick Y", blockStart + 3, StaticValue, ByteValue),
+    CStickX = MV("C-Stick X", blockStart + 4, StaticValue, ByteValue),
+    CStickY = MV("C-Stick Y", blockStart + 5, StaticValue, ByteValue),
+    L = MV("L", blockStart + 6, StaticValue, ByteValue),
+    R = MV("R", blockStart + 7, StaticValue, ByteValue),
+  }
+  
+  Block.init(self)
 end
 
 function controllerInput:buttonDisplay(buttonName)
@@ -1321,25 +1298,33 @@ end
 -- This refers to not only stick calibration (which is user defined), but also
 -- calibration that the game does to go from raw C-stick/L/R values to more
 -- useful values.
-local calibratedInput = V(subclass(controllerInput))
+local calibratedInput = V(controllerInput)
 PV.calibratedInput = calibratedInput
 
-calibratedInput.keys = {
-  ABXYS = controllerInput.keys.ABXYS,
-  DZ = controllerInput.keys.DZ,
-  stickX = Player:add(
-    MV("Stick X, calibrated", 0x1BAB54, RefValue, FloatValue), 0x20),
-  stickY = Player:add(
-    MV("Stick Y, calibrated", 0x1BAB58, RefValue, FloatValue), 0x20),
-  CStickX = Player:add(
-    MV("C-Stick X, calibrated", 0x1BAB5C, RefValue, FloatValue), 0x20),
-  CStickY = Player:add(
-    MV("C-Stick Y, calibrated", 0x1BAB60, RefValue, FloatValue), 0x20),
-  L = Player:add(
-    MV("L, calibrated", 0x1BAB64, RefValue, FloatValue), 0x20),
-  R = Player:add(
-    MV("R, calibrated", 0x1BAB68, RefValue, FloatValue), 0x20),
-}
+function calibratedInput:init()
+  valuetypes.initValueAsNeeded(self.player.controllerInput)
+
+  local blockStart = 0x1BAB54 + (self.player.playerIndex * 0x20)
+
+  self.blockValues = {
+    ABXYS = self.player.controllerInput.blockValues.ABXYS,
+    DZ = self.player.controllerInput.blockValues.DZ,
+    stickX =
+      MV("Stick X, calibrated", blockStart + 0x0, RefValue, FloatValue),
+    stickY =
+      MV("Stick Y, calibrated", blockStart + 0x4, RefValue, FloatValue),
+    CStickX =
+      MV("C-Stick X, calibrated", blockStart + 0x8, RefValue, FloatValue),
+    CStickY =
+      MV("C-Stick Y, calibrated", blockStart + 0xC, RefValue, FloatValue),
+    L =
+      MV("L, calibrated", blockStart + 0x10, RefValue, FloatValue),
+    R =
+      MV("R, calibrated", blockStart + 0x14, RefValue, FloatValue),
+  }
+  
+  Block.init(self)
+end
 
 function calibratedInput:stickXDisplay()
   return self.game:displayAnalog(
@@ -1369,22 +1354,16 @@ end
 -- input amounts for each shoulder. Since no L or R results in different
 -- properties from full L+R, we know this means we're missing some info.
   
-local controlState = V(subclass(Value, RacerValue))
+local controlState = V(subclass(Value, RacerValue, Block))
 RV.controlState = controlState
 
-controlState.keys = {
-  steerY = racerAdd(defineStateFloat("Control, steering Y", 0x1F4)),
-  strafe = racerAdd(defineStateFloat("Control, strafe", 0x1F8)),
-  steerX = racerAdd(defineStateFloat("Control, steering X", 0x1FC)),
-  accel = racerAdd(defineStateFloat("Control, accel", 0x200)),
-  brake = racerAdd(defineStateFloat("Control, brake", 0x204)),
+controlState.blockValues = {
+  steerY = defineStateFloat("Control, steering Y", 0x1F4),
+  strafe = defineStateFloat("Control, strafe", 0x1F8),
+  steerX = defineStateFloat("Control, steering X", 0x1FC),
+  accel = defineStateFloat("Control, accel", 0x200),
+  brake = defineStateFloat("Control, brake", 0x204),
 }
-
-function controlState:init()
-  for name, key in pairs(self.keys) do
-    self[name] = self.racer[key]
-  end
-end
 
 function controlState:buttonDisplay(buttonName)
   if buttonName == "Accel" then

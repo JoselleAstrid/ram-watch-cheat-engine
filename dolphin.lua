@@ -54,7 +54,7 @@ end
 
 -- Like classInstantiate(), except the game attribute is set
 -- before init() is called.
--- If the Game object isn't initialized yet, use VDeferredInit() instead.
+-- If the Game object isn't initialized yet, use valuetypes.V() instead.
 
 function DolphinGame:V(valueClass, ...)
   local newValue = valuetypes.V(valueClass, ...)
@@ -67,48 +67,6 @@ function DolphinGame:F(func, ...)
   return utils.curry(func, self, ...)
 end
 
-
--- TODO: Make this consistent with the Block interface.
-function DolphinGame:VDeferredInit(ValueClass, ...)
-  local newValue = subclass(ValueClass)
-  local initCallable = utils.curry(ValueClass.init, newValue, ...)
-  
-  -- Save the object in a table.
-  -- Later, when we have an initialized Game object,
-  -- we'll iterate over this table, set the game attribute for each object,
-  -- and call init() on each object.
-  table.insert(
-    self.valuesToInitialize, {obj=newValue, initCallable=initCallable})
-  
-  return newValue
-end
-
--- TODO: Make this consistent with the Block interface.
--- Create MemoryValues which are initialized after <value>.game is set.
---
--- Creation isn't entirely straightforward because we want
--- MemoryValue instances to be a mixin of multiple classes.
-function DolphinGame:MVDeferredInit(
-    label, offset, mvClass, typeMixin, extraArgs)
-  local newMV = subclass(mvClass, typeMixin)
-  
-  local function f(newMV_, label_, offset_, mvClass_, typeMixin_, extraArgs_)
-    mvClass_.init(newMV_, label_, offset_)
-    typeMixin_.init(newMV_, extraArgs_)
-  end
-  
-  local initCallable = utils.curry(
-    f, newMV, label, offset, mvClass, typeMixin, extraArgs)
-  
-  -- Save the object in a table.
-  -- Later, when we have an initialized Game object,
-  -- we'll iterate over this table, set the game attribute for each object,
-  -- and call init() on each object.
-  table.insert(
-    self.valuesToInitialize, {obj=newMV, initCallable=initCallable})
-    
-  return newMV
-end
 
 
 function DolphinGame:getGameStartAddress()
