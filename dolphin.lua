@@ -29,8 +29,6 @@ function DolphinGame:init(options)
     options.constantGameStartAddress or nil
   
   valuetypes.Block.init(self)
-  
-  self.initCalled = true
     
   -- Subclasses of DolphinGame must set a gameId attribute in their init().
 end
@@ -58,10 +56,10 @@ end
 -- before init() is called.
 -- If the Game object isn't initialized yet, use VDeferredInit() instead.
 
-function DolphinGame:V(ValueClass, ...)
-  local newValue = subclass(ValueClass)
+function DolphinGame:V(valueClass, ...)
+  local newValue = valuetypes.V(valueClass, ...)
   newValue.game = self
-  newValue:init(...)
+  valuetypes.initValueAsNeeded(newValue)
   return newValue
 end
 

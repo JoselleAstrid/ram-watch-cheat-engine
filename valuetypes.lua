@@ -12,46 +12,6 @@ local valuetypes = {}
 
 
 
-local Block = {}
-Block.blockValues = {}
-Block.blockAlias = 'block'
-Block.blockInstances = {}
-Block.nextAutomaticKeyNumber = 1
-valuetypes.Block = Block
-
-function Block:init()
-  -- self.a = new object of class self.blockValues.a,
-  -- whose init() must take 0 args.
-  -- Assign everything to the block namespace first...
-  for key, value in pairs(self.blockValues) do
-    self[key] = subclass(value)
-    self[key].block = self
-    if self.game then self[key].game = self.game end
-    if self.blockAlias then self[key][self.blockAlias] = self end
-  end
-  
-  -- ...THEN init. Some objects' init functions may require other objects
-  -- to already be assigned to the block namespace.
-  for key, value in pairs(self.blockValues) do
-    self[key]:init()
-  end
-end
-
-function Block:addWithAutomaticKey(value)
-  -- This works as long as no manually-specified keys are named _1, _2, etc.
-  local key = '_'..tostring(self.nextAutomaticKeyNumber)
-  self.blockValues[key] = value
-  self.nextAutomaticKeyNumber = self.nextAutomaticKeyNumber + 1
-  return key
-end
-
-function Block:getBlockKey(...)
-  -- Subclasses should override this.
-  return error("Function not implemented")
-end
-
-
-
 function valuetypes.V(valueClass, ...)
   local newValue = subclass(valueClass)
   
@@ -73,6 +33,58 @@ function valuetypes.MV(label, offset, valueClass, typeMixinClass, extraArgs)
     f, label, offset, valueClass, typeMixinClass, extraArgs)
     
   return newValue
+end
+
+function valuetypes.initValueAsNeeded(value)
+  if value.initCalled then return end
+  
+  value:init()
+  value.initCalled = true
+end
+
+
+
+local Block = {}
+Block.blockValues = {}
+Block.blockAlias = 'block'
+Block.blockInstances = {}
+Block.nextAutomaticKeyNumber = 1
+valuetypes.Block = Block
+
+function Block:init()
+  -- self.a = new object of class self.blockValues.a,
+  -- whose init() must take 0 args.
+  -- Assign everything to the block namespace first...
+  for key, value in pairs(self.blockValues) do
+    self[key] = subclass(value)
+    self[key].block = self
+    if self.game then self[key].game = self.game end
+    if self.blockAlias then self[key][self.blockAlias] = self end
+  end
+  
+  -- ...THEN init. Some objects' init functions may require other objects
+  -- to already be assigned to the block namespace.
+  --
+  -- Note that the order of objects in this for loop is undefined. However,
+  -- an object A's init() might call another object B's init() if A depends
+  -- on B. So this for loop must only call an object's init
+  -- if it wasn't already called.
+  for key, value in pairs(self.blockValues) do
+    valuetypes.initValueAsNeeded(self[key])
+  end
+end
+
+function Block:addWithAutomaticKey(value)
+  -- This works as long as no manually-specified keys are named _1, _2, etc.
+  local key = '_'..tostring(self.nextAutomaticKeyNumber)
+  self.blockValues[key] = value
+  self.nextAutomaticKeyNumber = self.nextAutomaticKeyNumber + 1
+  return key
+end
+
+function Block:getBlockKey(...)
+  -- Subclasses should override this.
+  return error("Function not implemented")
 end
 
 
@@ -99,9 +111,11 @@ end
 function Value:update()
   -- Generally this method shouldn't be overridden.
   
-  if self.frameCounterAddress then
+  if self.game.frameCounterAddress then
     -- There's no point in updating again if we've already updated on this
     -- game frame.
+    -- In fact, some values' accuracies depend on not updating more than once
+    -- per frame, particularly rates of change.
     local currentFrame = self.game:getFrameCount()
     if self.lastUpdateFrame == currentFrame then return end
     self.lastUpdateFrame = currentFrame
@@ -508,6 +522,7 @@ RateOfChange.initialValue = 0.0
 function RateOfChange:init(baseValue, label)
   Value.init(self)
   
+  valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = label
   -- Display the same way as the base value
@@ -551,8 +566,8 @@ function ResettableValue:update()
   -- Do an initial reset, if we haven't already.
   -- We don't do this in init() because the reset function may depend on
   -- looking up other Values, which may require that those Values be
-  -- initialized. And there is no guarantee about the initialization
-  -- order of Values.
+  -- initialized. We COULD ensure that those Values get init'd first, but it's
+  -- just as simple to move the initial update here.
   if not self.initialResetDone then
     self:reset()
     self.initialResetDone = true
@@ -574,6 +589,7 @@ MaxValue.initialValue = 0.0
 function MaxValue:init(baseValue, resetButton)
   ResettableValue.init(self, resetButton)
   
+  valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = "Max "..self.baseValue.label
   -- Display the same way as the base value
@@ -604,6 +620,7 @@ AverageValue.initialValue = 0.0
 function AverageValue:init(baseValue)
   ResettableValue.init(self, resetButton)
   
+  valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = "Avg "..self.baseValue.label
   -- Display the same way as the base value

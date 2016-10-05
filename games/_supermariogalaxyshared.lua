@@ -354,10 +354,9 @@ SMGshared.UpVelocityTiltBonus.displayDefaults = {signed=true}
 function SMGshared.UpVelocityTiltBonus:init()
   Value.init(self)
   
-  -- TODO: I think this assumes pos_early1 is already initialized,
-  -- and in general it is not. x, y, and z attributes are set in init().
-  -- Either the attributes must be set sooner, or this class must delay
-  -- grabbing pos_early1 stuff till the first update.
+  -- A Vector3's x, y, and z fields aren't set until the vector is initialized.
+  valuetypes.initValueAsNeeded(self.game.pos_early1)
+  
   self.nextVel = self.game:V(
     Vector3Value,
     self.game:V(RateOfChange, self.game.pos_early1.x),
