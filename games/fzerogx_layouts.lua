@@ -129,9 +129,10 @@ end
 
 
 layouts.oneMachineStat = subclass(Layout)
-function layouts.oneMachineStat:init(statName, numOfRacers)
+function layouts.oneMachineStat:init(statName, numOfRacers, withBase)
   statName = statName or 'accel'
   numOfRacers = numOfRacers or 6
+  withBase = withBase or false
   
   local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
@@ -144,22 +145,32 @@ function layouts.oneMachineStat:init(statName, numOfRacers)
   self:addLabel()
   for n = 1, numOfRacers do
     local stat = game:getBlock(game.Racer, n)[statName]
-    self:addItem(stat)
-    self:addItem(
-      function ()
-        if stat.displayBase then
-          return stat:displayBase()
-        else
-          return "<No base>"
-        end
+    
+    if withBase then
+      self:addItem(stat)
+      
+      if stat.displayBase then
+        self:addItem(function() return stat:displayBase() end)
+      else
+        self:addItem(function() return "<No base>" end)
       end
-    )
+    else
+      -- Don't display or even calculate the base, if possible.
+      -- SizeStats might still calculate the base though.
+      if stat.current then
+        self:addItem(stat.current)
+      else
+        self:addItem(stat)
+      end
+    end
   end
 end
 
 
 layouts.allMachineStats = subclass(Layout)
-function layouts.allMachineStats:init()
+function layouts.allMachineStats:init(withBase)
+  withBase = withBase or false
+  
   local game = self.game
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
   self:activateAutoPositioningY()
@@ -172,15 +183,23 @@ function layouts.allMachineStats:init()
   
   self:addLabel()
   for _, statName in pairs(game.statNames) do
-    self:addItem(
-      function ()
-        local stat = racer[statName]
-        if stat.displayCurrentAndBase then
-          return stat:displayCurrentAndBase()
-        else
-          return stat:display()
-        end
-      end)
+    local stat = racer[statName]
+    
+    if withBase then
+      if stat.displayCurrentAndBase then
+        self:addItem(function() return stat:displayCurrentAndBase() end)
+      else
+        self:addItem(stat)
+      end
+    else
+      -- Don't display or even calculate the base, if possible.
+      -- SizeStats might still calculate the base though.
+      if stat.current then
+        self:addItem(stat.current)
+      else
+        self:addItem(stat)
+      end
+    end
   end
 end
 
