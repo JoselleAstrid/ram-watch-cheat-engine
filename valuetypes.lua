@@ -25,7 +25,7 @@ function valuetypes.MV(label, offset, valueClass, typeMixinClass, extraArgs)
   
   local function f(
       newV_, label_, offset_, valueClass_, typeMixinClass_, extraArgs_)
-    valueClass_.init(newV_, label_, offset_)
+    valueClass_.init(newV_, label_, offset_, extraArgs_)
     typeMixinClass_.init(newV_, extraArgs_)
   end
   
@@ -48,7 +48,6 @@ local Block = {}
 Block.blockValues = {}
 Block.blockAlias = 'block'
 Block.blockInstances = {}
-Block.nextAutomaticKeyNumber = 1
 valuetypes.Block = Block
 
 function Block:init()
@@ -84,14 +83,6 @@ function Block:init()
   for key, value in pairs(self.blockValues) do
     valuetypes.initValueAsNeeded(self[key])
   end
-end
-
-function Block:addWithAutomaticKey(value)
-  -- This works as long as no manually-specified keys are named _1, _2, etc.
-  local key = '_'..tostring(self.nextAutomaticKeyNumber)
-  self.blockValues[key] = value
-  self.nextAutomaticKeyNumber = self.nextAutomaticKeyNumber + 1
-  return key
 end
 
 function Block:getBlockKey(...)

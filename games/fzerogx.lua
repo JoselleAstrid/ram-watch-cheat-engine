@@ -152,44 +152,48 @@ end
 
 
 
--- Must be added to MachineBaseStats.
 local BaseStat1Value = subclass(MemoryValue)
 GX.BaseStat1Value = BaseStat1Value
 
+function BaseStat1Value:init(label, offset, extraArgs)
+  self.machineOrPartId = extraArgs.machineOrPartId
+  self.isCustom = extraArgs.isCustom
+  MemoryValue.init(self, label, offset)
+end
+
 function BaseStat1Value:getAddress()
-  if self.block.isCustom then
+  if self.isCustom then
     return (self.game.addrs.machineBaseStatsBlocksCustom
-      + (0xB4 * self.block.machineOrPartId)
+      + (0xB4 * self.machineOrPartId)
       + self.offset)
   else
     return (self.game.addrs.machineBaseStatsBlocks
-      + (0xB4 * self.block.machineOrPartId)
+      + (0xB4 * self.machineOrPartId)
       + self.offset)
   end
 end
 
 
 
--- Must be added to MachineBaseStats2.
-local BaseStat2Value = subclass(MemoryValue)
+local BaseStat2Value = subclass(BaseStat1Value)
 GX.BaseStat2Value = BaseStat2Value
 
 function BaseStat2Value:getAddress()
-  if self.block.isCustom then
+  if self.isCustom then
     -- There's some extra bytes before the cockpit part stats,
     -- and more extra bytes before the booster part stats.
     -- extraBytes accounts for this.
     local extraBytes = 0
-    if self.block.machineOrPartId > 49 then extraBytes = 24 + 16
-    elseif self.block.machineOrPartId > 24 then extraBytes = 24
+    if self.machineOrPartId > 49 then extraBytes = 24 + 16
+    elseif self.machineOrPartId > 24 then extraBytes = 24
     end
     return (self.game.addrs.machineBaseStatsBlocks2Custom
-      + (0xB4 * self.block.machineOrPartId)
+      + (0xB4 * self.machineOrPartId)
       + extraBytes
       + self.offset)
   else
     return (self.game.addrs.machineBaseStatsBlocks2
-      + (0xB4 * self.block.machineOrPartId)
+      + (0xB4 * self.machineOrPartId)
       + self.offset)
   end
 end
@@ -320,33 +324,28 @@ function Player:getBlockKey(playerNumber)
 end
 
 
-local MachineBaseStats = subclass(Block)
-GX.MachineBaseStats = MachineBaseStats
 
-function MachineBaseStats:init(machineOrPartId, isCustom)
-  self.machineOrPartId = machineOrPartId
-  self.isCustom = isCustom
-  Block.init(self)
-end
-
-function MachineBaseStats:getBlockKey(machineOrPartId, isCustom)
-  local key = tostring(machineOrPartId)
-  if isCustom then key = key..'C' end
-  return key
-end
-
-
-local MachineBaseStats2 = subclass(MachineBaseStats)
-GX.MachineBaseStats2 = MachineBaseStats2
-
-
-
-local StatWithBase = subclass(Value, RacerValue)
+local StatWithBase = subclass(Value, RacerValue, Block)
 GX.StatWithBase = StatWithBase
 
-function StatWithBase:init()
+function StatWithBase:init(
+  label, offset, baseOffset, typeMixinClass,
+  customPartsWithBase, extraArgs, baseExtraArgs)
+  
+  self.label = label
+    
   -- MemoryValue containing current stat value
-  self.current = self.racer[self.currentKey]
+  self.blockValues = {
+    current = MV(label, offset, StateValue, typeMixinClass, extraArgs),
+  }
+  self.displayDefaults = self.blockValues.current.displayDefaults
+  Block.init(self)
+  
+  -- Stuff to help create base-value objects dynamically
+  self.baseOffset = baseOffset
+  self.typeMixinClass = typeMixinClass
+  self.customPartsWithBase = customPartsWithBase
+  self.baseExtraArgs = baseExtraArgs or {}
 end
 
 function StatWithBase:updateStatBasesIfMachineChanged()
@@ -373,17 +372,21 @@ function StatWithBase:updateStatBasesIfMachineChanged()
     machineOrPartId = self.racer:customPartIds(customPartTypeWithBase):get()
   end
   
-  if self.machineOrPartId == machineOrPartId and self.isCustom == isCustom then
+  if self.baseExtraArgs.machineOrPartId == machineOrPartId
+    and self.baseExtraArgs.isCustom == isCustom then
     -- Machine or part hasn't changed.
     return
   end
   
-  self.machineOrPartId = machineOrPartId
-  self.isCustom = isCustom
-  self.base =
-    self.game:getBlock(MachineBaseStats, machineOrPartId, isCustom)[self.baseKey]
-  self.base2 =
-    self.game:getBlock(MachineBaseStats2, machineOrPartId, isCustom)[self.base2Key]
+  self.baseExtraArgs.machineOrPartId = machineOrPartId
+  self.baseExtraArgs.isCustom = isCustom
+  
+  self.base = self.game:MV(
+    self.label.." (B)", self.baseOffset,
+    BaseStat1Value, self.typeMixinClass, self.baseExtraArgs)
+  self.base2 = self.game:MV(
+    self.label.." (B)", self.baseOffset,
+    BaseStat2Value, self.typeMixinClass, self.baseExtraArgs)
 end
 
 function StatWithBase:isValid()
@@ -541,6 +544,24 @@ function StatTiedToBase:getAddressListEntries()
 end
 
 
+
+local FloatStat = subclass(FloatValue)
+GX.FloatStat = FloatStat
+
+-- For machine stats that are floats, we'll prefer trimming zeros in the
+-- display so that the number looks cleaner. (Normally we keep trailing
+-- zeros when the value can change rapidly, as it is jarring when the
+-- display constantly gains/loses digits... but machine stats don't
+-- change rapidly.)
+FloatStat.displayDefaults = {trimTrailingZeros=true, afterDecimal=4}
+
+-- Shortcut function, since we have a lot of state floats.
+local function defineStateFloat(label, offset)
+  return MV(label, offset, StateValue, FloatValue)
+end
+
+
+
 -- Machine-size stats.
 --
 -- There are 24 such stats, but they have a lot of redundancy in practice.
@@ -551,14 +572,32 @@ end
 -- We'll put the 24 machine-size coordinates in 6 objects, with each object
 -- having 4 coordinates within a constant offset/factor.
 
-local SizeStat = subclass(Value)
+local SizeStat = subclass(Value, Block)
 GX.SizeStat = SizeStat
 
-function SizeStat:init()
+function SizeStat:init(label, specificLabels, offsets, baseOffsets, formulas)
+  self.label = label
+  self.formulas = formulas
+  
+  for n = 1, 4 do
+    local key = 'stat'..tostring(n)
+    
+    self.blockValues[key] = V(
+      StatWithBase, specificLabels[n], offsets[n], baseOffsets[n], FloatStat,
+      -- SizeStats on custom machines are always influenced by only the body,
+      -- not the cockpit or booster.
+      {1}
+    )
+  end
+  Block.init(self)
+  
   self.stats = {}
   for n = 1, 4 do
-    table.insert(self.stats, self.racer[self.statKeys[n]])
+    table.insert(self.stats, self['stat'..tostring(n)])
   end
+  
+  -- Get display defaults from any stat. We'll pick the first.
+  self.displayDefaults = self.stats[1].displayDefaults
 end
 
 function SizeStat:isValid()
@@ -637,77 +676,6 @@ end
 
 
 
-local FloatStat = subclass(FloatValue)
-GX.FloatStat = FloatStat
-
--- For machine stats that are floats, we'll prefer trimming zeros in the
--- display so that the number looks cleaner. (Normally we keep trailing
--- zeros when the value can change rapidly, as it is jarring when the
--- display constantly gains/loses digits... but machine stats don't
--- change rapidly.)
-FloatStat.displayDefaults = {trimTrailingZeros=true, afterDecimal=4}
-
-
-
-local function defineStateFloat(label, offset)
-  return MV(label, offset, StateValue, FloatValue)
-end
-
-local function defineStatWithBase(
-    label, offset, baseOffset,
-    valueClass, typeMixinClass, customPartsWithBase,
-    extraArgs, baseExtraArgs)
-  local obj = V(valueClass)
-  
-  obj.label = label
-  obj.baseOffset = baseOffset
-  obj.customPartsWithBase = customPartsWithBase
-  obj.baseExtraArgs = baseExtraArgs
-  
-  -- Add to the current stats
-  local current = MV(label, offset, StateValue, typeMixinClass, extraArgs)
-  obj.currentKey = Racer:addWithAutomaticKey(current)
-  obj.displayDefaults = current.displayDefaults
-  
-  -- Add to the base stats
-  obj.baseKey = MachineBaseStats:addWithAutomaticKey(
-    MV(
-      label.." (B)", baseOffset,
-      BaseStat1Value, typeMixinClass, baseExtraArgs))
-  obj.base2Key = MachineBaseStats2:addWithAutomaticKey(
-    MV(
-      label.." (B)", baseOffset,
-      BaseStat2Value, typeMixinClass, baseExtraArgs))
-  
-  return obj
-end
-
-local function defineSizeStat(
-    label, specificLabels, offsets, baseOffsets, formulas)
-  local obj = V(SizeStat)
-  
-  obj.label = label
-  obj.statKeys = {}
-  for n = 1, 4 do
-    local stat = defineStatWithBase(
-      specificLabels[n], offsets[n], baseOffsets[n],
-      StatWithBase, FloatStat,
-      -- SizeStats on custom machines are always influenced by only the body,
-      -- not the cockpit or booster.
-      {1}
-    )
-    table.insert(obj.statKeys, Racer:addWithAutomaticKey(stat))
-    
-    if n == 1 then obj.displayDefaults = stat.displayDefaults end
-  end
-  
-  obj.formulas = formulas
-  
-  return obj
-end
-
-
-
 -- Number of machines competing in the race when it began
 GV.numOfRacers =
   MV("# Racers", 0x1BAEE0, RefValue, ByteValue)
@@ -741,61 +709,38 @@ RV.machineId = MV("Machine ID", 0x6, StateValue, ShortValue)
 RV.machineName =
   MV("Machine name", 0x3C, StateValue, StringValue, {maxLength=64})
 
-RV.accel = defineStatWithBase(
-  "Accel", 0x220, 0x8, StatTiedToBase, FloatStat, {3})
-RV.body = defineStatWithBase(
-  "Body", 0x30, 0x44, StatTiedToBase, FloatStat, {1,2})
-RV.boostDuration = defineStatWithBase(
-  "Boost duration", 0x234, 0x38, StatTiedToBase, FloatStat, {3})
-RV.boostStrength = defineStatWithBase(
-  "Boost strength", 0x230, 0x34, StatTiedToBase, FloatStat, {3})
-RV.cameraReorienting = defineStatWithBase(
-  "Cam. reorienting", 0x34, 0x4C, StatTiedToBase, FloatStat, {2})
-RV.cameraRepositioning = defineStatWithBase(
-  "Cam. repositioning", 0x38, 0x50, StatTiedToBase, FloatStat, {2})
-RV.drag = defineStatWithBase(
-  "Drag", 0x23C, 0x40, StatTiedToBase, FloatStat, {3})
-RV.driftAccel = defineStatWithBase(
-  "Drift accel", 0x2C, 0x1C, StatTiedToBase, FloatStat, {3}) 
-RV.grip1 = defineStatWithBase(
-  "Grip 1", 0xC, 0x10, StatTiedToBase, FloatStat, {1})
-RV.grip2 = defineStatWithBase(
-  "Grip 2", 0x24, 0x30, StatTiedToBase, FloatStat, {2})
-RV.grip3 = defineStatWithBase(
-  "Grip 3", 0x28, 0x14, StatTiedToBase, FloatStat, {1})
-RV.maxSpeed = defineStatWithBase(
-  "Max speed", 0x22C, 0xC, StatTiedToBase, FloatStat, {3})
-RV.strafe = defineStatWithBase(
-  "Strafe", 0x1C, 0x28, StatTiedToBase, FloatStat, {1})
-RV.strafeTurn = defineStatWithBase(
-  "Strafe turn", 0x18, 0x24, StatTiedToBase, FloatStat, {2})
-RV.trackCollision = defineStatWithBase(
-  "Track collision", 0x588, 0x9C, StatWithBase, FloatStat, {1})
-RV.turnDecel = defineStatWithBase(
-  "Turn decel", 0x238, 0x3C, StatTiedToBase, FloatStat, {3})
-RV.turning1 = defineStatWithBase(
-  "Turn tension", 0x10, 0x18, StatTiedToBase, FloatStat, {1})
-RV.turning2 = defineStatWithBase(
-  "Turn movement", 0x14, 0x20, StatTiedToBase, FloatStat, {2})
-RV.turning3 = defineStatWithBase(
-  "Turn reaction", 0x20, 0x2C, StatTiedToBase, FloatStat, {1})
-RV.weight = defineStatWithBase(
-  "Weight", 0x8, 0x4, StatTiedToBase, FloatStat, {1,2,3})
+RV.accel = V(StatTiedToBase, "Accel", 0x220, 0x8, FloatStat, {3})
+RV.body = V(StatTiedToBase, "Body", 0x30, 0x44, FloatStat, {1,2})
+RV.boostDuration = V(StatTiedToBase, "Boost duration", 0x234, 0x38, FloatStat, {3})
+RV.boostStrength = V(StatTiedToBase, "Boost strength", 0x230, 0x34, FloatStat, {3})
+RV.cameraReorienting = V(StatTiedToBase, "Cam. reorienting", 0x34, 0x4C, FloatStat, {2})
+RV.cameraRepositioning = V(StatTiedToBase, "Cam. repositioning", 0x38, 0x50, FloatStat, {2})
+RV.drag = V(StatTiedToBase, "Drag", 0x23C, 0x40, FloatStat, {3})
+RV.driftAccel = V(StatTiedToBase, "Drift accel", 0x2C, 0x1C, FloatStat, {3}) 
+RV.grip1 = V(StatTiedToBase, "Grip 1", 0xC, 0x10, FloatStat, {1})
+RV.grip2 = V(StatTiedToBase, "Grip 2", 0x24, 0x30, FloatStat, {2})
+RV.grip3 = V(StatTiedToBase, "Grip 3", 0x28, 0x14, FloatStat, {1})
+RV.maxSpeed = V(StatTiedToBase, "Max speed", 0x22C, 0xC, FloatStat, {3})
+RV.strafe = V(StatTiedToBase, "Strafe", 0x1C, 0x28, FloatStat, {1})
+RV.strafeTurn = V(StatTiedToBase, "Strafe turn", 0x18, 0x24, FloatStat, {2})
+RV.trackCollision = V(StatWithBase, "Track collision", 0x588, 0x9C, FloatStat, {1})
+RV.turnDecel = V(StatTiedToBase, "Turn decel", 0x238, 0x3C, FloatStat, {3})
+RV.turning1 = V(StatTiedToBase, "Turn tension", 0x10, 0x18, FloatStat, {1})
+RV.turning2 = V(StatTiedToBase, "Turn movement", 0x14, 0x20, FloatStat, {2})
+RV.turning3 = V(StatTiedToBase, "Turn reaction", 0x20, 0x2C, FloatStat, {1})
+RV.weight = V(StatTiedToBase, "Weight", 0x8, 0x4, FloatStat, {1,2,3})
   
 RV.obstacleCollision = MV(
   "Obstacle collision", 0x584, StateValue, FloatStat)
-RV.unknown48 = defineStatWithBase(
-  "Unknown 48", 0x477, 0x48, StatTiedToBase, ByteValue, {2})
+RV.unknown48 = V(StatTiedToBase, "Unknown 48", 0x477, 0x48, ByteValue, {2})
 -- Actual is state bit 1; base is 0x49 / 2
-RV.unknown49a = defineStatWithBase(
-  "Unknown 49a", 0x0, 0x49, StatTiedToBase, BinaryValue, {2},
+RV.unknown49a = V(StatTiedToBase, "Unknown 49a", 0x0, 0x49, BinaryValue, {2},
    {binarySize=1, binaryStartBit=7}, {binarySize=1, binaryStartBit=1})
 -- Actual is state bit 24; base is 0x49 % 2
-RV.unknown49b = defineStatWithBase(
-  "Drift camera", 0x2, 0x49, StatTiedToBase, BinaryValue, {2},
+RV.driftCamera = V(StatTiedToBase, "Drift camera", 0x2, 0x49, BinaryValue, {2},
   {binarySize=1, binaryStartBit=0}, {binarySize=1, binaryStartBit=0})
   
-RV.frontWidth = defineSizeStat(
+RV.frontWidth = V(SizeStat,
   "Size, front width",
   -- Specific labels
   {
@@ -816,7 +761,7 @@ RV.frontWidth = defineSizeStat(
     function(v) return -(v+0.2) end,
   }
 )
-RV.frontHeight = defineSizeStat(
+RV.frontHeight = V(SizeStat,
   "Size, front height",
   {
     "Tilt, front height, right",
@@ -833,7 +778,7 @@ RV.frontHeight = defineSizeStat(
     function(v) return v-0.1 end,
   }
 )
-RV.frontLength = defineSizeStat(
+RV.frontLength = V(SizeStat,
   "Size, front length",
   {
     "Tilt, front length, right",
@@ -850,7 +795,7 @@ RV.frontLength = defineSizeStat(
     function(v) return v-0.2 end,
   }
 )
-RV.backWidth = defineSizeStat(
+RV.backWidth = V(SizeStat,
   "Size, back width",
   {
     "Tilt, back width, right",
@@ -872,7 +817,7 @@ RV.backWidth = defineSizeStat(
     end,
   }
 )
-RV.backHeight = defineSizeStat(
+RV.backHeight = V(SizeStat,
   "Size, back height",
   {
     "Tilt, back height, right",
@@ -889,7 +834,7 @@ RV.backHeight = defineSizeStat(
     function(v) return v-0.1 end,
   }
 )
-RV.backLength = defineSizeStat(
+RV.backLength = V(SizeStat,
   "Size, back length",
   {
     "Tilt, back length, right",
@@ -912,7 +857,7 @@ GX.statNames = {
   'cameraRepositioning', 'drag', 'driftAccel', 'grip1', 'grip2', 'grip3',
   'maxSpeed', 'strafe', 'strafeTurn', 'trackCollision', 'turnDecel',
   'turning1', 'turning2', 'turning3', 'weight',
-  'obstacleCollision', 'unknown48', 'unknown49a', 'unknown49b',
+  'obstacleCollision', 'unknown48', 'unknown49a', 'driftCamera',
   'frontWidth', 'frontHeight', 'frontLength',
   'backWidth', 'backHeight', 'backLength',
 }
@@ -1090,12 +1035,10 @@ RV.unknown5D4 = defineStateFloat("Unknown 5D4", 0x5D4)
 local Timer = subclass(Value, RacerValue, Block)
 GX.Timer = Timer
 
-function Timer.define(label, offset)
-  local obj = V(Timer)
-
-  obj.label = label
+function Timer:init(label, offset)
+  self.label = label
   
-  obj.blockValues = {
+  self.blockValues = {
     frames = MV(label..", frames", offset,
       State2Value, IntValue),
     frameFraction = MV(label..", frame fraction", offset+4,
@@ -1107,8 +1050,7 @@ function Timer.define(label, offset)
     millis = MV(label..", milliseconds", offset+10,
       State2Value, ShortValue),
   }
-    
-  return obj
+  Block.init(self)
 end
 
 function Timer:updateValue()
@@ -1134,18 +1076,18 @@ local raceTimer = V(subclass(Value, RacerValue, Block))
 RV.raceTimer = raceTimer
 
 raceTimer.blockValues = {
-  total = Timer.define("Total", 0x744),
-  currLap = Timer.define("This lap", 0x6C0),
-  prevLap = Timer.define("Prev. lap", 0x6CC),
-  back2Laps = Timer.define("2 laps ago", 0x6D8),
-  back3Laps = Timer.define("3 laps ago", 0x6E4),
-  back4Laps = Timer.define("4 laps ago", 0x6F0),
-  back5Laps = Timer.define("5 laps ago", 0x6FC),
-  back6Laps = Timer.define("6 laps ago", 0x708),
-  back7Laps = Timer.define("7 laps ago", 0x714),
-  back8Laps = Timer.define("8 laps ago", 0x720),
-  bestLap = Timer.define("Best lap", 0x72C),
-  sumOfFinishedLaps = Timer.define("Sum of finished laps", 0x738),
+  total = V(Timer, "Total", 0x744),
+  currLap = V(Timer, "This lap", 0x6C0),
+  prevLap = V(Timer, "Prev. lap", 0x6CC),
+  back2Laps = V(Timer, "2 laps ago", 0x6D8),
+  back3Laps = V(Timer, "3 laps ago", 0x6E4),
+  back4Laps = V(Timer, "4 laps ago", 0x6F0),
+  back5Laps = V(Timer, "5 laps ago", 0x6FC),
+  back6Laps = V(Timer, "6 laps ago", 0x708),
+  back7Laps = V(Timer, "7 laps ago", 0x714),
+  back8Laps = V(Timer, "8 laps ago", 0x720),
+  bestLap = V(Timer, "Best lap", 0x72C),
+  sumOfFinishedLaps = V(Timer, "Sum of finished laps", 0x738),
 }
 
 function raceTimer:init()

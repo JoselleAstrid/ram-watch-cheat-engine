@@ -52,12 +52,18 @@ function DolphinGame:getBlock(BlockClass, ...)
 end
 
 
--- Like classInstantiate(), except the game attribute is set
--- before init() is called.
--- If the Game object isn't initialized yet, use valuetypes.V() instead.
+-- valuetypes.V()/MV() and initialization rolled into one.
+-- Use this if the game is already initialized.
 
-function DolphinGame:V(valueClass, ...)
-  local newValue = valuetypes.V(valueClass, ...)
+function DolphinGame:V(...)
+  local newValue = valuetypes.V(...)
+  newValue.game = self
+  valuetypes.initValueAsNeeded(newValue)
+  return newValue
+end
+
+function DolphinGame:MV(...)
+  local newValue = valuetypes.MV(...)
   newValue.game = self
   valuetypes.initValueAsNeeded(newValue)
   return newValue
