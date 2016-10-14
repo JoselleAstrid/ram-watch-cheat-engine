@@ -56,17 +56,17 @@ function layouts.addressTestSMG2:init()
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:F(
+  self:addItem(
     function()
       local names = {'o', 'refPointer', 'refPointer2', 'posRefPointer'}
       local lines = {}
       for _, name in pairs(names) do
         table.insert(
-          lines, name..": "..utils.intToHexStr(self.game.addrs[name]))
+          lines, name..": "..utils.intToHexStr(game.addrs[name]))
       end
       return table.concat(lines, '\n')
     end
-  ))
+  )
 end
 
 
@@ -116,7 +116,7 @@ function layouts.velocityAndInputs:init()
   self:addItem(game.pos)
   
   self:addLabel{fontColor=inputColor}
-  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
+  self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
@@ -166,7 +166,7 @@ function layouts.messages:init()
   self:addItem(game.fadeRate)
   
   self:addLabel{fontColor=inputColor}
-  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
+  self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
@@ -205,7 +205,7 @@ function layouts.testClasses:init()
   self:addItem(game:V(valuetypes.AverageValue, game:V(game.LateralVelocity)))
   
   self:addLabel()
-  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
+  self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
@@ -257,7 +257,7 @@ function layouts.tilt2:init()
   self:addItem(game:V(game.UpVelocityTiltBonus))
   
   self:addLabel{fontColor=inputColor}
-  self:addItem(game:F(game.inputDisplay), {shake=true, spin=true})
+  self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})

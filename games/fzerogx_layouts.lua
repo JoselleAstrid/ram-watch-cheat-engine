@@ -32,7 +32,7 @@ function layouts.addressTest:init()
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:F(
+  self:addItem(
     function()
       local names = {
         'o', 'refPointer', 'racerStateBlocks', 'racerState2Blocks',
@@ -41,11 +41,11 @@ function layouts.addressTest:init()
       local lines = {}
       for _, name in pairs(names) do
         table.insert(
-          lines, name..": "..utils.intToHexStr(self.game.addrs[name]))
+          lines, name..": "..utils.intToHexStr(game.addrs[name]))
       end
       return table.concat(lines, '\n')
     end
-  ))
+  )
 end
 
 

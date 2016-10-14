@@ -439,38 +439,26 @@ end
 
 
 
-GV.buttons = V(valuetypes.Buttons)
-
-function GV.buttons:get(button)
-  -- Return 1 if the button is currently being pressed, 0 otherwise.
+function SMGshared:getButton(button)
+  -- Return 1 if button is pressed, 0 otherwise.
+  --
   -- TODO: Check if this can be universally implemented, with same addresses
   -- and all, for any Wii/GC game.
-  local b1 = self.game.buttons1
-  local b2 = self.game.buttons2
+  local b1 = self.buttons1
+  local b2 = self.buttons2
   
   local value = nil
-  if button == "H" then  -- Home
-    value = b1:get()[1]
-  elseif button == "C" then
-    value = b1:get()[2]
-  elseif button == "Z" then
-    value = b1:get()[3]
-  elseif button == "A" then
-    value = b1:get()[5]
-  elseif button == "B" then
-    value = b1:get()[6]
-  elseif button == "+" then
-    value = b2:get()[4]
-  elseif button == "^" then
-    value = b2:get()[5]
-  elseif button == "v" then
-    value = b2:get()[6]
-  elseif button == ">" then
-    value = b2:get()[7]
-  elseif button == "<" then
-    value = b2:get()[8]
-  else
-    error("Button code not recognized: " .. button)
+  if button == "H" then value = b1:get()[1]  -- Home
+  elseif button == "C" then value = b1:get()[2]
+  elseif button == "Z" then value = b1:get()[3]
+  elseif button == "A" then value = b1:get()[5]
+  elseif button == "B" then value = b1:get()[6]
+  elseif button == "+" then value = b2:get()[4]
+  elseif button == "^" then value = b2:get()[5]
+  elseif button == "v" then value = b2:get()[6]
+  elseif button == ">" then value = b2:get()[7]
+  elseif button == "<" then value = b2:get()[8]
+  else error("Button code not recognized: " .. tostring(button))
   end
   
   return value
@@ -584,38 +572,45 @@ end
 
 
 
-function SMGshared:inputDisplay(options)
+local input = V(Value)
+GV.input = input
+
+function input:buttonDisplay(button)
+  local value = self.game:getButton(button)
+  if value == 1 then
+    return button
+  else
+    return " "
+  end
+end
+
+function input:display(options)
   options = options or {}
   
-  local displayStickX =
-    self.stickX:display{nolabel=true, afterDecimal=3, signed=true}
-  local displayStickY =
-    self.stickY:display{nolabel=true, afterDecimal=3, signed=true}
-  local displayButtons1 = string.format("%s%s%s%s%s",
-    self.buttons:display{button="C"},
-    self.buttons:display{button="^"}, self.buttons:display{button="v"},
-    self.buttons:display{button="<"}, self.buttons:display{button=">"}
+  local stickX =
+    self.game.stickX:display{nolabel=true, afterDecimal=3, signed=true}
+  local stickY =
+    self.game.stickY:display{nolabel=true, afterDecimal=3, signed=true}
+  local buttons1 = string.format("%s%s%s%s%s",
+    self:buttonDisplay("C"),
+    self:buttonDisplay("^"), self:buttonDisplay("v"),
+    self:buttonDisplay("<"), self:buttonDisplay(">")
   )
-  local displayButtons2 = string.format("%s%s%s%s%s",
-    self.buttons:display{button="A"},
-    self.buttons:display{button="B"}, self.buttons:display{button="Z"},
-    self.buttons:display{button="+"}, self.buttons:display{button="H"}
+  local buttons2 = string.format("%s%s%s%s%s",
+    self:buttonDisplay("A"),
+    self:buttonDisplay("B"), self:buttonDisplay("Z"),
+    self:buttonDisplay("+"), self:buttonDisplay("H")
   )
   
   local lines = {}
-  if options.narrow then
-    if options.shake then table.insert(lines, self.shake:display()) end
-    if options.spin then table.insert(lines, self.spinStatus:display()) end
-    table.insert(lines, displayStickX.." "..displayButtons1)
-    table.insert(lines, displayStickY.." "..displayButtons2)
+  if options.shake then table.insert(lines, self.game.shake:display()) end
+  if options.spin then table.insert(lines, self.game.spinStatus:display()) end
+  if options.stick then
+    table.insert(lines, stickX.." "..buttons1)
+    table.insert(lines, stickY.." "..buttons2)
   else
-    table.insert(lines, "Stick   Buttons")
-    table.insert(lines, displayStickX.."   "..displayButtons1)
-    table.insert(lines, displayStickY.."   "..displayButtons2)
-    if options.shake then table.insert(lines, self.shake:display()) end
-    if options.spin then table.insert(lines, self.spinStatus:display()) end
+    table.insert(lines, buttons2..buttons1)
   end
-  
   return table.concat(lines, "\n")
 end
 

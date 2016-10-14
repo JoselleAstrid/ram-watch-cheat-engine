@@ -23,11 +23,11 @@ function layouts.frameCounterTest:init(window, game)
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:F(
+  self:addItem(
     function()
-      return "Frame count: "..tonumber(self.game:getFrameCount())
+      return "Frame count: "..tonumber(game:getFrameCount())
     end
-  ))
+  )
   
   Layout.init(self, window, game)
 end

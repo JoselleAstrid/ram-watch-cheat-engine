@@ -69,10 +69,6 @@ function DolphinGame:MV(...)
   return newValue
 end
 
-function DolphinGame:F(func, ...)
-  return utils.curry(func, self, ...)
-end
-
 
 
 function DolphinGame:getGameStartAddress()

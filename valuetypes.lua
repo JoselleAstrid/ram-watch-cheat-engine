@@ -579,7 +579,7 @@ function ResettableValue:update()
   Value.update(self)
   
   -- If the reset button is being pressed, call the reset function.
-  if self.game.buttons:get(self.resetButton) == 1 then self:reset() end
+  if self.game:getButton(self.resetButton) == 1 then self:reset() end
 end
 
 
@@ -641,26 +641,6 @@ end
 function AverageValue:reset()
   self.sum = 0
   self.numOfDataPoints = 0
-end
-
-
-
-local Buttons = subclass(Value)
-valuetypes.Buttons = Buttons
-
-function Buttons:get(button)
-  -- button is a string code representing a button, such as 'A', 'B', or '>'.
-  -- Return 1 if the button is currently being pressed, 0 otherwise.
-  error("Not implemented")
-end
-
-function Buttons:display(options)
-  if not options.button then error("Must specify a button") end
-  if self:get(options.button) == 1 then
-    return options.button
-  else
-    return " "
-  end
 end
 
 
