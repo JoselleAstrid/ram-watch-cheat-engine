@@ -579,7 +579,20 @@ function ResettableValue:update()
   Value.update(self)
   
   -- If the reset button is being pressed, call the reset function.
-  if self.game:getButton(self.resetButton) == 1 then self:reset() end
+  --
+  -- First check if the game has a concept of separate players or not
+  -- (which we'll assume is called Player). If so, call getButton on
+  -- Player 1. If not, call getButton on the game itself.
+  local buttonNamespace = self.game
+  if self.game.Player then
+    buttonNamespace = self.game:getBlock(self.game.Player, 1)
+  else
+    buttonNamespace = self.game
+  end
+  
+  if buttonNamespace:getButton(self.resetButton) == 1 then
+    self:reset()
+  end
 end
 
 

@@ -1171,18 +1171,29 @@ function controllerInput:init()
   Block.init(self)
 end
 
-function controllerInput:buttonDisplay(buttonName)
+function controllerInput:getButton(button)
+  -- Return 1 if button is pressed, 0 otherwise.
   local value = nil
-  if buttonName == "A" then value = self.ABXYS:get()[8]
-  elseif buttonName == "B" then value = self.ABXYS:get()[7]
-  elseif buttonName == "X" then value = self.ABXYS:get()[6]
-  elseif buttonName == "Y" then value = self.ABXYS:get()[5]
-  elseif buttonName == "S" then value = self.ABXYS:get()[4]
-  elseif buttonName == "Z" then value = self.DZ:get()[4]
+  if button == "A" then value = self.ABXYS:get()[8]
+  elseif button == "B" then value = self.ABXYS:get()[7]
+  elseif button == "X" then value = self.ABXYS:get()[6]
+  elseif button == "Y" then value = self.ABXYS:get()[5]
+  elseif button == "S" then value = self.ABXYS:get()[4]
+  elseif button == "Z" then value = self.DZ:get()[4]
+  elseif button == "^" then value = self.DZ:get()[5]
+  elseif button == "v" then value = self.DZ:get()[6]
+  elseif button == ">" then value = self.DZ:get()[7]
+  elseif button == "<" then value = self.DZ:get()[8]
+  else error("Button code not recognized: " .. tostring(button))
   end
   
+  return value
+end
+
+function controllerInput:buttonDisplay(button)
+  local value = self:getButton(button)
   if value == 1 then
-    return buttonName
+    return button
   else
     return " "
   end
@@ -1212,9 +1223,11 @@ function controllerInput:display(options)
   local stickY = self:stickYDisplay()
   local L = self:LDisplay()
   local R = self:RDisplay()
-  local buttons = string.format("%s%s%s%s%s%s",
+  local buttons = string.format("%s%s%s%s%s%s%s%s%s%s",
     self:buttonDisplay("A"), self:buttonDisplay("B"), self:buttonDisplay("X"),
-    self:buttonDisplay("Y"), self:buttonDisplay("S"), self:buttonDisplay("Z")
+    self:buttonDisplay("Y"), self:buttonDisplay("S"), self:buttonDisplay("Z"),
+    self:buttonDisplay("^"), self:buttonDisplay("v"),
+    self:buttonDisplay("<"), self:buttonDisplay(">")
   )
   
   if options.narrow then
@@ -1233,6 +1246,13 @@ function controllerInput:display(options)
       L, R, stickX, stickY, buttons
     )
   end
+end
+
+
+-- Make the get-buttons interface a bit more uniform with other games,
+-- for ease of use from classes like ResettableValue.
+function Player:getButton(button)
+  return self.controllerInput:getButton(button)
 end
 
 

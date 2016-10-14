@@ -371,6 +371,27 @@ function layouts.speed224:init(racerNumber)
 end
 
 
+layouts.testMisc = subclass(Layout)
+function layouts.testMisc:init(racerNumber)
+  racerNumber = racerNumber or 1
+
+  local game = self.game
+  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:activateAutoPositioningY()
+  
+  self.window:setSize(450, 250)
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  
+  local racer = game:getBlock(game.Racer, racerNumber)
+  
+  self:addLabel()
+  self:addItem(game:V(valuetypes.RateOfChange, racer.kmh, "km/h change"))
+  self:addItem(game:V(valuetypes.MaxValue, racer.kmh))
+  self:addItem(game:V(valuetypes.AverageValue, racer.kmh))
+end
+
+
 
 return {
   layouts = layouts,
