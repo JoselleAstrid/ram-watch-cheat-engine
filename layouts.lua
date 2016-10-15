@@ -348,9 +348,52 @@ function Layout:addButton(text, options)
 end
 
 
-function Layout:addImage(ImageClass, options)
+
+local StickInputImage = subclass(SimpleElement)
+
+function StickInputImage:init(window, stickX, stickY, options)
+  options = options or {}
+  -- Line color; default = black
+  local foregroundColor = options.foregroundColor or 0x000000
+  -- Size of the image
+  self.size = options.size or 100
+  -- The stickX and stickY values range from -max to max
+  self.max = options.max or 1
+  
+  self.uiObj = createImage(window)
+  self.uiObj:setSize(self.size, self.size)
+  
+  self.canvas = self.uiObj:getCanvas()
+  -- Brush: ellipse() fill
+  self.canvas:getBrush():setColor(0xF0F0F0)
+  -- Pen: ellipse() outline, line()
+  self.canvas:getPen():setColor(foregroundColor)
+  self.canvas:getPen():setWidth(2)
+  -- Initialize the whole image with the brush color
+  self.canvas:fillRect(0,0, self.size,self.size)
+  
+  self.stickX = stickX
+  self.stickY = stickY
+end
+
+function StickInputImage:update()
+  local size = self.size
+  self.canvas:ellipse(0,0, size,size)
+  
+  -- stickX and stickY range from -max to max. Transform that to a range from
+  -- 0 to width. Also, stickY goes bottom to top while image coordinates go
+  -- top to bottom, so add a negative sign to get it right.
+  local xValue = self.stickX:get()
+  local yValue = self.stickY:get()
+  local xPixel = (xValue/self.max)*(size/2) + (size/2)
+  local yPixel = (yValue/self.max)*(-size/2) + (size/2)
+  self.canvas:line(size/2,size/2, xPixel,yPixel)
+end
+
+
+function Layout:addImage(ImageClass, args, options)
   local creationCallable = utils.curry(
-    classInstantiate, ImageClass, self.window, self.game)
+    classInstantiate, ImageClass, self.window, unpack(args))
   return self:addElement(creationCallable, options)
 end
 
@@ -723,5 +766,5 @@ end
 
 return {
   Layout = Layout,
-  SimpleElement = SimpleElement,
+  StickInputImage = StickInputImage,
 }

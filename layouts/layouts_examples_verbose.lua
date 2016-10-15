@@ -49,7 +49,8 @@ function layouts.smgVelocityAndInputsVerbose1:init(window, game)
   self.inputsLabel = self:createLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName, fontColor=inputColor}
   self.stickInputImage = classInstantiate(
-    game.StickInputImage, self.game, self.window,
+    layoutsModule.StickInputImage, game, window,
+    game.stickX, game.stickY,
     {size=100, x=10, foregroundColor=inputColor})
   self.timeLabel = self:createLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName}

@@ -627,46 +627,6 @@ end
 
 
 
--- TODO: Check if this can be universally implemented, with same addresses
--- and all, for any Wii/GC game.
-SMGshared.StickInputImage = subclass(layouts.SimpleElement)
-
-function SMGshared.StickInputImage:init(window, game, options)
-  local foregroundColor =
-    options.foregroundColor or 0x000000  -- default = black
-  
-  self.uiObj = createImage(window)
-  self.uiObj:setPosition(options.x or 0, options.y or 0)
-  self.size = options.size
-  self.uiObj:setSize(self.size, self.size)
-  self.canvas = self.uiObj:getCanvas()
-  -- Brush: ellipse() fill
-  self.canvas:getBrush():setColor(0xF0F0F0)
-  -- Pen: ellipse() outline, line()
-  self.canvas:getPen():setColor(foregroundColor)
-  self.canvas:getPen():setWidth(2)
-  -- Initialize the whole image with the brush color
-  self.canvas:fillRect(0,0, self.size,self.size)
-  
-  self.stickX = game.stickX
-  self.stickY = game.stickY
-end
-
-function SMGshared.StickInputImage:update()
-  -- The canvas is assumed to be square
-  local size = self.size
-  self.canvas:ellipse(0,0, size,size)
-  
-  -- stickX and stickY range from -1 to 1. Transform that to a range from
-  -- 0 to width. Also, stickY goes bottom to top while image coordinates go
-  -- top to bottom, so add a negative sign to get it right.
-  local x = self.stickX:get()*(size/2) + (size/2)
-  local y = self.stickY:get()*(-size/2) + (size/2)
-  self.canvas:line(size/2,size/2, x,y)
-end
-
-
-
 local AnchoredDistance = subclass(ResettableValue)
 SMGshared.AnchoredDistance = AnchoredDistance
 AnchoredDistance.label = "Label to be determined in init"

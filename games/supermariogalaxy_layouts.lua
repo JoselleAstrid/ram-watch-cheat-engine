@@ -119,7 +119,9 @@ function layouts.velocityAndInputs:init()
   self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
-    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY},
+    {x=10, foregroundColor=inputColor})
     
   self:addLabel()
   self:addItem(game.stageTime)
@@ -169,7 +171,9 @@ function layouts.messages:init()
   self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
-    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY},
+    {x=10, foregroundColor=inputColor})
   
   self:addLabel()
   self:addItem(game.stageTime)
@@ -206,7 +210,9 @@ function layouts.testClasses:init()
   self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
-    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY},
+    {x=10, foregroundColor=inputColor})
 end
 
 
@@ -254,7 +260,9 @@ function layouts.tilt2:init()
   self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
-    game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY},
+    {x=10, foregroundColor=inputColor})
   
   self:addLabel()
   self:addItem(game.stageTime)
