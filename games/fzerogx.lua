@@ -1290,17 +1290,17 @@ end
 
 function calibratedInput:stickXDisplay()
   return self.game:displayAnalog(
-    self.stickX:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
+    self.stickX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
 end
 function calibratedInput:stickYDisplay()
   return self.game:displayAnalog(
-    self.stickY:get()*100.0, 'float', "^", "v", {beforeDecimal=3, afterDecimal=1})
+    self.stickY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
 end
 function calibratedInput:LDisplay()
-  return utils.floatToStr(self.L:get()*100.0, {beforeDecimal=3, afterDecimal=1})
+  return utils.floatToStr(self.L:get(), {beforeDecimal=1, afterDecimal=3})
 end
 function calibratedInput:RDisplay()
-  return utils.floatToStr(self.R:get()*100.0, {beforeDecimal=3, afterDecimal=1})
+  return utils.floatToStr(self.R:get(), {beforeDecimal=1, afterDecimal=3})
 end
 
 
@@ -1364,11 +1364,11 @@ function controlState:display(options)
   options = options or {}
   
   local steerX = self.game:displayAnalog(
-    self.steerX:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
+    self.steerX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
   local steerY = self.game:displayAnalog(
-    self.steerY:get()*100.0, 'float', "^", "v", {beforeDecimal=3, afterDecimal=1})
+    self.steerY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
   local strafe = self.game:displayAnalog(
-    self.strafe:get()*100.0, 'float', ">", "<", {beforeDecimal=3, afterDecimal=1})
+    self.strafe:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
   
   if options.narrow then
     -- Use less horizontal space

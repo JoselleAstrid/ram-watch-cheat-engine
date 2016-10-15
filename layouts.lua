@@ -357,16 +357,19 @@ function StickInputImage:init(window, stickX, stickY, options)
   local foregroundColor = options.foregroundColor or 0x000000
   -- Size of the image
   self.size = options.size or 100
-  -- The stickX and stickY values range from -max to max
+  -- Min and max of the stickX and stickY value ranges
   self.max = options.max or 1
+  self.min = options.min or -self.max
+  -- Are diagonals confined to a square or circle?
+  self.square = options.square or false
   
   self.uiObj = createImage(window)
   self.uiObj:setSize(self.size, self.size)
   
   self.canvas = self.uiObj:getCanvas()
-  -- Brush: ellipse() fill
+  -- Brush: ellipse/rect fill
   self.canvas:getBrush():setColor(0xF0F0F0)
-  -- Pen: ellipse() outline, line()
+  -- Pen: ellipse/rect outline, line()
   self.canvas:getPen():setColor(foregroundColor)
   self.canvas:getPen():setWidth(2)
   -- Initialize the whole image with the brush color
@@ -378,15 +381,25 @@ end
 
 function StickInputImage:update()
   local size = self.size
-  self.canvas:ellipse(0,0, size,size)
   
-  -- stickX and stickY range from -max to max. Transform that to a range from
+  -- Clear the image and redraw the outline.
+  if self.square then
+    self.canvas:rect(0,0, size,size)
+  else
+    self.canvas:ellipse(0,0, size,size)
+  end
+  
+  -- Draw a line indicating where the stick is currently positioned.
+  --
+  -- stickX and stickY range from min to max. Transform that to a range from
   -- 0 to width. Also, stickY goes bottom to top while image coordinates go
-  -- top to bottom, so add a negative sign to get it right.
-  local xValue = self.stickX:get()
-  local yValue = self.stickY:get()
-  local xPixel = (xValue/self.max)*(size/2) + (size/2)
-  local yPixel = (yValue/self.max)*(-size/2) + (size/2)
+  -- top to bottom, so we need to invert the pixel number.
+  local xRaw = self.stickX:get()
+  local yRaw = self.stickY:get()
+  local xInZeroToOneRange = (xRaw - self.min) / (self.max - self.min)
+  local yInZeroToOneRange = (yRaw - self.min) / (self.max - self.min)
+  local xPixel = xInZeroToOneRange * size
+  local yPixel = size - (yInZeroToOneRange * size)
   self.canvas:line(size/2,size/2, xPixel,yPixel)
 end
 

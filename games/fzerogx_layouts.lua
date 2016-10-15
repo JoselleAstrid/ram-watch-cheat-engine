@@ -251,9 +251,9 @@ function layouts.inputs:init(calibrated, playerNumber, narrow)
   narrow = narrow or false
   
   if narrow then
-    self.window:setSize(200, 220)
+    self.window:setSize(200, 320)
   else
-    self.window:setSize(300, 150)
+    self.window:setSize(300, 250)
   end
   
   self.labelDefaults = {
@@ -264,15 +264,23 @@ function layouts.inputs:init(calibrated, playerNumber, narrow)
   
   self:addLabel()
   if calibrated then
-    self:addItem(player.calibratedInput)
+    self:addItem(player.calibratedInput, {foregroundColor=inputColor})
+    self:addImage(
+      layoutsModule.StickInputImage,
+      {player.calibratedInput.stickX, player.calibratedInput.stickY},
+      {x=10, max=1, square=true, foregroundColor=inputColor})
   else
-    self:addItem(player.controllerInput)
+    self:addItem(player.controllerInput, {foregroundColor=inputColor})
+    self:addImage(
+      layoutsModule.StickInputImage,
+      {player.controllerInput.stickX, player.controllerInput.stickY},
+      {x=10, min=0, max=255, square=true, foregroundColor=inputColor})
   end
 end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(racerNumber, narrow)
+function layouts.replayInfo:init(racerNumber, cpuSteerRange, narrow)
   local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
@@ -281,9 +289,9 @@ function layouts.replayInfo:init(racerNumber, narrow)
   narrow = narrow or false
   
   if narrow then
-    self.window:setSize(200, 220)
+    self.window:setSize(200, 320)
   else
-    self.window:setSize(300, 150)
+    self.window:setSize(300, 250)
   end
   
   self.labelDefaults = {
@@ -293,7 +301,14 @@ function layouts.replayInfo:init(racerNumber, narrow)
   local racer = game:getBlock(game.Racer, racerNumber)
   
   self:addLabel()
-  self:addItem(racer.controlState)
+  self:addItem(racer.controlState, {foregroundColor=inputColor})
+  
+  local max = 1
+  if cpuSteerRange then max = 1.35 end  -- CPUs can steer harder
+  self:addImage(
+    layoutsModule.StickInputImage,
+    {racer.controlState.steerX, racer.controlState.steerY},
+    {x=10, max=max, square=true, foregroundColor=inputColor})
 end
 
 
