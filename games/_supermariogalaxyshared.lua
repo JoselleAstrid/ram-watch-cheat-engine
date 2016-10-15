@@ -35,15 +35,21 @@ local GV = SMGshared.blockValues
 -- Tracking time based on a memory value which represents number of frames
 -- since time = 0.
 
-SMGshared.Time = subclass(Value)
-SMGshared.Time.label = "Should be set by subclass"
-SMGshared.Time.initialValue = nil
+local Time = subclass(Value)
+SMGshared.Time = Time
+Time.label = "Should be set by subclass"
+Time.initialValue = nil
 
-function SMGshared.Time:updateValue()
+function Time:init(frames)
+  self.frames = frames
+  Value.init(self)
+end
+
+function Time:updateValue()
   self.frames:update()
 end
 
-function SMGshared.Time:displayValue(options)
+function Time:displayValue(options)
   local frames = self.frames:get()
   
   local hours = math.floor(frames / (60*60*60))
@@ -67,31 +73,30 @@ end
 
 
 -- In-game level time in SMG2, level-timer-esque value in SMG1
-SMGshared.StageTime = subclass(SMGshared.Time)
-SMGshared.StageTime.label = "Stage time"
-function SMGshared.StageTime:init()
-  SMGshared.Time.init(self)
-  self.frames = self.game.stageTimeFrames
+GV.stageTime = subclass(Time)
+GV.stageTime.label = "Stage time"
+function GV.stageTime:init()
+  Time.init(self, self.game.stageTimeFrames)
 end
 
 
 -- SMG2 only
-SMGshared.FileTime = subclass(SMGshared.Time)
-SMGshared.FileTime.label = "File time"
-function SMGshared.FileTime:init()
-  SMGshared.Time.init(self)
-  self.frames = self.game.fileTimeFrames
+GV.fileTime = subclass(Time)
+GV.fileTime.label = "File time"
+function GV.fileTime:init()
+  Time.init(self, self.game.fileTimeFrames)
 end
 
 
 
 -- Velocity calculated as position change.
 
-SMGshared.Velocity = subclass(Value)
-SMGshared.Velocity.label = "Label to be determined"
-SMGshared.Velocity.initialValue = 0.0
+local Velocity = subclass(Value)
+SMGshared.Velocity = Velocity
+Velocity.label = "Label to be determined"
+Velocity.initialValue = 0.0
 
-function SMGshared.Velocity:init(coordinates)
+function Velocity:init(coordinates)
   Value.init(self)
   
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
@@ -110,7 +115,7 @@ function SMGshared.Velocity:init(coordinates)
   self.displayDefaults = {signed=defaultSigned}
 end
 
-function SMGshared.Velocity:updateValue()
+function Velocity:updateValue()
   -- Update prev and curr position
   self.prevPos = self.currPos
   self.currPos = {}
@@ -142,18 +147,19 @@ end
 -- We might also call this 'skew' when the character is tilted on
 -- non-tilting ground.
 
-SMGshared.Tilt = subclass(Value)
-SMGshared.Tilt.label = "Label not used"
-SMGshared.Tilt.initialValue = "Value field not used"
+local tilt = subclass(Value)
+GV.tilt = tilt
+tilt.label = "Label not used"
+tilt.initialValue = "Value field not used"
 
-function SMGshared.Tilt:init()
+function tilt:init()
   Value.init(self)
   
   self.dgrav = self.game.downVectorGravity
   self.utilt = self.game.upVectorTilt
 end
 
-function SMGshared.Tilt:updateValue()
+function tilt:updateValue()
   local ugrav = self.dgrav:get():times(-1)
   local utilt = self.utilt:get()
   
@@ -190,12 +196,12 @@ function SMGshared.Tilt:updateValue()
   self.diff = utilt:minus(ugrav)
 end
 
-function SMGshared.Tilt:getRotation()
+function tilt:getRotation()
   self:update()
   return {self.rotationRadians, self.rotationAxis}
 end
 
-function SMGshared.Tilt:displayRotation()
+function tilt:displayRotation()
   self:update()
   local format = "Tilt:\n %+.2f°\n Axis %+.2f\n      %+.2f\n      %+.2f"
   
@@ -208,12 +214,13 @@ function SMGshared.Tilt:displayRotation()
   )
 end
 
-function SMGshared.Tilt:getDiff()
+function tilt:getDiff()
   self:update()
   return self.diff
 end
 
-function SMGshared.Tilt:displayDiff(options)
+function tilt:displayDiff(options)
+  options = options or {}
   self:update()
   
   options.beforeDecimal = options.beforeDecimal or 1
@@ -224,19 +231,20 @@ end
 
 
 
-SMGshared.UpwardVelocity = subclass(Value)
-SMGshared.UpwardVelocity.label = "Upward Vel"
-SMGshared.UpwardVelocity.initialValue = 0.0
-SMGshared.UpwardVelocity.displayDefaults = {signed=true}
+local upwardVelocity = subclass(Value)
+GV.upwardVelocity = upwardVelocity
+upwardVelocity.label = "Upward Vel"
+upwardVelocity.initialValue = 0.0
+upwardVelocity.displayDefaults = {signed=true}
 
-function SMGshared.UpwardVelocity:init()
+function upwardVelocity:init()
   Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
-function SMGshared.UpwardVelocity:updateValue()
+function upwardVelocity:updateValue()
   local pos = self.pos:get()
   
   if self.prevPos == nil then
@@ -255,18 +263,19 @@ end
 
 
 
-SMGshared.LateralVelocity = subclass(Value)
-SMGshared.LateralVelocity.label = "Lateral Spd"
-SMGshared.LateralVelocity.initialValue = 0.0
+local lateralVelocity = subclass(Value)
+GV.lateralVelocity = lateralVelocity
+lateralVelocity.label = "Lateral Spd"
+lateralVelocity.initialValue = 0.0
 
-function SMGshared.LateralVelocity:init()
+function lateralVelocity:init()
   Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
-function SMGshared.LateralVelocity:updateValue()
+function lateralVelocity:updateValue()
   local pos = self.pos:get()
   
   if self.prevPos == nil then
@@ -290,19 +299,20 @@ end
 
 
 
-SMGshared.UpwardVelocityLastJump = subclass(Value)
-SMGshared.UpwardVelocityLastJump.label = "Up Vel\nlast jump"
-SMGshared.UpwardVelocityLastJump.initialValue = 0.0
-SMGshared.UpwardVelocityLastJump.displayDefaults = {signed=true}
+local upwardVelocityLastJump = subclass(Value)
+GV.upwardVelocityLastJump = upwardVelocityLastJump
+upwardVelocityLastJump.label = "Up Vel\nlast jump"
+upwardVelocityLastJump.initialValue = 0.0
+upwardVelocityLastJump.displayDefaults = {signed=true}
 
-function SMGshared.UpwardVelocityLastJump:init()
+function upwardVelocityLastJump:init()
   Value.init(self)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
-function SMGshared.UpwardVelocityLastJump:updateValue()
+function upwardVelocityLastJump:updateValue()
   local pos = self.pos:get()
   local onGround = self.game:onGround()
       
@@ -346,12 +356,13 @@ end
 -- (e.g. a bonus of +0.9 means that, if we normally start with
 -- 22 upward velocity, then here we start with 22.9.)
 
-SMGshared.UpVelocityTiltBonus = subclass(Value)
-SMGshared.UpVelocityTiltBonus.label = "Up Vel\ntilt bonus\nprediction"
-SMGshared.UpVelocityTiltBonus.initialValue = 0.0
-SMGshared.UpVelocityTiltBonus.displayDefaults = {signed=true}
+local upVelocityTiltBonus = subclass(Value)
+GV.upVelocityTiltBonus = upVelocityTiltBonus
+upVelocityTiltBonus.label = "Up Vel\ntilt bonus\nprediction"
+upVelocityTiltBonus.initialValue = 0.0
+upVelocityTiltBonus.displayDefaults = {signed=true}
 
-function SMGshared.UpVelocityTiltBonus:init()
+function upVelocityTiltBonus:init()
   Value.init(self)
   
   -- A Vector3's x, y, and z fields aren't set until the vector is initialized.
@@ -365,17 +376,17 @@ function SMGshared.UpVelocityTiltBonus:init()
   )
   
   self.dgrav = self.game.downVectorGravity
-  self.tiltValue = self.game:V(self.game.Tilt)
+  self.tilt = self.game.tilt
 end
 
-function SMGshared.UpVelocityTiltBonus:updateValue()
+function upVelocityTiltBonus:updateValue()
   -- Don't update if not on the ground.
   -- This way, during a jump, we can see what the
   -- predicted bonus velocity was for that jump.
   if not self.game:onGround() then return end
   
   -- Get the tilt.
-  local array = self.tiltValue:getRotation()
+  local array = self.tilt:getRotation()
   local tiltRadians = array[1]
   local tiltAxis = array[2]
   
@@ -708,24 +719,24 @@ end
 
 
 
-local AnchoredHeight = subclass(ResettableValue)
-SMGshared.AnchoredHeight = AnchoredHeight
-AnchoredHeight.label = "Height"
-AnchoredHeight.initialValue = 0.0
+local anchoredHeight = subclass(ResettableValue)
+GV.anchoredHeight = anchoredHeight
+anchoredHeight.label = "Height"
+anchoredHeight.initialValue = 0.0
 
-function AnchoredHeight:init()
+function anchoredHeight:init()
   ResettableValue.init(self, resetButton)
   
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
-function AnchoredHeight:updateValue()
+function anchoredHeight:updateValue()
   -- Dot product of distance-from-anchor vector and up vector
   self.value = self.pos:get():minus(self.anchor):dot(self.upValue)
 end
 
-function AnchoredHeight:reset()
+function anchoredHeight:reset()
   self.anchor = self.pos:get()
   self.upValue = self.dgrav:get():times(-1)
 end

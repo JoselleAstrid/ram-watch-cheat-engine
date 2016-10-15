@@ -79,7 +79,7 @@ function layouts.stageTime:init()
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
 end
 
 
@@ -93,8 +93,8 @@ function layouts.stageAndFileTime:init()
   
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self:addItem(game:V(game.StageTime))
-  self:addItem(game:V(game.FileTime))
+  self:addItem(game.stageTime)
+  self:addItem(game.fileTime)
 end
 
 
@@ -122,7 +122,7 @@ function layouts.velocityAndInputs:init()
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
     
   self:addLabel()
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
 end
 
 
@@ -137,7 +137,7 @@ function layouts.velYRecording:init()
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
   
   self:addLabel()
   self:addItem(game:V(game.Velocity, "Y"))
@@ -172,7 +172,7 @@ function layouts.messages:init()
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
   
   self:addLabel()
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
 end
 
 
@@ -186,23 +186,21 @@ function layouts.testClasses:init()
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   
-  self.tilt = game:V(game.Tilt)
-  
   self:addLabel()
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
   self:addItem(game:V(game.Velocity, "Y"))
   self:addItem(game:V(game.Velocity, "XZ"))
   self:addItem(game:V(game.Velocity, "XYZ"))
-  self:addItem(utils.curry(self.tilt.displayRotation, self.tilt))
-  self:addItem(utils.curry(self.tilt.displayDiff, self.tilt))
-  self:addItem(game:V(game.UpwardVelocity))
-  self:addItem(game:V(game.LateralVelocity))
-  self:addItem(game:V(game.UpwardVelocityLastJump))
-  self:addItem(game:V(game.UpVelocityTiltBonus))
+  self:addItem(function(...) return game.tilt:displayRotation(...) end)
+  self:addItem(function(...) return game.tilt:displayDiff(...) end)
+  self:addItem(game.upwardVelocity)
+  self:addItem(game.lateralVelocity)
+  self:addItem(game.upwardVelocityLastJump)
+  self:addItem(game.upVelocityTiltBonus)
   self:addItem(game:V(game.AnchoredDistance, "XZ"))
-  self:addItem(game:V(game.AnchoredHeight))
+  self:addItem(game.anchoredHeight)
   self:addItem(game:V(valuetypes.MaxValue, game.pos.y))
-  self:addItem(game:V(valuetypes.AverageValue, game:V(game.LateralVelocity)))
+  self:addItem(game:V(valuetypes.AverageValue, game.lateralVelocity))
   
   self:addLabel()
   self:addItem(game.input, {shake=true, spin=true, stick=true})
@@ -223,16 +221,14 @@ function layouts.tilt1:init()
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
-  self.velUp = game:V(game.UpwardVelocity)
-  
   self:addLabel()
   self:addItem(game.downVectorGravity)
   self:addItem(game.upVectorTilt)
-  self:addItem(game:V(game.UpwardVelocityLastJump),
+  self:addItem(game.upwardVelocityLastJump,
     {beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(valuetypes.RateOfChange, self.velUp, "Up Accel"),
+  self:addItem(game:V(valuetypes.RateOfChange, game.upwardVelocity, "Up Accel"),
     {signed=true, beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(game.UpVelocityTiltBonus))
+  self:addItem(game.upVelocityTiltBonus)
 end
 
 
@@ -247,14 +243,12 @@ function layouts.tilt2:init()
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
-  self.velUp = game:V(game.UpwardVelocity)
-  
   self:addLabel()
-  self:addItem(game:V(game.UpwardVelocityLastJump),
+  self:addItem(game.upwardVelocityLastJump,
     {beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(valuetypes.RateOfChange, self.velUp, "Up Accel"),
+  self:addItem(game:V(valuetypes.RateOfChange, game.upwardVelocity, "Up Accel"),
     {signed=true, beforeDecimal=2, afterDecimal=3})
-  self:addItem(game:V(game.UpVelocityTiltBonus))
+  self:addItem(game.upVelocityTiltBonus)
   
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
@@ -263,7 +257,7 @@ function layouts.tilt2:init()
     game.StickInputImage, {size=100, x=10, foregroundColor=inputColor})
   
   self:addLabel()
-  self:addItem(game:V(game.StageTime))
+  self:addItem(game.stageTime)
 end
 
 
