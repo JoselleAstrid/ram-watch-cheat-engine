@@ -26,12 +26,12 @@ local inputColor = 0x880000
 layouts.addressTestSMG1 = subclass(Layout)
 function layouts.addressTestSMG1:init()
   local game = self.game
+  self.margin = margin
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
   self.window:setSize(400, 300)
   
-  self:addLabel{
-    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function ()
       local names = {'o', 'refPointer', 'messageInfoPointer', 'posBlock'}
@@ -50,12 +50,12 @@ end
 layouts.addressTestSMG2 = subclass(Layout)
 function layouts.addressTestSMG2:init()
   local game = self.game
+  self.margin = margin
   self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
 
   self.window:setSize(400, 300)
   
-  self:addLabel{
-    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
       local names = {'o', 'refPointer', 'refPointer2', 'posRefPointer'}
@@ -73,12 +73,12 @@ end
 layouts.stageTime = subclass(Layout)
 function layouts.stageTime:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
 
   self.window:setSize(400, 100)
   
-  self:addLabel{
-    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game.stageTime)
 end
 
@@ -87,12 +87,12 @@ end
 layouts.stageAndFileTime = subclass(Layout)
 function layouts.stageAndFileTime:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
 
   self.window:setSize(500, 100)
   
-  self:addLabel{
-    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game.stageTime)
   self:addItem(game.fileTime)
 end
@@ -101,12 +101,12 @@ end
 layouts.velocityAndInputs = subclass(Layout)
 function layouts.velocityAndInputs:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
@@ -121,7 +121,7 @@ function layouts.velocityAndInputs:init()
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
-    {x=10, foregroundColor=inputColor})
+    {foregroundColor=inputColor})
     
   self:addLabel()
   self:addItem(game.stageTime)
@@ -131,12 +131,12 @@ end
 layouts.inputsHorizontal = subclass(Layout)
 function layouts.inputsHorizontal:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningX()
   
   self.window:setSize(550, 110)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
     
   self:addLabel()
@@ -156,12 +156,12 @@ end
 layouts.velYRecording = subclass(Layout)
 function layouts.velYRecording:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
   self.window:setSize(400, 130)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
   self:addItem(game.stageTime)
@@ -179,12 +179,12 @@ end
 layouts.messages = subclass(Layout)
 function layouts.messages:init()
   local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
 
   self.window:setSize(160, dolphinNativeResolutionHeight)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
@@ -198,7 +198,7 @@ function layouts.messages:init()
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
-    {x=10, foregroundColor=inputColor})
+    {foregroundColor=inputColor})
   
   self:addLabel()
   self:addItem(game.stageTime)
@@ -207,14 +207,16 @@ end
 
 layouts.testClasses = subclass(Layout)
 function layouts.testClasses:init(character)
+  character = character or 'mario'
+  
   local game = self.game
-  game.character = character or 'mario'
+  game.character = character
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
   self.window:setSize(500, 800)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   
   self:addLabel()
   self:addItem(game.stageTime)
@@ -232,27 +234,29 @@ function layouts.testClasses:init(character)
   self:addItem(game:V(valuetypes.MaxValue, game.pos.y))
   self:addItem(game:V(valuetypes.AverageValue, game.lateralVelocity))
   
-  self:addLabel()
+  self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
   
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
-    {x=10, foregroundColor=inputColor})
+    {foregroundColor=inputColor})
 end
 
 
 layouts.tilt1 = subclass(Layout)
 function layouts.tilt1:init(character)
-  local game = self.game
   -- Specify the character you're playing as to make the tilt-bonus accurate.
-  game.character = character or 'mario'
+  character = character or 'mario'
+  
+  local game = self.game
+  game.character = character
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
@@ -268,15 +272,17 @@ end
 
 layouts.tilt2 = subclass(Layout)
 function layouts.tilt2:init(character)
-  local game = self.game
   -- Specify the character you're playing as to make the tilt-bonus accurate.
-  game.character = character or 'mario'
+  character = character or 'mario'
+  
+  local game = self.game
+  game.character = character
+  self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
-  self.labelDefaults = {
-    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
@@ -292,7 +298,7 @@ function layouts.tilt2:init(character)
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
-    {x=10, foregroundColor=inputColor})
+    {foregroundColor=inputColor})
   
   self:addLabel()
   self:addItem(game.stageTime)

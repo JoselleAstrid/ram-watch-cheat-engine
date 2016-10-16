@@ -98,15 +98,15 @@ function Layout:autoPositionElements()
     -- It's possible for the spacing to be negative, meaning elements will
     -- overlap. The layout specification should fix this situation by making the
     -- window bigger.
-    minPos = 6
-    local maxPos = getWindowLength() - 6
+    minPos = self.margin
+    local maxPos = getWindowLength() - self.margin
     local numSpaces = #(elements) - 1
     elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
   elseif self.autoPositioningType == 'compact' then
     -- Have a gutter of 6 pixels at the start of the window,
     -- and position the elements compactly one after the other from there.
-    minPos = 6
-    elementSpacing = 0
+    minPos = self.margin
+    elementSpacing = self.margin
   end
   
   local currentPos = minPos
@@ -125,7 +125,7 @@ function Layout:openToggleDisplayWindow()
   -- Add checkboxes and associated labels
   local checkboxes = {}
   local toggleableElements = {}
-  local currentY = 6
+  local currentY = self.margin
   for _, element in pairs(self.elements) do
     if element.checkboxLabel then
       local checkbox = createCheckBox(window)
@@ -138,7 +138,7 @@ function Layout:openToggleDisplayWindow()
         checkbox:setState(cbChecked)
       end
       
-      checkbox:setPosition(6, currentY)
+      checkbox:setPosition(self.margin, currentY)
       checkbox:setCaption(element.checkboxLabel)
       local font = checkbox:getFont()
       font:setSize(9)
@@ -211,7 +211,7 @@ function Layout:addElement(creationCallable, passedOptions)
 
   local element = creationCallable(options)
   
-  element:setPosition(options.x or 0, options.y or 0)
+  element:setPosition(options.x or self.margin, options.y or self.margin)
   element.checkboxLabel = options.checkboxLabel or nil
   
   table.insert(self.elements, element)

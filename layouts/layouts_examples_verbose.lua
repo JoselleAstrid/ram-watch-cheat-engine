@@ -51,7 +51,7 @@ function layouts.smgVelocityAndInputsVerbose1:init(window, game)
   self.stickInputImage = classInstantiate(
     layoutsModule.StickInputImage, game, window,
     game.stickX, game.stickY,
-    {size=100, x=10, foregroundColor=inputColor})
+    {size=100, x=X, foregroundColor=inputColor})
   self.timeLabel = self:createLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName}
   -- Set this to make the auto-positioning work
