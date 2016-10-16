@@ -613,19 +613,16 @@ function input:buttonDisplay(button)
   end
 end
 
+function input:displayAllButtons()
+  local s = ""
+  for _, button in pairs{"A", "B", "Z", "+", "H", "C", "^", "v", "<", ">"} do
+    s = s..self:buttonDisplay(button)
+  end
+  return s
+end
+
 function input:display(options)
   options = options or {}
-  
-  local buttons1 = string.format("%s%s%s%s%s",
-    self:buttonDisplay("C"),
-    self:buttonDisplay("^"), self:buttonDisplay("v"),
-    self:buttonDisplay("<"), self:buttonDisplay(">")
-  )
-  local buttons2 = string.format("%s%s%s%s%s",
-    self:buttonDisplay("A"),
-    self:buttonDisplay("B"), self:buttonDisplay("Z"),
-    self:buttonDisplay("+"), self:buttonDisplay("H")
-  )
   
   local lines = {}
   
@@ -637,11 +634,10 @@ function input:display(options)
       self.game.stickX:display{nolabel=true, afterDecimal=3, signed=true}
     local stickY =
       self.game.stickY:display{nolabel=true, afterDecimal=3, signed=true}
-    table.insert(lines, stickX.." "..buttons1)
-    table.insert(lines, stickY.." "..buttons2)
-  else
-    table.insert(lines, buttons2..buttons1)
+    table.insert(lines, stickX.." "..stickY)
   end
+  
+  table.insert(lines, self:displayAllButtons())
   
   return table.concat(lines, "\n")
 end

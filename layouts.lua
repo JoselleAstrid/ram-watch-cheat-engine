@@ -298,8 +298,14 @@ function Layout:addItem(item, passedDisplayOptions)
     for k, v in pairs(passedDisplayOptions) do displayOptions[k] = v end
   end
   
-  if tostring(type(item)) == 'function' then
-    -- Take the item itself to be a function which returns the desired
+  if tostring(type(item)) == 'string' then
+    -- Assume the item is just a constant string to display directly.
+    table.insert(
+      self.lastAddedLabel.displayFuncs,
+      utils.curry(function(s) return s end, item)
+    )
+  elseif tostring(type(item)) == 'function' then
+    -- Assume the item is a function which returns the desired
     -- value as a string, and takes display options.
     table.insert(
       self.lastAddedLabel.displayFuncs,

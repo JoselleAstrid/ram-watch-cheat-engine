@@ -128,6 +128,31 @@ function layouts.velocityAndInputs:init()
 end
 
 
+layouts.inputsHorizontal = subclass(Layout)
+function layouts.inputsHorizontal:init()
+  local game = self.game
+  self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningX()
+  
+  self.window:setSize(550, 110)
+  self.labelDefaults = {
+    x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+    
+  self:addLabel()
+  self:addItem(game.stageTime)
+  
+  self:addLabel()
+  self:addItem("Buttons")
+  self:addItem(function(...) return game.input:displayAllButtons(...) end)
+  self:addItem(game.spinStatus)
+  
+  self:addImage(
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY})
+end
+
+
 layouts.velYRecording = subclass(Layout)
 function layouts.velYRecording:init()
   local game = self.game
