@@ -357,6 +357,8 @@ function StickInputImage:init(window, stickX, stickY, options)
   local foregroundColor = options.foregroundColor or 0x000000
   -- Size of the image
   self.size = options.size or 100
+  -- Thickness of lines drawn
+  self.lineThickness = options.lineThickness or 2
   -- Min and max of the stickX and stickY value ranges
   self.max = options.max or 1
   self.min = options.min or -self.max
@@ -371,7 +373,7 @@ function StickInputImage:init(window, stickX, stickY, options)
   self.canvas:getBrush():setColor(0xF0F0F0)
   -- Pen: ellipse/rect outline, line()
   self.canvas:getPen():setColor(foregroundColor)
-  self.canvas:getPen():setWidth(2)
+  self.canvas:getPen():setWidth(self.lineThickness)
   -- Initialize the whole image with the brush color
   self.canvas:fillRect(0,0, self.size,self.size)
   
@@ -384,7 +386,7 @@ function StickInputImage:update()
   
   -- Clear the image and redraw the outline.
   if self.square then
-    self.canvas:rect(0,0, size,size)
+    self.canvas:rect(1,1, size,size)
   else
     self.canvas:ellipse(0,0, size,size)
   end
@@ -401,6 +403,124 @@ function StickInputImage:update()
   local xPixel = xInZeroToOneRange * size
   local yPixel = size - (yInZeroToOneRange * size)
   self.canvas:line(size/2,size/2, xPixel,yPixel)
+end
+
+
+local AnalogTriggerInputImage = subclass(SimpleElement)
+
+function AnalogTriggerInputImage:init(window, triggerL, triggerR, options)
+  options = options or {}
+  -- Line and meter-fill color; default = black
+  self.foregroundColor = options.foregroundColor or 0x000000
+  -- Background; should match the window color
+  self.backgroundColor = 0xF0F0F0
+  -- Size of the image
+  self.width = options.width or 100
+  self.height = options.height or 15
+  -- Thickness of lines drawn
+  self.lineThickness = options.lineThickness or 2
+  -- Max value of the trigger range
+  self.max = options.max or 1
+  
+  self.uiObj = createImage(window)
+  self.uiObj:setSize(self.width, self.height)
+  
+  self.canvas = self.uiObj:getCanvas()
+  -- Brush: ellipse/rect fill
+  self.canvas:getBrush():setColor(self.backgroundColor)
+  -- Pen: ellipse/rect outline, line()
+  self.canvas:getPen():setColor(self.foregroundColor)
+  self.canvas:getPen():setWidth(self.lineThickness)
+  
+  -- Fill the canvas with the background color
+  self.canvas:fillRect(0,0, self.width,self.height)
+  
+  local gapBetweenMeters = math.floor(self.width / 20)
+  -- Depending on whether the width and meter gap are odd/even, the gap will
+  -- either be honored exactly or will be 1 greater than specified.
+  self.meterOuterWidth = math.floor((self.width - gapBetweenMeters)/2)
+  self.meterInnerWidth = self.meterOuterWidth - self.lineThickness
+  self:redrawMeterOutlines()
+  
+  self.triggerL = triggerL
+  self.triggerR = triggerR
+end
+
+function AnalogTriggerInputImage:redrawMeterOutlines()
+  self.canvas:getBrush():setColor(self.backgroundColor)
+  self.canvas:rect(1,1, self.meterOuterWidth,self.height)
+  self.canvas:rect(self.width-self.meterOuterWidth,1, self.width,self.height)
+end
+
+function AnalogTriggerInputImage:update()
+  self:redrawMeterOutlines()
+  
+  self.canvas:getBrush():setColor(self.foregroundColor)
+  -- Left meter fill
+  local fractionL = self.triggerL:get() / self.max
+  self.canvas:fillRect(
+    self.lineThickness/2 + self.meterInnerWidth*(1-fractionL), 1,
+    self.lineThickness/2 + self.meterInnerWidth, self.height)
+  -- Right meter fill
+  local fractionR = self.triggerR:get() / self.max
+  self.canvas:fillRect(
+    self.width - (self.lineThickness/2 + self.meterInnerWidth),
+    1,
+    self.width - (self.lineThickness/2 + self.meterInnerWidth*(1-fractionR)),
+    self.height)
+end
+
+
+local AnalogTwoSidedInputImage = subclass(SimpleElement)
+
+function AnalogTwoSidedInputImage:init(window, analogInput, options)
+  options = options or {}
+  -- Line and meter-fill color; default = black
+  self.foregroundColor = options.foregroundColor or 0x000000
+  -- Background; should match the window color
+  self.backgroundColor = 0xF0F0F0
+  -- Size of the image
+  self.width = options.width or 100
+  self.height = options.height or 15
+  -- Thickness of lines drawn
+  self.lineThickness = options.lineThickness or 2
+  -- Min and max value of the analog range
+  self.max = options.max or 1
+  self.min = options.min or -self.max
+  
+  self.uiObj = createImage(window)
+  self.uiObj:setSize(self.width, self.height)
+  
+  self.canvas = self.uiObj:getCanvas()
+  -- Brush: ellipse/rect fill
+  self.canvas:getBrush():setColor(self.backgroundColor)
+  -- Pen: ellipse/rect outline, line()
+  self.canvas:getPen():setColor(self.foregroundColor)
+  self.canvas:getPen():setWidth(self.lineThickness)
+  
+  self.meterInnerWidth = self.width - self.lineThickness
+  
+  self.analogInput = analogInput
+end
+
+function AnalogTwoSidedInputImage:update()
+  -- Meter border and center
+  self.canvas:getBrush():setColor(self.backgroundColor)
+  self.canvas:rect(1,1, self.width/2,self.height)
+  self.canvas:rect(self.width/2,1, self.width,self.height)
+  
+  -- Meter fill
+  self.canvas:getBrush():setColor(self.foregroundColor)
+  local fraction = (self.analogInput:get() - self.min) / (self.max - self.min)
+  if fraction <= 0.5 then
+    self.canvas:fillRect(
+      self.lineThickness/2 + self.meterInnerWidth*fraction, 1,
+      self.lineThickness/2 + self.meterInnerWidth/2, self.height)
+  else
+    self.canvas:fillRect(
+      self.lineThickness/2 + self.meterInnerWidth/2, 1,
+      self.lineThickness/2 + self.meterInnerWidth*fraction, self.height)
+  end
 end
 
 
@@ -780,4 +900,6 @@ end
 return {
   Layout = Layout,
   StickInputImage = StickInputImage,
+  AnalogTriggerInputImage = AnalogTriggerInputImage,
+  AnalogTwoSidedInputImage = AnalogTwoSidedInputImage,
 }

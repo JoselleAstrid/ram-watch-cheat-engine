@@ -1219,10 +1219,6 @@ function controllerInput:display(options)
   
   options = options or {}
   
-  local stickX = self:stickXDisplay()
-  local stickY = self:stickYDisplay()
-  local L = self:LDisplay()
-  local R = self:RDisplay()
   local buttons = string.format("%s%s%s%s%s%s%s%s%s%s",
     self:buttonDisplay("A"), self:buttonDisplay("B"), self:buttonDisplay("X"),
     self:buttonDisplay("Y"), self:buttonDisplay("S"), self:buttonDisplay("Z"),
@@ -1230,22 +1226,17 @@ function controllerInput:display(options)
     self:buttonDisplay("<"), self:buttonDisplay(">")
   )
   
-  if options.narrow then
-    -- Use less horizontal space
-    return string.format(
-      "L %s R %s\n"
-      .."%s %s\n"
-      .."%s",
-      L, R, stickX, stickY, buttons
-    )
-  else
-    return string.format(
-      "        L %s   R %s\n"
-      .."Stick:  %s   %s\n"
-      .."  %s",
-      L, R, stickX, stickY, buttons
-    )
+  local lines = {}
+  
+  if options.LR then table.insert(
+    lines, string.format("L %s R %s", self:LDisplay(), self:RDisplay()))
   end
+  if options.stick then table.insert(
+    lines, string.format("%s %s", self:stickXDisplay(), self:stickYDisplay()))
+  end
+  table.insert(lines, buttons)
+  
+  return table.concat(lines, "\n")
 end
 
 
@@ -1363,38 +1354,29 @@ function controlState:display(options)
   
   options = options or {}
   
-  local steerX = self.game:displayAnalog(
-    self.steerX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
-  local steerY = self.game:displayAnalog(
-    self.steerY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
-  local strafe = self.game:displayAnalog(
-    self.strafe:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
+  local lines = {}
   
-  if options.narrow then
-    -- Use less horizontal space
-    return string.format(
-      "Strafe:\n%s\n"
-      .."Steer:\n%s %s\n"
-      .."  %s %s\n"
-      .."  %s %s\n"
-      .."Boost:\n%s",
-      strafe, steerX, steerY,
-      self:buttonDisplay("Accel"), self:buttonDisplay("Side"),
-      self:buttonDisplay("Brake"), self:buttonDisplay("Spin"),
-      self:boostDisplay()
-    )
-  else
-    return string.format(
-      "Strafe: %s\n"
-      .."Steer:  %s   %s\n"
-      .."  %s  %s  %s  %s\n"
-      .."Boost:  %s",
-      strafe, steerX, steerY,
-      self:buttonDisplay("Accel"), self:buttonDisplay("Side"),
-      self:buttonDisplay("Brake"), self:buttonDisplay("Spin"),
-      self:boostDisplay()
-    )
+  if options.strafe then
+    local strafe = self.game:displayAnalog(
+      self.strafe:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
+    table.insert(lines, "Strafe: "..strafe)
   end
+  if options.steer then
+    local steerX = self.game:displayAnalog(
+      self.steerX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
+    local steerY = self.game:displayAnalog(
+      self.steerY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
+    table.insert(lines, "Steer: "..steerX.." "..steerY)
+  end
+  
+  table.insert(lines, "Boost: "..self:boostDisplay())
+  
+  table.insert(lines,
+    self:buttonDisplay("Accel").." "..self:buttonDisplay("Side"))
+  table.insert(lines,
+    self:buttonDisplay("Brake").." "..self:buttonDisplay("Spin"))
+  
+  return table.concat(lines, "\n")
 end
 
 

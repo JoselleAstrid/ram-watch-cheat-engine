@@ -598,10 +598,6 @@ end
 function input:display(options)
   options = options or {}
   
-  local stickX =
-    self.game.stickX:display{nolabel=true, afterDecimal=3, signed=true}
-  local stickY =
-    self.game.stickY:display{nolabel=true, afterDecimal=3, signed=true}
   local buttons1 = string.format("%s%s%s%s%s",
     self:buttonDisplay("C"),
     self:buttonDisplay("^"), self:buttonDisplay("v"),
@@ -614,14 +610,21 @@ function input:display(options)
   )
   
   local lines = {}
+  
   if options.shake then table.insert(lines, self.game.shake:display()) end
   if options.spin then table.insert(lines, self.game.spinStatus:display()) end
+  
   if options.stick then
+    local stickX =
+      self.game.stickX:display{nolabel=true, afterDecimal=3, signed=true}
+    local stickY =
+      self.game.stickY:display{nolabel=true, afterDecimal=3, signed=true}
     table.insert(lines, stickX.." "..buttons1)
     table.insert(lines, stickY.." "..buttons2)
   else
     table.insert(lines, buttons2..buttons1)
   end
+  
   return table.concat(lines, "\n")
 end
 

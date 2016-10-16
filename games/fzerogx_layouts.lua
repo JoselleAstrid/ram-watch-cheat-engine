@@ -241,36 +241,38 @@ end
 
 
 layouts.inputs = subclass(Layout)
-function layouts.inputs:init(calibrated, playerNumber, narrow)
+function layouts.inputs:init(calibrated, playerNumber)
   local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
   calibrated = calibrated or false
   playerNumber = playerNumber or 1
-  narrow = narrow or false
   
-  if narrow then
-    self.window:setSize(200, 320)
-  else
-    self.window:setSize(300, 250)
-  end
+  self.window:setSize(300, 250)
   
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self.itemDisplayDefaults = {narrow=narrow}
   
   local player = game:getBlock(game.Player, playerNumber)
   
-  self:addLabel()
+  self:addLabel{foregroundColor=inputColor}
   if calibrated then
-    self:addItem(player.calibratedInput, {foregroundColor=inputColor})
+    self:addItem(player.calibratedInput, {LR=true, stick=true})
+    self:addImage(
+      layoutsModule.AnalogTriggerInputImage,
+      {player.calibratedInput.L, player.calibratedInput.R},
+      {x=10, max=1, foregroundColor=inputColor})
     self:addImage(
       layoutsModule.StickInputImage,
       {player.calibratedInput.stickX, player.calibratedInput.stickY},
       {x=10, max=1, square=true, foregroundColor=inputColor})
   else
-    self:addItem(player.controllerInput, {foregroundColor=inputColor})
+    self:addItem(player.controllerInput, {LR=true, stick=true})
+    self:addImage(
+      layoutsModule.AnalogTriggerInputImage,
+      {player.controllerInput.L, player.controllerInput.R},
+      {x=10, max=255, foregroundColor=inputColor})
     self:addImage(
       layoutsModule.StickInputImage,
       {player.controllerInput.stickX, player.controllerInput.stickY},
@@ -280,31 +282,29 @@ end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(racerNumber, cpuSteerRange, narrow)
+function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
   racerNumber = racerNumber or 1
-  narrow = narrow or false
   
-  if narrow then
-    self.window:setSize(200, 320)
-  else
-    self.window:setSize(300, 250)
-  end
+  self.window:setSize(300, 250)
   
   self.labelDefaults = {
     x=margin, fontSize=fontSize, fontName=fixedWidthFontName}
-  self.itemDisplayDefaults = {narrow=narrow}
   
   local racer = game:getBlock(game.Racer, racerNumber)
   
-  self:addLabel()
-  self:addItem(racer.controlState, {foregroundColor=inputColor})
+  self:addLabel{foregroundColor=inputColor}
+  self:addItem(racer.controlState, {strafe=true, steer=true})
   
   local max = 1
-  if cpuSteerRange then max = 1.35 end  -- CPUs can steer harder
+  if cpuSteerRange then max = 1.35 end  -- CPUs can L/R steer and strafe harder
+  self:addImage(
+    layoutsModule.AnalogTwoSidedInputImage,
+    {racer.controlState.strafe},
+    {x=10, max=max, foregroundColor=inputColor})
   self:addImage(
     layoutsModule.StickInputImage,
     {racer.controlState.steerX, racer.controlState.steerY},
