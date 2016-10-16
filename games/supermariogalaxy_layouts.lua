@@ -181,8 +181,9 @@ end
 
 
 layouts.testClasses = subclass(Layout)
-function layouts.testClasses:init()
+function layouts.testClasses:init(character)
   local game = self.game
+  game.character = character or 'mario'
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
@@ -217,8 +218,10 @@ end
 
 
 layouts.tilt1 = subclass(Layout)
-function layouts.tilt1:init()
+function layouts.tilt1:init(character)
   local game = self.game
+  -- Specify the character you're playing as to make the tilt-bonus accurate.
+  game.character = character or 'mario'
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
@@ -239,8 +242,10 @@ end
 
 
 layouts.tilt2 = subclass(Layout)
-function layouts.tilt2:init()
+function layouts.tilt2:init(character)
   local game = self.game
+  -- Specify the character you're playing as to make the tilt-bonus accurate.
+  game.character = character or 'mario'
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   

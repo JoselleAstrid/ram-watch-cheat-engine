@@ -32,6 +32,18 @@ local GV = SMGshared.blockValues
 
 
 
+-- At least one computation requires knowing the character we're currently
+-- playing as. Unfortunately, we don't know where the character specification
+-- is in SMG1/2 memory at the moment, so we have to set the character manually.
+-- Possible values: 'mario', 'luigi', 'yoshi'.
+--
+-- Here we just set a default value.
+-- Set to a different value in layout code as needed, like:
+-- game.character = 'luigi'
+SMGshared.character = 'mario'
+
+
+
 -- Tracking time based on a memory value which represents number of frames
 -- since time = 0.
 
@@ -399,12 +411,18 @@ function upVelocityTiltBonus:updateValue()
   -- Get the in-memory velocity that'll be observed on the NEXT frame.
   local nextVel = self.nextVel:get()
   
-  -- Additionally, account for the fact that lateral speed gets
+  -- Account for the fact that lateral speed gets
   -- multiplied by a factor when you jump.
-  -- Mario = 12.5/13, Luigi = 12.5/15, Yoshi = 12.5/18.
-  -- TODO: Have a method of detecting the character. Even dash pepper Yoshi
-  -- would need a different case...
-  nextVel = nextVel:times(12.5/15)
+  -- This factor is related to the character's max run speed.
+  -- We haven't found the character's max run speed in memory yet, so we have
+  -- to determine it manually.
+  local maxRunSpeed = nil
+  if self.game.character == 'mario' then maxRunSpeed = 13
+  elseif self.game.character == 'luigi' then maxRunSpeed = 15
+  elseif self.game.character == 'yoshi' then maxRunSpeed = 18
+  else error("Unrecognized character: "..tostring(self.game.character))
+  end
+  nextVel = nextVel:times(12.5/maxRunSpeed)
   
   -- If no velocity, then we know there's no up vel bonus, and we're done.
   if math.abs(nextVel:magnitude()) < 0.000001 then
