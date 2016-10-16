@@ -319,6 +319,22 @@ local function floatToStr(x, options)
   return s
 end
 
+local function displayAnalog(v, valueType, posSymbol, negSymbol, options)
+  -- Display a signed analog value, e.g. something that ranges
+  -- anywhere from -100 to +100.
+  -- Can provide custom positive/negative symbols such as > and <.
+  local s = nil
+  if valueType == 'int' then s = intToStr(math.abs(v), options)
+  elseif valueType == 'float' then s = floatToStr(math.abs(v), options)
+  else error("Unsupported valueType: "..tostring(valueType))
+  end
+  
+  if v == 0 then s = "  "..s
+  elseif v > 0 then s = posSymbol.." "..s
+  else s = negSymbol.." "..s end
+  return s
+end
+
 
 
 -- Functions for writing values to memory.
@@ -475,6 +491,7 @@ return {
   intToHexStr = intToHexStr,
   intToStr = intToStr,
   floatToStr = floatToStr,
+  displayAnalog = displayAnalog,
   
   writeIntBE = writeIntBE,
   writeFloatBE = writeFloatBE,

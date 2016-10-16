@@ -630,11 +630,16 @@ function input:display(options)
   if options.spin then table.insert(lines, self.game.spinStatus:display()) end
   
   if options.stick then
-    local stickX =
-      self.game.stickX:display{nolabel=true, afterDecimal=3, signed=true}
-    local stickY =
-      self.game.stickY:display{nolabel=true, afterDecimal=3, signed=true}
-    table.insert(lines, stickX.." "..stickY)
+    local stickX = utils.displayAnalog(
+      self.game.stickX:get(), 'float', ">", "<", {afterDecimal=3})
+    local stickY = utils.displayAnalog(
+      self.game.stickY:get(), 'float', "^", "v", {afterDecimal=3})
+    
+    if options.narrow then
+      table.insert(lines, stickX.."\n"..stickY)
+    else
+      table.insert(lines, stickX.." "..stickY)
+    end
   end
   
   table.insert(lines, self:displayAllButtons())

@@ -244,7 +244,7 @@ layouts.inputs = subclass(Layout)
 function layouts.inputs:init(calibrated, playerNumber)
   local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
-  self:activateAutoPositioningY()
+  self:activateAutoPositioningY('compact')
   
   calibrated = calibrated or false
   playerNumber = playerNumber or 1
@@ -285,7 +285,7 @@ layouts.replayInfo = subclass(Layout)
 function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   local game = self.game
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
-  self:activateAutoPositioningY()
+  self:activateAutoPositioningY('compact')
   
   racerNumber = racerNumber or 1
   

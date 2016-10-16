@@ -1131,23 +1131,6 @@ function raceTimer:display(options)
 end
 
 
-function GX:displayAnalog(v, valueType, posSymbol, negSymbol, options)
-  -- Display a signed analog value, e.g. something that ranges
-  -- anywhere from -100 to +100.
-  -- Can provide custom positive/negative symbols such as > and <.
-  local s = nil
-  if valueType == 'int' then s = utils.intToStr(math.abs(v), options)
-  elseif valueType == 'float' then s = utils.floatToStr(math.abs(v), options)
-  else error("Unsupported valueType: "..tostring(valueType))
-  end
-  
-  if v == 0 then s = "  "..s
-  elseif v > 0 then s = posSymbol.." "..s
-  else s = negSymbol.." "..s end
-  return s
-end
-
-
 -- Controller inputs (uncalibrated)
 local controllerInput = V(subclass(Value, PlayerValue, Block))
 PV.controllerInput = controllerInput
@@ -1199,12 +1182,20 @@ function controllerInput:buttonDisplay(button)
   end
 end
 
+function controllerInput:displayAllButtons()
+  local s = ""
+  for _, button in pairs{"A", "B", "X", "Y", "S", "Z", "^", "v", "<", ">"} do
+    s = s..self:buttonDisplay(button)
+  end
+  return s
+end
+
 function controllerInput:stickXDisplay()
-  return self.game:displayAnalog(
+  return utils.displayAnalog(
     self.stickX:get()-128, 'int', ">", "<", {digits=3})
 end
 function controllerInput:stickYDisplay()
-  return self.game:displayAnalog(
+  return utils.displayAnalog(
     self.stickY:get()-128, 'int', "^", "v", {digits=3})
 end
 function controllerInput:LDisplay()
@@ -1219,13 +1210,6 @@ function controllerInput:display(options)
   
   options = options or {}
   
-  local buttons = string.format("%s%s%s%s%s%s%s%s%s%s",
-    self:buttonDisplay("A"), self:buttonDisplay("B"), self:buttonDisplay("X"),
-    self:buttonDisplay("Y"), self:buttonDisplay("S"), self:buttonDisplay("Z"),
-    self:buttonDisplay("^"), self:buttonDisplay("v"),
-    self:buttonDisplay("<"), self:buttonDisplay(">")
-  )
-  
   local lines = {}
   
   if options.LR then table.insert(
@@ -1234,7 +1218,7 @@ function controllerInput:display(options)
   if options.stick then table.insert(
     lines, string.format("%s %s", self:stickXDisplay(), self:stickYDisplay()))
   end
-  table.insert(lines, buttons)
+  table.insert(lines, self:displayAllButtons())
   
   return table.concat(lines, "\n")
 end
@@ -1280,11 +1264,11 @@ function calibratedInput:init()
 end
 
 function calibratedInput:stickXDisplay()
-  return self.game:displayAnalog(
+  return utils.displayAnalog(
     self.stickX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
 end
 function calibratedInput:stickYDisplay()
-  return self.game:displayAnalog(
+  return utils.displayAnalog(
     self.stickY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
 end
 function calibratedInput:LDisplay()
@@ -1334,6 +1318,14 @@ function controlState:buttonDisplay(buttonName)
   end
 end
 
+function controlState:displayAllButtons()
+  return string.format("%s %s\n%s %s",
+    self:buttonDisplay("Accel"),
+    self:buttonDisplay("Side"),
+    self:buttonDisplay("Brake"),
+    self:buttonDisplay("Spin"))
+end
+
 function controlState:boostDisplay()
   local framesLeft = self.racer.boostFramesLeft:get()
   local delay = self.racer.boostDelay:get()
@@ -1357,24 +1349,21 @@ function controlState:display(options)
   local lines = {}
   
   if options.strafe then
-    local strafe = self.game:displayAnalog(
-      self.strafe:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
+    local strafe = utils.displayAnalog(
+      self.strafe:get(), 'float', ">", "<", {afterDecimal=3})
     table.insert(lines, "Strafe: "..strafe)
   end
   if options.steer then
-    local steerX = self.game:displayAnalog(
-      self.steerX:get(), 'float', ">", "<", {beforeDecimal=1, afterDecimal=3})
-    local steerY = self.game:displayAnalog(
-      self.steerY:get(), 'float', "^", "v", {beforeDecimal=1, afterDecimal=3})
+    local steerX = utils.displayAnalog(
+      self.steerX:get(), 'float', ">", "<", {afterDecimal=3})
+    local steerY = utils.displayAnalog(
+      self.steerY:get(), 'float', "^", "v", {afterDecimal=3})
     table.insert(lines, "Steer: "..steerX.." "..steerY)
   end
   
   table.insert(lines, "Boost: "..self:boostDisplay())
   
-  table.insert(lines,
-    self:buttonDisplay("Accel").." "..self:buttonDisplay("Side"))
-  table.insert(lines,
-    self:buttonDisplay("Brake").." "..self:buttonDisplay("Spin"))
+  table.insert(lines, self:displayAllButtons())
   
   return table.concat(lines, "\n")
 end
