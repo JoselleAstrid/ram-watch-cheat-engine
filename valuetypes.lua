@@ -316,7 +316,7 @@ function IntValue:write(address, v)
 end
 function IntValue:strToValue(s) return tonumber(s) end
 function IntValue:displayValue() return tostring(self.value) end
-IntValue.toStrForEditField = IntValue.displayValue 
+function IntValue:toStrForEditField(v) return tostring(v) end 
 IntValue.numOfBytes = 4
 IntValue.addressListType = vtCustom
 IntValue.addressListCustomTypeName = "4 Byte Big Endian"
@@ -372,7 +372,7 @@ function StringValue:write(address, text)
 end
 function StringValue:strToValue(s) return s end
 function StringValue:displayValue() return self.value end
-StringValue.toStrForEditField = StringValue.displayValue 
+function StringValue:toStrForEditField(v) return v end
 StringValue.addressListType = vtString
 -- TODO: Figure out the remaining details of adding a String to the
 -- address list. I think there's a couple of special fields for vtString?
@@ -448,15 +448,18 @@ function BinaryValue:strToValue(s)
   return bits
 end
 
-function BinaryValue:displayValue()
-  -- self.value is a table of bits
+function BinaryValue:toStrForEditField(v)
+  -- The value is a table of bits
   local s = ""
-  for _, bit in pairs(self.value) do
+  for _, bit in pairs(v) do
     s = s .. tostring(bit)
   end
   return s
 end
-BinaryValue.toStrForEditField = BinaryValue.displayValue
+
+function BinaryValue:displayValue()
+  return self:toStrForEditField(self.value)
+end
 
 function BinaryValue:equals(obj2)
   -- Lua doesn't do value-based equality of tables, so we need to compare
