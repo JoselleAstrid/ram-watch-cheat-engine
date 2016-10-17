@@ -325,7 +325,7 @@ end
 
 
 
-local StatWithBase = subclass(Value, RacerValue, Block)
+local StatWithBase = subclass(Value, RacerValue)
 GX.StatWithBase = StatWithBase
 
 function StatWithBase:init(
@@ -335,11 +335,9 @@ function StatWithBase:init(
   self.label = label
     
   -- MemoryValue containing current stat value
-  self.blockValues = {
-    current = MV(label, offset, StateValue, typeMixinClass, extraArgs),
-  }
-  self.displayDefaults = self.blockValues.current.displayDefaults
-  Block.init(self)
+  self.current = self.block:MV(
+    label, offset, StateValue, typeMixinClass, extraArgs)
+  self.displayDefaults = self.current.displayDefaults
   
   -- Stuff to help create base-value objects dynamically
   self.baseOffset = baseOffset
@@ -350,7 +348,7 @@ end
 
 function StatWithBase:updateStatBasesIfMachineChanged()
   -- Note: it's possible that more than one custom part has a nonzero
-  -- base value here. (Check with #self.customPartsWithBase == 1)
+  -- base value here. (Check with #self.customPartsWithBase > 1)
   -- Weight and Body are the only stats where this is true. 
   -- 
   -- But handling this properly seems to take a fair bit of extra work,
@@ -359,10 +357,10 @@ function StatWithBase:updateStatBasesIfMachineChanged()
   -- 
   -- That's still enough to fully manipulate the stats; it'll just be a bit
   -- unintuitive. e.g. to change Gallant Star-G4's weight, you have to
-  -- manipulate Dread Hammer's weight (the interface doesn't let you
-  -- manipulate the other two parts):
-  -- 2660 to 1660 weight: change Dread Hammer's weight from 1440 to 440
-  -- 2660 to 660 weight: change Dread Hammer's weight from 1440 to -560
+  -- manipulate the weight of the body part, Dread Hammer (the interface
+  -- won't let you manipulate the other two parts):
+  -- GSG4 2660 to 1660 weight: change Dread Hammer's weight from 1440 to 440
+  -- GSG4 2660 to 660 weight: change Dread Hammer's weight from 1440 to -560
   local machineOrPartId = self.racer.machineId:get()
   
   -- If custom machine, id is 50 for P1, 51 for P2...
@@ -381,10 +379,10 @@ function StatWithBase:updateStatBasesIfMachineChanged()
   self.baseExtraArgs.machineOrPartId = machineOrPartId
   self.baseExtraArgs.isCustom = isCustom
   
-  self.base = self.game:MV(
+  self.base = self.block:MV(
     self.label.." (B)", self.baseOffset,
     BaseStat1Value, self.typeMixinClass, self.baseExtraArgs)
-  self.base2 = self.game:MV(
+  self.base2 = self.block:MV(
     self.label.." (B)", self.baseOffset,
     BaseStat2Value, self.typeMixinClass, self.baseExtraArgs)
 end
@@ -572,28 +570,21 @@ end
 -- We'll put the 24 machine-size coordinates in 6 objects, with each object
 -- having 4 coordinates within a constant offset/factor.
 
-local SizeStat = subclass(Value, Block)
+local SizeStat = subclass(Value)
 GX.SizeStat = SizeStat
 
 function SizeStat:init(label, specificLabels, offsets, baseOffsets, formulas)
   self.label = label
   self.formulas = formulas
   
+  self.stats = {}
   for n = 1, 4 do
-    local key = 'stat'..tostring(n)
-    
-    self.blockValues[key] = V(
+    self.stats[n] = self.block:V(
       StatWithBase, specificLabels[n], offsets[n], baseOffsets[n], FloatStat,
       -- SizeStats on custom machines are always influenced by only the body,
       -- not the cockpit or booster.
       {1}
     )
-  end
-  Block.init(self)
-  
-  self.stats = {}
-  for n = 1, 4 do
-    table.insert(self.stats, self['stat'..tostring(n)])
   end
   
   -- Get display defaults from any stat. We'll pick the first.
@@ -1031,29 +1022,26 @@ RV.unknown5D0 = defineStateFloat("Unknown 5D0", 0x5D0)
 RV.unknown5D4 = defineStateFloat("Unknown 5D4", 0x5D4)
 
 
-local Timer = subclass(Value, RacerValue, Block)
+local Timer = subclass(Value, RacerValue)
 GX.Timer = Timer
 
 function Timer:init(label, offset)
   self.label = label
   
-  self.blockValues = {
-    frames = MV(label..", frames", offset,
-      State2Value, IntValue),
-    frameFraction = MV(label..", frame fraction", offset+4,
-      State2Value, FloatValue),
-    mins = MV(label..", minutes", offset+8,
-      State2Value, ByteValue),
-    secs = MV(label..", seconds", offset+9,
-      State2Value, ByteValue),
-    millis = MV(label..", milliseconds", offset+10,
-      State2Value, ShortValue),
-  }
-  Block.init(self)
+  self.frames = self.block:MV(
+    label..", frames", offset, State2Value, IntValue)
+  self.frameFraction = self.block:MV(
+    label..", frame fraction", offset+4, State2Value, FloatValue)
+  self.mins = self.block:MV(
+    label..", minutes", offset+8, State2Value, ByteValue)
+  self.secs = self.block:MV(
+    label..", seconds", offset+9, State2Value, ByteValue)
+  self.millis = self.block:MV(
+    label..", milliseconds", offset+10, State2Value, ShortValue)
 end
 
 function Timer:updateValue()
-  for key, _ in pairs(self.blockValues) do
+  for _, key in pairs({'frames', 'frameFraction', 'mins', 'secs', 'millis'}) do
     self[key]:update()
   end
 end
@@ -1131,26 +1119,22 @@ end
 
 
 -- Controller inputs (uncalibrated)
-local controllerInput = V(subclass(Value, PlayerValue, Block))
+local controllerInput = V(subclass(Value, PlayerValue))
 PV.controllerInput = controllerInput
 
 function controllerInput:init()
   local blockStart = 0x15CBD0 + (self.player.playerIndex * 0x8)
 
-  self.blockValues = {
-    ABXYS = MV("ABXY & Start", blockStart + 0, StaticValue, BinaryValue,
-      {binarySize=8, binaryStartBit=7}),
-    DZ = MV("D-Pad & Z", blockStart + 1, StaticValue, BinaryValue,
-      {binarySize=8, binaryStartBit=7}),
-    stickX = MV("Stick X", blockStart + 2, StaticValue, ByteValue),
-    stickY = MV("Stick Y", blockStart + 3, StaticValue, ByteValue),
-    CStickX = MV("C-Stick X", blockStart + 4, StaticValue, ByteValue),
-    CStickY = MV("C-Stick Y", blockStart + 5, StaticValue, ByteValue),
-    L = MV("L", blockStart + 6, StaticValue, ByteValue),
-    R = MV("R", blockStart + 7, StaticValue, ByteValue),
-  }
-  
-  Block.init(self)
+  self.ABXYS = self.block:MV("ABXY & Start", blockStart + 0,
+    StaticValue, BinaryValue, {binarySize=8, binaryStartBit=7})
+  self.DZ = self.block:MV("D-Pad & Z", blockStart + 1,
+    StaticValue, BinaryValue, {binarySize=8, binaryStartBit=7})
+  self.stickX = self.block:MV("Stick X", blockStart + 2, StaticValue, ByteValue)
+  self.stickY = self.block:MV("Stick Y", blockStart + 3, StaticValue, ByteValue)
+  self.CStickX = self.block:MV("C-Stick X", blockStart + 4, StaticValue, ByteValue)
+  self.CStickY = self.block:MV("C-Stick Y", blockStart + 5, StaticValue, ByteValue)
+  self.L = self.block:MV("L", blockStart + 6, StaticValue, ByteValue)
+  self.R = self.block:MV("R", blockStart + 7, StaticValue, ByteValue)
 end
 
 function controllerInput:getButton(button)
@@ -1242,24 +1226,20 @@ function calibratedInput:init()
 
   local blockStart = 0x1BAB54 + (self.player.playerIndex * 0x20)
 
-  self.blockValues = {
-    ABXYS = self.player.controllerInput.blockValues.ABXYS,
-    DZ = self.player.controllerInput.blockValues.DZ,
-    stickX =
-      MV("Stick X, calibrated", blockStart + 0x0, RefValue, FloatValue),
-    stickY =
-      MV("Stick Y, calibrated", blockStart + 0x4, RefValue, FloatValue),
-    CStickX =
-      MV("C-Stick X, calibrated", blockStart + 0x8, RefValue, FloatValue),
-    CStickY =
-      MV("C-Stick Y, calibrated", blockStart + 0xC, RefValue, FloatValue),
-    L =
-      MV("L, calibrated", blockStart + 0x10, RefValue, FloatValue),
-    R =
-      MV("R, calibrated", blockStart + 0x14, RefValue, FloatValue),
-  }
-  
-  Block.init(self)
+  self.ABXYS = self.player.controllerInput.ABXYS
+  self.DZ = self.player.controllerInput.DZ
+  self.stickX =
+      self.block:MV("Stick X, calibrated", blockStart + 0x0, RefValue, FloatValue)
+  self.stickY =
+      self.block:MV("Stick Y, calibrated", blockStart + 0x4, RefValue, FloatValue)
+  self.CStickX =
+      self.block:MV("C-Stick X, calibrated", blockStart + 0x8, RefValue, FloatValue)
+  self.CStickY =
+      self.block:MV("C-Stick Y, calibrated", blockStart + 0xC, RefValue, FloatValue)
+  self.L =
+      self.block:MV("L, calibrated", blockStart + 0x10, RefValue, FloatValue)
+  self.R =
+      self.block:MV("R, calibrated", blockStart + 0x14, RefValue, FloatValue)
 end
 
 function calibratedInput:stickXDisplay()

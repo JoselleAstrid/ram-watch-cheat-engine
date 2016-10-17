@@ -53,24 +53,11 @@ valuetypes.Block = Block
 function Block:init()
   -- self.a = new object of class self.blockValues.a,
   -- whose init() must take 0 args.
-  for key, value in pairs(self.blockValues) do
+  for key, valueTemplate in pairs(self.blockValues) do
     -- Assign to the block namespace.
-    self[key] = subclass(value)
-    self[key].block = self
-    
-    -- Let the objects know what their 'owner' blocks/games are.
-    if self.game then self[key].game = self.game end
-    if self.blockAlias then self[key][self.blockAlias] = self end
-    
-    -- In some cases, if this block belongs to another block, etc., it's
-    -- also useful to give the object info about those blocks.
-    local ancestorBlock = self.block
-    while ancestorBlock do
-      if ancestorBlock.blockAlias then
-        self[key][ancestorBlock.blockAlias] = ancestorBlock
-      end
-      ancestorBlock = ancestorBlock.block
-    end
+    self[key] = subclass(valueTemplate)
+    -- Allow the new object to know about this block object (and ancestors).
+    self:addParentReferences(self[key])
   end
   
   -- THEN init everything. Some objects' init functions may require
@@ -80,14 +67,49 @@ function Block:init()
   -- an object A's init() might call another object B's init() if A depends
   -- on B. So this for loop must only call an object's init
   -- if it wasn't already called.
-  for key, value in pairs(self.blockValues) do
+  for key, _ in pairs(self.blockValues) do
     valuetypes.initValueAsNeeded(self[key])
+  end
+end
+
+function Block:addParentReferences(value)
+  -- Let the value know what its 'owner' block/game is.
+  value.block = self
+  if self.game then value.game = self.game end
+  if self.blockAlias then value[self.blockAlias] = self end
+  
+  -- In some cases, if this block belongs to another block, etc., it's
+  -- also useful to give the object info about those blocks.
+  local ancestorBlock = self.block
+  while ancestorBlock do
+    if ancestorBlock.blockAlias then
+      value[ancestorBlock.blockAlias] = ancestorBlock
+    end
+    ancestorBlock = ancestorBlock.block
   end
 end
 
 function Block:getBlockKey(...)
   -- Subclasses should override this.
   return error("Function not implemented")
+end
+
+
+-- valuetypes.V()/MV() and initialization rolled into one.
+-- Use this if the block is already initialized or being initialized.
+
+function Block:V(...)
+  local newValue = valuetypes.V(...)
+  self:addParentReferences(newValue)
+  valuetypes.initValueAsNeeded(newValue)
+  return newValue
+end
+
+function Block:MV(...)
+  local newValue = valuetypes.MV(...)
+  self:addParentReferences(newValue)
+  valuetypes.initValueAsNeeded(newValue)
+  return newValue
 end
 
 

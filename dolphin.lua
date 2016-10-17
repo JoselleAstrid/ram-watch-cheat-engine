@@ -52,24 +52,6 @@ function DolphinGame:getBlock(BlockClass, ...)
 end
 
 
--- valuetypes.V()/MV() and initialization rolled into one.
--- Use this if the game is already initialized.
-
-function DolphinGame:V(...)
-  local newValue = valuetypes.V(...)
-  newValue.game = self
-  valuetypes.initValueAsNeeded(newValue)
-  return newValue
-end
-
-function DolphinGame:MV(...)
-  local newValue = valuetypes.MV(...)
-  newValue.game = self
-  valuetypes.initValueAsNeeded(newValue)
-  return newValue
-end
-
-
 
 function DolphinGame:getGameStartAddress()
   if self.constantGameStartAddress then
