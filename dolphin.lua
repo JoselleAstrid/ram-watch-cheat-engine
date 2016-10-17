@@ -191,8 +191,13 @@ function DolphinGame:startUpdating(layout)
   
   self.updateOK = true
   
-  if layout.updateMethod == "timer" then
-  
+  if layout.updateMethod == 'timer' then
+    
+    -- Frame counter is optional. If it's specified, we'll use it.
+    if self.frameCounterAddress then
+      self.usingFrameCounter = true
+    end
+    
     -- Set the window to be the timer's parent, so that when the window is
     -- closed, the timer will stop being called. This allows us to edit and then
     -- re-run the script, and then close the old window to stop previous timer
@@ -212,7 +217,7 @@ function DolphinGame:startUpdating(layout)
       
       game.updateOK = false
     
-      if game.frameCounterAddress then
+      if game.usingFrameCounter then
         -- Only update if the game has advanced at least one frame. This way we
         -- can pause emulation and let the game stay paused without wasting too
         -- much CPU.
@@ -234,12 +239,15 @@ function DolphinGame:startUpdating(layout)
     -- Start calling this function periodically.
     self.timer.setOnTimer(utils.curry(timerFunction, self))
   
-  elseif layout.updateMethod == "breakpoint" then
+  elseif layout.updateMethod == 'breakpoint' then
   
     if self.oncePerFrameAddress == nil then
       error("Must provide a oncePerFrameAddress, because this layout uses"
         .." breakpoint updates.")
     end
+  
+    -- Frame counter is required.
+    self.usingFrameCounter = true
   
     -- This sets a breakpoint at a particular Dolphin instruction which
     -- should be called exactly once every frame.
@@ -256,8 +264,7 @@ function DolphinGame:startUpdating(layout)
     
       game.updateOK = false
     
-      if game.frameCounterAddress then
-        -- Update the frameCount in case the layout's update code is using it.
+      if game.usingFrameCounter then
         game:updateFrameCount()
       end
       
@@ -269,7 +276,9 @@ function DolphinGame:startUpdating(layout)
     end
     debugger_onBreakpoint = utils.curry(runOncePerFrame, self)
     
-  elseif layout.updateMethod == "button" then
+  elseif layout.updateMethod == 'button' then
+    
+    self.usingFrameCounter = false
     
     -- First do an initial update.
     layout:update()
