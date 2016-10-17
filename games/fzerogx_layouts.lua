@@ -327,7 +327,7 @@ function layouts.checkpoints:init()
   local racer = game:getBlock(game.Racer)
   
   self:addLabel()
-  self:addItem(racer.lapNumberPosition)
+  self:addItem(racer.lapIndexPosition)
   self:addItem(racer.checkpointMain)
   self:addItem(racer.checkpointFraction)
   self:addItem(racer.checkpointLateralOffset)

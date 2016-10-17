@@ -932,7 +932,7 @@ RV.gOrient.label = "Orient (grav)"
 RV.gOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
 
 
-RV.kmh = defineStateFloat("km/h (next)", 0x17C)
+RV.kmh = defineStateFloat("km/h", 0x17C)
 RV.energy = defineStateFloat("Energy", 0x184)
 RV.boostFramesLeft = MV("Boost frames left", 0x18A, StateValue, ByteValue)
 RV.score = MV("Score", 0x210, StateValue, ShortValue)
@@ -985,10 +985,10 @@ RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntValue
 RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntValue)
 RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntValue)
 
-RV.lapNumber = MV("Lap num", 0x67B, State2Value, ByteValue)
-RV.lapNumberPosition = MV("Lap num, position", 0x67F, State2Value, SignedByteValue)
-RV.lapNumberGround = MV("Lap num, ground", 0x6B7, State2Value, ByteValue)
-RV.lapNumberPositionGround = MV("Lap num, pos/gr", 0x6BB, State2Value, SignedByteValue)
+RV.lapIndex = MV("Lap index", 0x67B, State2Value, ByteValue)
+RV.lapIndexPosition = MV("Lap index, position", 0x67F, State2Value, SignedByteValue)
+RV.lapIndexGround = MV("Lap index, ground", 0x6B7, State2Value, ByteValue)
+RV.lapIndexPositionGround = MV("Lap index, pos/gr", 0x6BB, State2Value, SignedByteValue)
 
 
 -- Physics related
@@ -1107,10 +1107,10 @@ function raceTimer:display(options)
   
   s = self.total:display(options).."\n"..self.currLap:display(options)
   
-  if not self.racer.lapNumber:isValid() then return s end
+  if not self.racer.lapIndex:isValid() then return s end
   
   -- Show up to maxPrevLaps previous individual lap times
-  local completedLaps = self.racer.lapNumber:get()
+  local completedLaps = self.racer.lapIndex:get()
   local firstLapToShow = math.max(1, completedLaps - options.maxPrevLaps + 1)
   for lapN = firstLapToShow, completedLaps do
     local prevLapN = completedLaps - lapN + 1
