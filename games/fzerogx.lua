@@ -601,10 +601,9 @@ function SizeStat:init(label, specificLabels, offsets, baseOffsets, formulas)
 end
 
 function SizeStat:isValid()
-  return (
-    self.stats[1]:isValid() and self.stats[2]:isValid()
-    and self.stats[3]:isValid() and self.stats[4]:isValid()
-  )
+  local isValid = self.stats[1]:isValid()
+  self.invalidDisplay = self.stats[1].invalidDisplay
+  return isValid
 end
 
 function SizeStat:hasChanged()
