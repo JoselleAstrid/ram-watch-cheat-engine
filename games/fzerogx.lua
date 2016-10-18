@@ -9,7 +9,7 @@
 -- need to restart Cheat Engine to see the code changes take effect.
 
 package.loaded.utils = nil
-local utils = require "utils"
+local utils = require 'utils'
 local readIntBE = utils.readIntBE
 local readFloatBE = utils.readFloatBE
 local floatToStr = utils.floatToStr
@@ -19,10 +19,10 @@ local subclass = utils.subclass
 local classInstantiate = utils.classInstantiate
 
 package.loaded.dolphin = nil
-local dolphin = require "dolphin"
+local dolphin = require 'dolphin'
 
 package.loaded.valuetypes = nil
-local valuetypes = require "valuetypes"
+local valuetypes = require 'valuetypes'
 local V = valuetypes.V
 local MV = valuetypes.MV
 local Block = valuetypes.Block
@@ -40,6 +40,9 @@ local BinaryValue = valuetypes.BinaryValue
 local Vector3Value = valuetypes.Vector3Value
 local RateOfChange = valuetypes.RateOfChange
 local addAddressToList = valuetypes.addAddressToList
+
+package.loaded.layouts = nil
+local layoutsModule = require 'layouts'
 
 
 
@@ -1346,6 +1349,72 @@ function controlState:display(options)
   table.insert(lines, self:displayAllButtons())
   
   return table.concat(lines, "\n")
+end
+
+
+GX.ControllerLRImage = subclass(layoutsModule.AnalogTriggerInputImage)
+function GX.ControllerLRImage:init(window, player, options)
+  options = options or {}
+  options.max = options.max or 255
+  
+  layoutsModule.AnalogTriggerInputImage.init(
+    self, window, player.controllerInput.L, player.controllerInput.R, options)
+end
+
+GX.ControllerStickImage = subclass(layoutsModule.StickInputImage)
+function GX.ControllerStickImage:init(window, player, options)
+  options = options or {}
+  options.max = options.max or 255
+  options.min = options.min or 0
+  options.square = options.square or true
+  
+  layoutsModule.StickInputImage.init(
+    self, window,
+    player.controllerInput.stickX, player.controllerInput.stickY, options)
+end
+
+GX.CalibratedLRImage = subclass(layoutsModule.AnalogTriggerInputImage)
+function GX.CalibratedLRImage:init(window, player, options)
+  options = options or {}
+  options.max = options.max or 1
+  
+  layoutsModule.AnalogTriggerInputImage.init(
+    self, window, player.calibratedInput.L, player.calibratedInput.R, options)
+end
+
+GX.CalibratedStickImage = subclass(layoutsModule.StickInputImage)
+function GX.CalibratedStickImage:init(window, player, options)
+  options = options or {}
+  options.max = options.max or 1
+  options.square = options.square or true
+  
+  layoutsModule.StickInputImage.init(
+    self, window,
+    player.calibratedInput.stickX, player.calibratedInput.stickY, options)
+end
+
+GX.ControlStateStrafeImage = subclass(layoutsModule.AnalogTwoSidedInputImage)
+function GX.ControlStateStrafeImage:init(window, racer, options)
+  options = options or {}
+  options.cpuSteerRange = options.cpuSteerRange or false
+  -- CPUs can strafe harder
+  if options.cpuSteerRange then options.max = 1.35 else options.max = 1 end
+  
+  layoutsModule.AnalogTwoSidedInputImage.init(
+    self, window, racer.controlState.strafe, options)
+end
+
+GX.ControlStateSteerImage = subclass(layoutsModule.StickInputImage)
+function GX.ControlStateSteerImage:init(window, racer, options)
+  options = options or {}
+  options.square = options.square or true
+  options.cpuSteerRange = options.cpuSteerRange or false
+  -- CPUs can left/right steer harder
+  if options.cpuSteerRange then options.max = 1.35 else options.max = 1 end
+  
+  layoutsModule.StickInputImage.init(
+    self, window,
+    racer.controlState.steerX, racer.controlState.steerY, options)
 end
 
 

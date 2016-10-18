@@ -260,23 +260,15 @@ function layouts.inputs:init(calibrated, playerNumber)
   if calibrated then
     self:addItem(player.calibratedInput, {LR=true, stick=true})
     self:addImage(
-      layoutsModule.AnalogTriggerInputImage,
-      {player.calibratedInput.L, player.calibratedInput.R},
-      {max=1, foregroundColor=inputColor})
+      game.CalibratedLRImage, {player}, {foregroundColor=inputColor})
     self:addImage(
-      layoutsModule.StickInputImage,
-      {player.calibratedInput.stickX, player.calibratedInput.stickY},
-      {max=1, square=true, foregroundColor=inputColor})
+      game.CalibratedStickImage, {player}, {foregroundColor=inputColor})
   else
     self:addItem(player.controllerInput, {LR=true, stick=true})
     self:addImage(
-      layoutsModule.AnalogTriggerInputImage,
-      {player.controllerInput.L, player.controllerInput.R},
-      {max=255, foregroundColor=inputColor})
+      game.ControllerLRImage, {player}, {foregroundColor=inputColor})
     self:addImage(
-      layoutsModule.StickInputImage,
-      {player.controllerInput.stickX, player.controllerInput.stickY},
-      {min=0, max=255, square=true, foregroundColor=inputColor})
+      game.ControllerStickImage, {player}, {foregroundColor=inputColor})
   end
 end
 
@@ -300,16 +292,12 @@ function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   self:addLabel{foregroundColor=inputColor}
   self:addItem(racer.controlState, {strafe=true, steer=true})
   
-  local max = 1
-  if cpuSteerRange then max = 1.35 end  -- CPUs can L/R steer and strafe harder
   self:addImage(
-    layoutsModule.AnalogTwoSidedInputImage,
-    {racer.controlState.strafe},
-    {max=max, foregroundColor=inputColor})
+    game.ControlStateStrafeImage, {racer},
+    {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
   self:addImage(
-    layoutsModule.StickInputImage,
-    {racer.controlState.steerX, racer.controlState.steerY},
-    {max=max, square=true, foregroundColor=inputColor})
+    game.ControlStateSteerImage, {racer},
+    {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
 end
 
 
