@@ -402,9 +402,10 @@ function StatWithBase:hasChanged()
   -- Assumes there is no formula between the base and actual values,
   -- though this can be changed for specific stats by overriding this function.
   --
-  -- Limitation: If the game is paused, then the actual value will not reflect
-  -- the base value yet. So the "this is changed" display can be misleading
-  -- if you forget that.
+  -- Limitation: If the game or emulation is paused when you change a
+  -- base value, then the current value will not reflect the change until the
+  -- next frame of being unpaused.
+  -- So the "this is changed" display can be misleading if you forget that.
   return not self.current:equals(self.base2)
 end
 
