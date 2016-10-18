@@ -1097,7 +1097,9 @@ function raceTimer:display(options)
   -- The game only saves 8 previous laps
   if options.maxPrevLaps > 8 then options.maxPrevLaps = 8 end
   
-  s = self.total:display(options).."\n"..self.currLap:display(options)
+  local lines = {}
+  table.insert(lines, self.total:display(options))
+  table.insert(lines, self.currLap:display(options))
   
   if not self.racer.lapIndex:isValid() then return s end
   
@@ -1111,12 +1113,22 @@ function raceTimer:display(options)
     utils.updateTable(lapOptions, options)
     lapOptions.label = string.format("Lap %d", lapN)
     
-    s = s.."\n"..self.prevLaps[prevLapN]:display(lapOptions)
+    table.insert(lines, self.prevLaps[prevLapN]:display(lapOptions))
   end
   
   if self.racer:finishedRace() then
-    s = s.."\n"..self.sumOfFinishedLaps:display(options)
+    local finalOptions = {}
+    utils.updateTable(finalOptions, options)
+    finalOptions.label = "Final time"
+    table.insert(lines, self.sumOfFinishedLaps:display(finalOptions))
   end
+  
+  local s = table.concat(lines, "\n")
+  
+  -- For auto-layout purposes, make this display as tall as its maximum
+  -- possible height.
+  local maxLines = 3 + options.maxPrevLaps
+  for n = #lines + 1, maxLines do s = s.."\n" end
   
   return s
 end

@@ -283,7 +283,7 @@ function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY('compact')
   
-  self.window:setSize(300, 270)
+  self.window:setSize(300, 500)
   
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   
@@ -298,6 +298,12 @@ function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   self:addImage(
     game.ControlStateSteerImage, {racer},
     {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
+  
+  self:addLabel()
+  self:addItem(racer.energy)
+  
+  self:addLabel()
+  self:addItem(racer.raceTimer)
 end
 
 
@@ -337,7 +343,7 @@ function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
   self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
   self:activateAutoPositioningY()
   
-  self.window:setSize(650, 250)
+  self.window:setSize(500, 300)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   
   local racer = game:getBlock(game.Racer, racerNumber)
