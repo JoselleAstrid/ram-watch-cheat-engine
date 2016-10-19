@@ -94,25 +94,26 @@ function GX:updateRefPointer()
   -- changes value, many other relevant addresses (like the settings
   -- slider value) move by the same amount as the value change.
   --
-  -- This pointer doesn't change during the game, but it is different
-  -- between different runs of the game. So it can change if you close the
-  -- game and restart it, or load a state from a different run of the game.
+  -- This pointer doesn't change during the game, but in some Dolphin versions
+  -- it may be different between different runs of the game.
+  -- So it can change if you close the game and restart it,
+  -- or load a state from a different run of the game.
   self.addrs.refPointer =
     self.addrs.o
-    + readIntBE(self.addrs.o + 0x1B78A8, 4)
+    + readIntBE(self.addrs.o + 0x30C8, 4)
     - 0x80000000
 end
 
 function GX:updateMachineStatsAndStateAddresses()
   -- A duplicate of the base stats block. We'll use this as a backup of the
   -- original values, when playing with the values in the primary block.
-  self.addrs.machineBaseStatsBlocks2 = self.addrs.refPointer + 0x195584
+  self.addrs.machineBaseStatsBlocks2 = self.addrs.refPointer + 0x195660
   
   -- Same but for custom machines.
-  self.addrs.machineBaseStatsBlocks2Custom = self.addrs.refPointer + 0x1B3A54
+  self.addrs.machineBaseStatsBlocks2Custom = self.addrs.refPointer + 0x1B3B30
   
   -- Racer state.
-  local pointer2Address = self.addrs.refPointer + 0x22779C
+  local pointer2Address = self.addrs.refPointer + 0x227878
   local pointer2Value = readIntBE(pointer2Address, 4)
   
   if pointer2Value == 0 then
@@ -279,14 +280,14 @@ end
 
 
 
-local CustomPartId = subclass(StateValue)
+local CustomPartId = subclass(MemoryValue, RacerValue)
 GX.CustomPartId = CustomPartId
 
 function CustomPartId:getAddress()
   -- Player 2's custom part IDs are 0x81C0 later than P1's, and then P3's IDs
   -- are 0x81C0 later than that, and so on.
   return self.game.addrs.refPointer
-    + 0x1C7588
+    + 0x1C7664
     + (0x81C0 * self.racer.racerIndex)
     + self.offset
 end
@@ -672,13 +673,13 @@ end
 
 -- Number of machines competing in the race when it began
 GV.numOfRacers =
-  MV("# Racers", 0x1BAEE0, RefValue, ByteValue)
+  MV("# Racers", 0x1BAFBC, RefValue, ByteValue)
 -- Number of human racers
-GV.numOfHumanRacers = MV("# Human racers", 0x245309, RefValue, ByteValue)
+GV.numOfHumanRacers = MV("# Human racers", 0x2453E5, RefValue, ByteValue)
 
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 -- TODO: This is only for P1, find the formula for the others.
-GV.settingsSlider = MV("Settings slider", 0x2453A0, RefValue, IntValue)
+GV.settingsSlider = MV("Settings slider", 0x24547C, RefValue, IntValue)
 function GV.settingsSlider:displayValue(options)
   return IntValue.displayValue(self, options).."%"
 end
@@ -1240,7 +1241,7 @@ PV.calibratedInput = calibratedInput
 function calibratedInput:init()
   valuetypes.initValueAsNeeded(self.player.controllerInput)
 
-  local blockStart = 0x1BAB54 + (self.player.playerIndex * 0x20)
+  local blockStart = 0x1BAC30 + (self.player.playerIndex * 0x20)
 
   self.ABXYS = self.player.controllerInput.ABXYS
   self.DZ = self.player.controllerInput.DZ
