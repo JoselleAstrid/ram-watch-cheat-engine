@@ -173,7 +173,7 @@ end
 function Value:getLabel()
   -- If there is anything dynamic about a Value's label display,
   -- this function can be overridden to accommodate that.
-  -- TODO: Ensure all the display() functions respect getLabel().
+  -- All display() functions should use self:getLabel() instead of self.label.
   return self.label
 end
 
