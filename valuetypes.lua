@@ -279,20 +279,20 @@ function TypeMixin:equals(obj2)
   return self:get() == obj2:get()
 end
 
--- TODO: Consider renaming the following classes: FloatValue -> FloatType, etc.
-local FloatValue = subclass(TypeMixin)
-valuetypes.FloatValue = FloatValue
-function FloatValue:read(address)
+
+local FloatType = subclass(TypeMixin)
+valuetypes.FloatType = FloatType
+function FloatType:read(address)
   return utils.readFloatBE(address, self.numOfBytes)
 end
-function FloatValue:write(address, v)
+function FloatType:write(address, v)
   return utils.writeFloatBE(address, v, self.numOfBytes)
 end
-function FloatValue:strToValue(s) return tonumber(s) end
-function FloatValue:displayValue(options)
+function FloatType:strToValue(s) return tonumber(s) end
+function FloatType:displayValue(options)
   return utils.floatToStr(self.value, options)
 end
-function FloatValue:toStrForEditField(v, options)
+function FloatType:toStrForEditField(v, options)
   -- Here we have less concern of looking good, and more concern of
   -- giving more info.
   options = options or {}
@@ -300,37 +300,37 @@ function FloatValue:toStrForEditField(v, options)
   options.trimTrailingZeros = options.trimTrailingZeros or false
   return utils.floatToStr(v, options)
 end
-FloatValue.numOfBytes = 4
+FloatType.numOfBytes = 4
 -- For the memory record type constants, look up defines.lua in
 -- your Cheat Engine folder.
-FloatValue.addressListType = vtCustom
-FloatValue.addressListCustomTypeName = "Float Big Endian"
+FloatType.addressListType = vtCustom
+FloatType.addressListCustomTypeName = "Float Big Endian"
 
-local IntValue = subclass(TypeMixin)
-valuetypes.IntValue = IntValue
-function IntValue:read(address)
+local IntType = subclass(TypeMixin)
+valuetypes.IntType = IntType
+function IntType:read(address)
   return utils.readIntBE(address, self.numOfBytes)
 end
-function IntValue:write(address, v)
+function IntType:write(address, v)
   return utils.writeIntBE(address, v, self.numOfBytes)
 end
-function IntValue:strToValue(s) return tonumber(s) end
-function IntValue:displayValue() return tostring(self.value) end
-function IntValue:toStrForEditField(v) return tostring(v) end 
-IntValue.numOfBytes = 4
-IntValue.addressListType = vtCustom
-IntValue.addressListCustomTypeName = "4 Byte Big Endian"
+function IntType:strToValue(s) return tonumber(s) end
+function IntType:displayValue() return tostring(self.value) end
+function IntType:toStrForEditField(v) return tostring(v) end 
+IntType.numOfBytes = 4
+IntType.addressListType = vtCustom
+IntType.addressListCustomTypeName = "4 Byte Big Endian"
 
-local ShortValue = subclass(IntValue)
-valuetypes.ShortValue = ShortValue
-ShortValue.numOfBytes = 2
-ShortValue.addressListType = vtCustom
-ShortValue.addressListCustomTypeName = "2 Byte Big Endian"
+local ShortType = subclass(IntType)
+valuetypes.ShortType = ShortType
+ShortType.numOfBytes = 2
+ShortType.addressListType = vtCustom
+ShortType.addressListCustomTypeName = "2 Byte Big Endian"
 
-local ByteValue = subclass(IntValue)
-valuetypes.ByteValue = ByteValue
-ByteValue.numOfBytes = 1
-ByteValue.addressListType = vtByte
+local ByteType = subclass(IntType)
+valuetypes.ByteType = ByteType
+ByteType.numOfBytes = 1
+ByteType.addressListType = vtByte
 
 -- Floats are interpreted as signed by default, while integers are interpreted
 -- as unsigned by default. We'll define a few classes to interpret integers
@@ -344,48 +344,48 @@ local function writeSigned(self, address, v)
   return utils.writeIntBE(address, v2, self.numOfBytes)
 end
 
-valuetypes.SignedIntValue = subclass(IntValue)
-valuetypes.SignedIntValue.read = readSigned
-valuetypes.SignedIntValue.write = writeSigned
+valuetypes.SignedIntType = subclass(IntType)
+valuetypes.SignedIntType.read = readSigned
+valuetypes.SignedIntType.write = writeSigned
 
-valuetypes.SignedShortValue = subclass(ShortValue)
-valuetypes.SignedShortValue.read = readSigned
-valuetypes.SignedShortValue.write = writeSigned
+valuetypes.SignedShortType = subclass(ShortType)
+valuetypes.SignedShortType.read = readSigned
+valuetypes.SignedShortType.write = writeSigned
 
-valuetypes.SignedByteValue = subclass(ByteValue)
-valuetypes.SignedByteValue.read = readSigned
-valuetypes.SignedByteValue.write = writeSigned
+valuetypes.SignedByteType = subclass(ByteType)
+valuetypes.SignedByteType.read = readSigned
+valuetypes.SignedByteType.write = writeSigned
 
 
-local StringValue = subclass(TypeMixin)
-valuetypes.StringValue = StringValue
-function StringValue:init(extraArgs)
+local StringType = subclass(TypeMixin)
+valuetypes.StringType = StringType
+function StringType:init(extraArgs)
   TypeMixin.init(self)
   self.maxLength = extraArgs.maxLength
     or error("Must specify a max string length")
 end
-function StringValue:read(address)
+function StringType:read(address)
   return readString(address, self.maxLength)
 end
-function StringValue:write(address, text)
+function StringType:write(address, text)
   writeString(address, text)
 end
-function StringValue:strToValue(s) return s end
-function StringValue:displayValue() return self.value end
-function StringValue:toStrForEditField(v) return v end
-StringValue.addressListType = vtString
+function StringType:strToValue(s) return s end
+function StringType:displayValue() return self.value end
+function StringType:toStrForEditField(v) return v end
+StringType.addressListType = vtString
 -- TODO: Figure out the remaining details of adding a String to the
 -- address list. I think there's a couple of special fields for vtString?
 -- Check Cheat Engine's help.
 
 
 
-local BinaryValue = subclass(TypeMixin)
-valuetypes.BinaryValue = BinaryValue
-BinaryValue.addressListType = vtBinary
-BinaryValue.initialValue = {}
+local BinaryType = subclass(TypeMixin)
+valuetypes.BinaryType = BinaryType
+BinaryType.addressListType = vtBinary
+BinaryType.initialValue = {}
 
-function BinaryValue:init(extraArgs)
+function BinaryType:init(extraArgs)
   TypeMixin.init(self)
   self.binarySize = extraArgs.binarySize
     or error("Must specify size of the binary value (number of bits)")
@@ -394,7 +394,7 @@ function BinaryValue:init(extraArgs)
     or error("Must specify binary start bit (which bit within the byte)")
 end
 
-function BinaryValue:read(address)
+function BinaryType:read(address)
   -- address is the byte address
   -- Returns: a table of the bits
   -- For now, we only support binary values contained in a single byte.
@@ -412,7 +412,7 @@ function BinaryValue:read(address)
   return bits
 end
 
-function BinaryValue:write(address, v)
+function BinaryType:write(address, v)
   -- v is a table of the bits
   -- For now, we only support binary values contained in a single byte.
   
@@ -432,7 +432,7 @@ function BinaryValue:write(address, v)
   utils.writeIntBE(address, byte, 1)
 end
 
-function BinaryValue:strToValue(s)
+function BinaryType:strToValue(s)
   local bits = {}
   -- Iterate over string characters (http://stackoverflow.com/a/832414)
   for singleBitStr in s:gmatch"." do
@@ -448,7 +448,7 @@ function BinaryValue:strToValue(s)
   return bits
 end
 
-function BinaryValue:toStrForEditField(v)
+function BinaryType:toStrForEditField(v)
   -- The value is a table of bits
   local s = ""
   for _, bit in pairs(v) do
@@ -457,11 +457,11 @@ function BinaryValue:toStrForEditField(v)
   return s
 end
 
-function BinaryValue:displayValue()
+function BinaryType:displayValue()
   return self:toStrForEditField(self.value)
 end
 
-function BinaryValue:equals(obj2)
+function BinaryType:equals(obj2)
   -- Lua doesn't do value-based equality of tables, so we need to compare
   -- the elements one by one.
   local v1 = self:get()

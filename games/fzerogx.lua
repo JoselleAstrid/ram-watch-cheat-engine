@@ -28,15 +28,15 @@ local MV = valuetypes.MV
 local Block = valuetypes.Block
 local Value = valuetypes.Value
 local MemoryValue = valuetypes.MemoryValue
-local FloatValue = valuetypes.FloatValue
-local IntValue = valuetypes.IntValue
-local ShortValue = valuetypes.ShortValue
-local ByteValue = valuetypes.ByteValue
-local SignedIntValue = valuetypes.SignedIntValue
-local SignedShortValue = valuetypes.SignedShortValue
-local SignedByteValue = valuetypes.SignedByteValue
-local StringValue = valuetypes.StringValue
-local BinaryValue = valuetypes.BinaryValue
+local FloatType = valuetypes.FloatType
+local IntType = valuetypes.IntType
+local ShortType = valuetypes.ShortType
+local ByteType = valuetypes.ByteType
+local SignedIntType = valuetypes.SignedIntType
+local SignedShortType = valuetypes.SignedShortType
+local SignedByteType = valuetypes.SignedByteType
+local StringType = valuetypes.StringType
+local BinaryType = valuetypes.BinaryType
 local Vector3Value = valuetypes.Vector3Value
 local RateOfChange = valuetypes.RateOfChange
 local addAddressToList = valuetypes.addAddressToList
@@ -548,7 +548,7 @@ end
 
 
 
-local FloatStat = subclass(FloatValue)
+local FloatStat = subclass(FloatType)
 GX.FloatStat = FloatStat
 
 -- For machine stats that are floats, we'll prefer trimming zeros in the
@@ -560,7 +560,7 @@ FloatStat.displayDefaults = {trimTrailingZeros=true, afterDecimal=4}
 
 -- Shortcut function, since we have a lot of state floats.
 local function defineStateFloat(label, offset)
-  return MV(label, offset, StateValue, FloatValue)
+  return MV(label, offset, StateValue, FloatType)
 end
 
 
@@ -673,25 +673,25 @@ end
 
 -- Number of machines competing in the race when it began
 GV.numOfRacers =
-  MV("# Racers", 0x1BAFBC, RefValue, ByteValue)
+  MV("# Racers", 0x1BAFBC, RefValue, ByteType)
 -- Number of human racers
-GV.numOfHumanRacers = MV("# Human racers", 0x2453E5, RefValue, ByteValue)
+GV.numOfHumanRacers = MV("# Human racers", 0x2453E5, RefValue, ByteType)
 
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 -- TODO: This is only for P1, find the formula for the others.
-GV.settingsSlider = MV("Settings slider", 0x24547C, RefValue, IntValue)
+GV.settingsSlider = MV("Settings slider", 0x24547C, RefValue, IntType)
 function GV.settingsSlider:displayValue(options)
-  return IntValue.displayValue(self, options).."%"
+  return IntType.displayValue(self, options).."%"
 end
 
 
 -- Custom part IDs
 RV.customBodyId =
-  MV("Custom body ID", 0x0, CustomPartId, ByteValue)
+  MV("Custom body ID", 0x0, CustomPartId, ByteType)
 RV.customCockpitId =
-  MV("Custom cockpit ID", 0x8, CustomPartId, ByteValue)
+  MV("Custom cockpit ID", 0x8, CustomPartId, ByteType)
 RV.customBoosterId =
-  MV("Custom booster ID", 0x10, CustomPartId, ByteValue)
+  MV("Custom booster ID", 0x10, CustomPartId, ByteType)
 
 function Racer:customPartIds(number)
   local ids = {self.customBodyId, self.customCockpitId, self.customBoosterId}
@@ -700,9 +700,9 @@ function Racer:customPartIds(number)
 end
 
   
-RV.machineId = MV("Machine ID", 0x6, StateValue, ShortValue)
+RV.machineId = MV("Machine ID", 0x6, StateValue, ShortType)
 RV.machineName =
-  MV("Machine name", 0x3C, StateValue, StringValue, {maxLength=64})
+  MV("Machine name", 0x3C, StateValue, StringType, {maxLength=64})
 
 RV.accel = V(StatTiedToBase, "Accel", 0x220, 0x8, FloatStat, {3})
 RV.body = V(StatTiedToBase, "Body", 0x30, 0x44, FloatStat, {1,2})
@@ -727,12 +727,12 @@ RV.weight = V(StatTiedToBase, "Weight", 0x8, 0x4, FloatStat, {1,2,3})
   
 RV.obstacleCollision = MV(
   "Obstacle collision", 0x584, StateValue, FloatStat)
-RV.unknown48 = V(StatTiedToBase, "Unknown 48", 0x477, 0x48, ByteValue, {2})
+RV.unknown48 = V(StatTiedToBase, "Unknown 48", 0x477, 0x48, ByteType, {2})
 -- Actual is state bit 1; base is 0x49 / 2
-RV.unknown49a = V(StatTiedToBase, "Unknown 49a", 0x0, 0x49, BinaryValue, {2},
+RV.unknown49a = V(StatTiedToBase, "Unknown 49a", 0x0, 0x49, BinaryType, {2},
    {binarySize=1, binaryStartBit=7}, {binarySize=1, binaryStartBit=1})
 -- Actual is state bit 24; base is 0x49 % 2
-RV.driftCamera = V(StatTiedToBase, "Drift camera", 0x2, 0x49, BinaryValue, {2},
+RV.driftCamera = V(StatTiedToBase, "Drift camera", 0x2, 0x49, BinaryType, {2},
   {binarySize=1, binaryStartBit=0}, {binarySize=1, binaryStartBit=0})
   
 RV.frontWidth = V(SizeStat,
@@ -861,19 +861,19 @@ GX.statNames = {
 -- General-interest state values
 
 RV.generalState1a = MV(
-  "State bits 01-08", 0x0, StateValue, BinaryValue,
+  "State bits 01-08", 0x0, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.generalState1b = MV(
-  "State bits 09-16", 0x1, StateValue, BinaryValue,
+  "State bits 09-16", 0x1, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.generalState1c = MV(
-  "State bits 17-24", 0x2, StateValue, BinaryValue,
+  "State bits 17-24", 0x2, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.generalState1d = MV(
-  "State bits 25-32", 0x3, StateValue, BinaryValue,
+  "State bits 25-32", 0x3, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 function Racer:sideAttackOn()
@@ -930,61 +930,61 @@ RV.gOrient.displayDefaults = {signed=true, beforeDecimal=1, afterDecimal=3}
 
 RV.kmh = defineStateFloat("km/h", 0x17C)
 RV.energy = defineStateFloat("Energy", 0x184)
-RV.boostFramesLeft = MV("Boost frames left", 0x18A, StateValue, ByteValue)
-RV.score = MV("Score", 0x210, StateValue, ShortValue)
+RV.boostFramesLeft = MV("Boost frames left", 0x18A, StateValue, ByteType)
+RV.score = MV("Score", 0x210, StateValue, ShortType)
 RV.terrainState218 = MV(
-  "Terrain state", 0x218, StateValue, BinaryValue,
+  "Terrain state", 0x218, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.gripAndAirState = MV(
-  "Grip and air state", 0x247, StateValue, BinaryValue,
+  "Grip and air state", 0x247, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.damageLastHit = defineStateFloat("Damage, last hit", 0x4AC)
-RV.boostDelay = MV("Boost delay", 0x4C6, StateValue, ShortValue)
+RV.boostDelay = MV("Boost delay", 0x4C6, StateValue, ShortType)
 RV.boostEnergyUsageFactor =
   defineStateFloat("Boost energy usage factor", 0x4DC)
 RV.terrainState4FD = MV(
-  "Terrain state 4FD", 0x4FD, StateValue, BinaryValue,
+  "Terrain state 4FD", 0x4FD, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 RV.generalState58F = MV(
-  "State 58F", 0x58F, StateValue, BinaryValue,
+  "State 58F", 0x58F, StateValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 
 
-RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatValue)
+RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatType)
 
-RV.checkpointMain = MV("Main checkpoint", 0x618, State2Value, SignedIntValue)
-RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatValue)
-RV.checkpointLateralOffset = MV("CP lateral", 0x668, State2Value, FloatValue)
+RV.checkpointMain = MV("Main checkpoint", 0x618, State2Value, SignedIntType)
+RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatType)
+RV.checkpointLateralOffset = MV("CP lateral", 0x668, State2Value, FloatType)
 RV.checkpointRightVector = V(
   subclass(Vector3Value, RacerValue),
-  MV("CP Right X", 0x560, State2Value, FloatValue),
-  MV("CP Right Y", 0x570, State2Value, FloatValue),
-  MV("CP Right Z", 0x580, State2Value, FloatValue)
+  MV("CP Right X", 0x560, State2Value, FloatType),
+  MV("CP Right Y", 0x570, State2Value, FloatType),
+  MV("CP Right Z", 0x580, State2Value, FloatType)
 )
 RV.checkpointRightVector.label = "CP Right"
 RV.checkpointRightVector.displayDefaults = {
   signed=true, beforeDecimal=1, afterDecimal=5}
-RV.sectionCheckpoint = MV("Section CP", 0x61C, State2Value, SignedIntValue)
-RV.checkpointPositional = MV("Positional CP", 0x5FC, State2Value, SignedIntValue)
-RV.checkpointLastContact = MV("Last contact CP", 0x1CC, StateValue, IntValue)
-RV.checkpointGround = MV("Ground CP", 0x680, State2Value, SignedIntValue)
-RV.checkpointNumber74 = MV("Checkpoint 74", 0x74, State2Value, SignedIntValue)
-RV.checkpointNumberD0 = MV("Checkpoint D0", 0xD0, State2Value, SignedIntValue)
-RV.checkpointNumber154 = MV("Checkpoint 154", 0x154, State2Value, SignedIntValue)
-RV.checkpointNumber1B0 = MV("Checkpoint 1B0", 0x1B0, State2Value, SignedIntValue)
-RV.checkpointNumber234 = MV("Checkpoint 234", 0x234, State2Value, SignedIntValue)
-RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntValue)
-RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntValue)
-RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntValue)
+RV.sectionCheckpoint = MV("Section CP", 0x61C, State2Value, SignedIntType)
+RV.checkpointPositional = MV("Positional CP", 0x5FC, State2Value, SignedIntType)
+RV.checkpointLastContact = MV("Last contact CP", 0x1CC, StateValue, IntType)
+RV.checkpointGround = MV("Ground CP", 0x680, State2Value, SignedIntType)
+RV.checkpointNumber74 = MV("Checkpoint 74", 0x74, State2Value, SignedIntType)
+RV.checkpointNumberD0 = MV("Checkpoint D0", 0xD0, State2Value, SignedIntType)
+RV.checkpointNumber154 = MV("Checkpoint 154", 0x154, State2Value, SignedIntType)
+RV.checkpointNumber1B0 = MV("Checkpoint 1B0", 0x1B0, State2Value, SignedIntType)
+RV.checkpointNumber234 = MV("Checkpoint 234", 0x234, State2Value, SignedIntType)
+RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntType)
+RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntType)
+RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntType)
 
-RV.lapIndex = MV("Lap index", 0x67B, State2Value, ByteValue)
-RV.lapIndexPosition = MV("Lap index, position", 0x67F, State2Value, SignedByteValue)
-RV.lapIndexGround = MV("Lap index, ground", 0x6B7, State2Value, ByteValue)
-RV.lapIndexPositionGround = MV("Lap index, pos/gr", 0x6BB, State2Value, SignedByteValue)
+RV.lapIndex = MV("Lap index", 0x67B, State2Value, ByteType)
+RV.lapIndexPosition = MV("Lap index, position", 0x67F, State2Value, SignedByteType)
+RV.lapIndexGround = MV("Lap index, ground", 0x6B7, State2Value, ByteType)
+RV.lapIndexPositionGround = MV("Lap index, pos/gr", 0x6BB, State2Value, SignedByteType)
 
 
 -- Physics related
@@ -1004,7 +1004,7 @@ RV.stability1B0 = defineStateFloat("Stability 1B0", 0x1B0)
 RV.stability1B4 = defineStateFloat("Stability 1B4", 0x1B4)
 RV.stability1B8 = defineStateFloat("Stability 1B8", 0x1B8)
 RV.groundContact = defineStateFloat("Ground contact", 0x1C8)
-RV.collision216 = MV("Collision 216", 0x216, StateValue, IntValue)
+RV.collision216 = MV("Collision 216", 0x216, StateValue, IntType)
 RV.speed224 = defineStateFloat("Speed 224", 0x224)
 RV.boost228 = defineStateFloat("Boost 228", 0x228)
 RV.slopeRateOfChange288 = defineStateFloat("Slope rate of change 288", 0x288)
@@ -1012,7 +1012,7 @@ RV.tilt28C = defineStateFloat("Tilt 28C", 0x28C)
 RV.orientation290 = defineStateFloat("Orientation 290", 0x290)
 RV.collision3D8 = defineStateFloat("Collision 3D8", 0x3D8)
 RV.speed478 = defineStateFloat("Speed 478", 0x478)
-RV.strafeEffect = MV("Strafe effect", 0x4B0, StateValue, SignedShortValue)
+RV.strafeEffect = MV("Strafe effect", 0x4B0, StateValue, SignedShortType)
 RV.stability4B4 = defineStateFloat("Stability 4B4", 0x4B4)
 RV.turnReactionInput = defineStateFloat("T. reaction input", 0x4D4)
 RV.turnReactionEffect = defineStateFloat("T. reaction effect", 0x4D8)
@@ -1034,15 +1034,15 @@ function Timer:init(label, offset)
   self.label = label
   
   self.frames = self.block:MV(
-    label..", frames", offset, State2Value, IntValue)
+    label..", frames", offset, State2Value, IntType)
   self.frameFraction = self.block:MV(
-    label..", frame fraction", offset+4, State2Value, FloatValue)
+    label..", frame fraction", offset+4, State2Value, FloatType)
   self.mins = self.block:MV(
-    label..", minutes", offset+8, State2Value, ByteValue)
+    label..", minutes", offset+8, State2Value, ByteType)
   self.secs = self.block:MV(
-    label..", seconds", offset+9, State2Value, ByteValue)
+    label..", seconds", offset+9, State2Value, ByteType)
   self.millis = self.block:MV(
-    label..", milliseconds", offset+10, State2Value, ShortValue)
+    label..", milliseconds", offset+10, State2Value, ShortType)
 end
 
 function Timer:updateValue()
@@ -1143,15 +1143,15 @@ function controllerInput:init()
   local blockStart = 0x15CBD0 + (self.player.playerIndex * 0x8)
 
   self.ABXYS = self.block:MV("ABXY & Start", blockStart + 0,
-    StaticValue, BinaryValue, {binarySize=8, binaryStartBit=7})
+    StaticValue, BinaryType, {binarySize=8, binaryStartBit=7})
   self.DZ = self.block:MV("D-Pad & Z", blockStart + 1,
-    StaticValue, BinaryValue, {binarySize=8, binaryStartBit=7})
-  self.stickX = self.block:MV("Stick X", blockStart + 2, StaticValue, ByteValue)
-  self.stickY = self.block:MV("Stick Y", blockStart + 3, StaticValue, ByteValue)
-  self.CStickX = self.block:MV("C-Stick X", blockStart + 4, StaticValue, ByteValue)
-  self.CStickY = self.block:MV("C-Stick Y", blockStart + 5, StaticValue, ByteValue)
-  self.L = self.block:MV("L", blockStart + 6, StaticValue, ByteValue)
-  self.R = self.block:MV("R", blockStart + 7, StaticValue, ByteValue)
+    StaticValue, BinaryType, {binarySize=8, binaryStartBit=7})
+  self.stickX = self.block:MV("Stick X", blockStart + 2, StaticValue, ByteType)
+  self.stickY = self.block:MV("Stick Y", blockStart + 3, StaticValue, ByteType)
+  self.CStickX = self.block:MV("C-Stick X", blockStart + 4, StaticValue, ByteType)
+  self.CStickY = self.block:MV("C-Stick Y", blockStart + 5, StaticValue, ByteType)
+  self.L = self.block:MV("L", blockStart + 6, StaticValue, ByteType)
+  self.R = self.block:MV("R", blockStart + 7, StaticValue, ByteType)
 end
 
 function controllerInput:getButton(button)
@@ -1246,17 +1246,17 @@ function calibratedInput:init()
   self.ABXYS = self.player.controllerInput.ABXYS
   self.DZ = self.player.controllerInput.DZ
   self.stickX =
-      self.block:MV("Stick X, calibrated", blockStart + 0x0, RefValue, FloatValue)
+      self.block:MV("Stick X, calibrated", blockStart + 0x0, RefValue, FloatType)
   self.stickY =
-      self.block:MV("Stick Y, calibrated", blockStart + 0x4, RefValue, FloatValue)
+      self.block:MV("Stick Y, calibrated", blockStart + 0x4, RefValue, FloatType)
   self.CStickX =
-      self.block:MV("C-Stick X, calibrated", blockStart + 0x8, RefValue, FloatValue)
+      self.block:MV("C-Stick X, calibrated", blockStart + 0x8, RefValue, FloatType)
   self.CStickY =
-      self.block:MV("C-Stick Y, calibrated", blockStart + 0xC, RefValue, FloatValue)
+      self.block:MV("C-Stick Y, calibrated", blockStart + 0xC, RefValue, FloatType)
   self.L =
-      self.block:MV("L, calibrated", blockStart + 0x10, RefValue, FloatValue)
+      self.block:MV("L, calibrated", blockStart + 0x10, RefValue, FloatType)
   self.R =
-      self.block:MV("R, calibrated", blockStart + 0x14, RefValue, FloatValue)
+      self.block:MV("R, calibrated", blockStart + 0x14, RefValue, FloatType)
 end
 
 function calibratedInput:stickXDisplay()

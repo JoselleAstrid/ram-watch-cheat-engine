@@ -18,13 +18,13 @@ local valuetypes = require "valuetypes"
 local V = valuetypes.V
 local MV = valuetypes.MV
 local MemoryValue = valuetypes.MemoryValue
-local FloatValue = valuetypes.FloatValue
-local IntValue = valuetypes.IntValue
-local ShortValue = valuetypes.ShortValue
-local ByteValue = valuetypes.ByteValue
-local SignedIntValue = valuetypes.SignedIntValue
-local StringValue = valuetypes.StringValue
-local BinaryValue = valuetypes.BinaryValue
+local FloatType = valuetypes.FloatType
+local IntType = valuetypes.IntType
+local ShortType = valuetypes.ShortType
+local ByteType = valuetypes.ByteType
+local SignedIntType = valuetypes.SignedIntType
+local StringType = valuetypes.StringType
+local BinaryType = valuetypes.BinaryType
 local Vector3Value = valuetypes.Vector3Value
 
 package.loaded._supermariogalaxyshared = nil
@@ -149,19 +149,19 @@ end
 -- General-interest state values.
 
 GV.generalState1a = MV(
-  "State bits 01-08", -0x128, SMG1.PosBlockValue, BinaryValue,
+  "State bits 01-08", -0x128, SMG1.PosBlockValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1b = MV(
-  "State bits 09-16", -0x127, SMG1.PosBlockValue, BinaryValue,
+  "State bits 09-16", -0x127, SMG1.PosBlockValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1c = MV(
-  "State bits 17-24", -0x126, SMG1.PosBlockValue, BinaryValue,
+  "State bits 17-24", -0x126, SMG1.PosBlockValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1d = MV(
-  "State bits 25-32", -0x125, SMG1.PosBlockValue, BinaryValue,
+  "State bits 25-32", -0x125, SMG1.PosBlockValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 function SMG1:onGround()
@@ -176,25 +176,25 @@ end
 -- It also pauses for a few frames when you get the star.
 -- It resets to 0 if you die.
 GV.stageTimeFrames =
-  MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntValue)
+  MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntType)
   
 
 
 -- Position, velocity, and other coordinates related stuff.
 GV.pos = V(
   Vector3Value,
-  MV("Pos X", 0x0, SMG1.PosBlockValue, FloatValue),
-  MV("Pos Y", 0x4, SMG1.PosBlockValue, FloatValue),
-  MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatValue)
+  MV("Pos X", 0x0, SMG1.PosBlockValue, FloatType),
+  MV("Pos Y", 0x4, SMG1.PosBlockValue, FloatType),
+  MV("Pos Z", 0x8, SMG1.PosBlockValue, FloatType)
 )
 GV.pos.label = "Position"
 GV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 
 GV.pos_early1 = V(
   Vector3Value,
-  MV("Pos X", 0x18DC, SMG1.RefValue, FloatValue),
-  MV("Pos Y", 0x18E0, SMG1.RefValue, FloatValue),
-  MV("Pos Z", 0x18E4, SMG1.RefValue, FloatValue)
+  MV("Pos X", 0x18DC, SMG1.RefValue, FloatType),
+  MV("Pos Y", 0x18E0, SMG1.RefValue, FloatType),
+  MV("Pos Z", 0x18E4, SMG1.RefValue, FloatType)
 )
 GV.pos_early1.label = "Position"
 GV.pos_early1.displayDefaults =
@@ -212,9 +212,9 @@ GV.pos_early1.displayDefaults =
 -- then we might use this.
 GV.baseVel = V(
   Vector3Value,
-  MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatValue),
-  MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatValue),
-  MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatValue)
+  MV("Base Vel X", 0x78, SMG1.PosBlockValue, FloatType),
+  MV("Base Vel Y", 0x7C, SMG1.PosBlockValue, FloatType),
+  MV("Base Vel Z", 0x80, SMG1.PosBlockValue, FloatType)
 )
 GV.baseVel.label = "Base Vel"
 GV.baseVel.displayDefaults = {signed=true}
@@ -223,9 +223,9 @@ GV.baseVel.displayDefaults = {signed=true}
 -- Mario/Luigi's direction of gravity.
 GV.upVectorGravity = V(
   Vector3Value,
-  MV("Up X", 0x6A3C, SMG1.RefValue, FloatValue),
-  MV("Up Y", 0x6A40, SMG1.RefValue, FloatValue),
-  MV("Up Z", 0x6A44, SMG1.RefValue, FloatValue)
+  MV("Up X", 0x6A3C, SMG1.RefValue, FloatType),
+  MV("Up Y", 0x6A40, SMG1.RefValue, FloatType),
+  MV("Up Z", 0x6A44, SMG1.RefValue, FloatType)
 )
 GV.upVectorGravity.label = "Grav (Up)"
 GV.upVectorGravity.displayDefaults =
@@ -233,9 +233,9 @@ GV.upVectorGravity.displayDefaults =
 
 GV.downVectorGravity = V(
   Vector3Value,
-  MV("Up X", 0x1B10, SMG1.RefValue, FloatValue),
-  MV("Up Y", 0x1B14, SMG1.RefValue, FloatValue),
-  MV("Up Z", 0x1B18, SMG1.RefValue, FloatValue)
+  MV("Up X", 0x1B10, SMG1.RefValue, FloatType),
+  MV("Up Y", 0x1B14, SMG1.RefValue, FloatType),
+  MV("Up Z", 0x1B18, SMG1.RefValue, FloatType)
 )
 GV.downVectorGravity.label = "Grav (Down)"
 GV.downVectorGravity.displayDefaults =
@@ -244,9 +244,9 @@ GV.downVectorGravity.displayDefaults =
 -- Up vector (tilt). Offset from the gravity up vector when there is tilt.
 GV.upVectorTilt = V(
   Vector3Value,
-  MV("Up X", 0xC0, SMG1.PosBlockValue, FloatValue),
-  MV("Up Y", 0xC4, SMG1.PosBlockValue, FloatValue),
-  MV("Up Z", 0xC8, SMG1.PosBlockValue, FloatValue)
+  MV("Up X", 0xC0, SMG1.PosBlockValue, FloatType),
+  MV("Up Y", 0xC4, SMG1.PosBlockValue, FloatType),
+  MV("Up Z", 0xC8, SMG1.PosBlockValue, FloatType)
 )
 GV.upVectorTilt.label = "Tilt (Up)"
 GV.upVectorTilt.displayDefaults =
@@ -256,33 +256,33 @@ GV.upVectorTilt.displayDefaults =
 
 -- Inputs and spin state.
 
-GV.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryValue,
+GV.buttons1 = MV("Buttons 1", 0x61D342, SMG1.StaticValue, BinaryType,
   {binarySize=8, binaryStartBit=7})
-GV.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryValue,
+GV.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryType,
   {binarySize=8, binaryStartBit=7})
 
 GV.wiimoteShakeBit =
-  MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteValue)
+  MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteType)
 GV.nunchukShakeBit =
-  MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteValue)
+  MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteType)
 GV.spinCooldownTimer =
-  MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteValue)
+  MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteType)
 GV.spinAttackTimer =
-  MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteValue)
+  MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteType)
 
-GV.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatValue)
-GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatValue)
+GV.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatType)
+GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatType)
 
 
 
 -- Text.
 
 GV.textProgress =
-  MV("Text progress", 0x2D39C, SMG1.MessageInfoValue, IntValue)
+  MV("Text progress", 0x2D39C, SMG1.MessageInfoValue, IntType)
 GV.alphaReq =
-  MV("Alpha req", 0x2D3B0, SMG1.MessageInfoValue, FloatValue)
+  MV("Alpha req", 0x2D3B0, SMG1.MessageInfoValue, FloatType)
 GV.fadeRate =
-  MV("Fade rate", 0x2D3B4, SMG1.MessageInfoValue, FloatValue)
+  MV("Fade rate", 0x2D3B4, SMG1.MessageInfoValue, FloatType)
 
 
 return SMG1

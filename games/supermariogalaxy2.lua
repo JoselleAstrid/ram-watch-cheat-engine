@@ -18,13 +18,13 @@ local valuetypes = require "valuetypes"
 local V = valuetypes.V
 local MV = valuetypes.MV
 local MemoryValue = valuetypes.MemoryValue
-local FloatValue = valuetypes.FloatValue
-local IntValue = valuetypes.IntValue
-local ShortValue = valuetypes.ShortValue
-local ByteValue = valuetypes.ByteValue
-local SignedIntValue = valuetypes.SignedIntValue
-local StringValue = valuetypes.StringValue
-local BinaryValue = valuetypes.BinaryValue
+local FloatType = valuetypes.FloatType
+local IntType = valuetypes.IntType
+local ShortType = valuetypes.ShortType
+local ByteType = valuetypes.ByteType
+local SignedIntType = valuetypes.SignedIntType
+local StringType = valuetypes.StringType
+local BinaryType = valuetypes.BinaryType
 local Vector3Value = valuetypes.Vector3Value
 
 package.loaded._supermariogalaxyshared = nil
@@ -151,19 +151,19 @@ end
 -- General-interest state values.
 
 GV.generalState1a = MV(
-  "State bits 01-08", -0x51FC, SMG2.PosRefValue, BinaryValue,
+  "State bits 01-08", -0x51FC, SMG2.PosRefValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1b = MV(
-  "State bits 09-16", -0x51FB, SMG2.PosRefValue, BinaryValue,
+  "State bits 09-16", -0x51FB, SMG2.PosRefValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1c = MV(
-  "State bits 17-24", -0x51FA, SMG2.PosRefValue, BinaryValue,
+  "State bits 17-24", -0x51FA, SMG2.PosRefValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 GV.generalState1d = MV(
-  "State bits 25-32", -0x51F9, SMG2.PosRefValue, BinaryValue,
+  "State bits 25-32", -0x51F9, SMG2.PosRefValue, BinaryType,
   {binarySize=8, binaryStartBit=7}
 )
 function SMG2:onGround()
@@ -174,10 +174,10 @@ end
 
 -- In-game timers.
 GV.stageTimeFrames =
-  MV("Stage time, frames", 0xA75D10, SMG2.StaticValue, IntValue)
+  MV("Stage time, frames", 0xA75D10, SMG2.StaticValue, IntType)
 
 GV.fileTimeFrames =
-  MV("File time, frames", 0xE40E4C, SMG2.StaticValue, ShortValue)
+  MV("File time, frames", 0xE40E4C, SMG2.StaticValue, ShortType)
 function GV.fileTimeFrames:get()
   -- This is a weird combination of big endian and little endian, it seems.
   local address = self:getAddress()
@@ -191,9 +191,9 @@ end
 -- Position, velocity, and other coordinates related stuff.
 GV.pos = V(
   Vector3Value,
-  MV("Pos X", -0x8670, SMG2.PosRefValue, FloatValue),
-  MV("Pos Y", -0x866C, SMG2.PosRefValue, FloatValue),
-  MV("Pos Z", -0x8668, SMG2.PosRefValue, FloatValue)
+  MV("Pos X", -0x8670, SMG2.PosRefValue, FloatType),
+  MV("Pos Y", -0x866C, SMG2.PosRefValue, FloatType),
+  MV("Pos Z", -0x8668, SMG2.PosRefValue, FloatType)
 )
 GV.pos.label = "Position"
 GV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
@@ -201,9 +201,9 @@ GV.pos.displayDefaults = {signed=true, beforeDecimal=5, afterDecimal=1}
 -- 1 frame earlier than what you see on camera.
 GV.pos_early1 = V(
   Vector3Value,
-  MV("Pos X", -0x8C58+0x14, SMG2.PosRefValue, FloatValue),
-  MV("Pos Y", -0x8C58+0x18, SMG2.PosRefValue, FloatValue),
-  MV("Pos Z", -0x8C58+0x1C, SMG2.PosRefValue, FloatValue)
+  MV("Pos X", -0x8C58+0x14, SMG2.PosRefValue, FloatType),
+  MV("Pos Y", -0x8C58+0x18, SMG2.PosRefValue, FloatType),
+  MV("Pos Z", -0x8C58+0x1C, SMG2.PosRefValue, FloatType)
 )
 GV.pos_early1.label = "Position"
 GV.pos_early1.displayDefaults =
@@ -221,9 +221,9 @@ GV.pos_early1.displayDefaults =
 -- then we might use this.
 GV.baseVel = V(
   Vector3Value,
-  MV("Base Vel X", -0x8C58+0x38, SMG2.PosRefValue, FloatValue),
-  MV("Base Vel Y", -0x8C58+0x3C, SMG2.PosRefValue, FloatValue),
-  MV("Base Vel Z", -0x8C58+0x40, SMG2.PosRefValue, FloatValue)
+  MV("Base Vel X", -0x8C58+0x38, SMG2.PosRefValue, FloatType),
+  MV("Base Vel Y", -0x8C58+0x3C, SMG2.PosRefValue, FloatType),
+  MV("Base Vel Z", -0x8C58+0x40, SMG2.PosRefValue, FloatType)
 )
 GV.baseVel.label = "Base Vel"
 GV.baseVel.displayDefaults = {signed=true}
@@ -232,9 +232,9 @@ GV.baseVel.displayDefaults = {signed=true}
 -- Mario/Luigi's direction of gravity.
 GV.downVectorGravity = V(
   Vector3Value,
-  MV("Down X", -0x86C4, SMG2.PosRefValue, FloatValue),
-  MV("Down Y", -0x86C0, SMG2.PosRefValue, FloatValue),
-  MV("Down Z", -0x86BC, SMG2.PosRefValue, FloatValue)
+  MV("Down X", -0x86C4, SMG2.PosRefValue, FloatType),
+  MV("Down Y", -0x86C0, SMG2.PosRefValue, FloatType),
+  MV("Down Z", -0x86BC, SMG2.PosRefValue, FloatType)
 )
 GV.downVectorGravity.label = "Grav (Down)"
 GV.downVectorGravity.displayDefaults =
@@ -247,9 +247,9 @@ GV.downVectorGravity.displayDefaults =
 -- a few frames after jumping.
 GV.downVectorAccel = V(
   Vector3Value,
-  MV("Down X", -0x7D88, SMG2.PosRefValue, FloatValue),
-  MV("Down Y", -0x7D84, SMG2.PosRefValue, FloatValue),
-  MV("Down Z", -0x7D80, SMG2.PosRefValue, FloatValue)
+  MV("Down X", -0x7D88, SMG2.PosRefValue, FloatType),
+  MV("Down Y", -0x7D84, SMG2.PosRefValue, FloatType),
+  MV("Down Z", -0x7D80, SMG2.PosRefValue, FloatType)
 )
 GV.downVectorAccel.label = "Down accel\ndirection"
 GV.downVectorAccel.displayDefaults =
@@ -258,9 +258,9 @@ GV.downVectorAccel.displayDefaults =
 -- Up vector (tilt). Offset from the gravity vector when there is tilt.
 GV.upVectorTilt = V(
   Vector3Value,
-  MV("Up X", -0x5018, SMG2.PosRefValue, FloatValue),
-  MV("Up Y", -0x5014, SMG2.PosRefValue, FloatValue),
-  MV("Up Z", -0x5010, SMG2.PosRefValue, FloatValue)
+  MV("Up X", -0x5018, SMG2.PosRefValue, FloatType),
+  MV("Up Y", -0x5014, SMG2.PosRefValue, FloatType),
+  MV("Up Z", -0x5010, SMG2.PosRefValue, FloatType)
 )
 GV.upVectorTilt.label = "Tilt (Up)"
 GV.upVectorTilt.displayDefaults =
@@ -270,22 +270,22 @@ GV.upVectorTilt.displayDefaults =
 
 -- Inputs and spin state.
 
-GV.buttons1 = MV("Buttons 1", 0xB38A2E, SMG2.StaticValue, BinaryValue,
+GV.buttons1 = MV("Buttons 1", 0xB38A2E, SMG2.StaticValue, BinaryType,
   {binarySize=8, binaryStartBit=7})
-GV.buttons2 = MV("Buttons 2", 0xB38A2F, SMG2.StaticValue, BinaryValue,
+GV.buttons2 = MV("Buttons 2", 0xB38A2F, SMG2.StaticValue, BinaryType,
   {binarySize=8, binaryStartBit=7})
 
 GV.wiimoteShakeBit =
-  MV("Wiimote spin bit", -0x7C4A, SMG2.PosRefValue, ByteValue)
+  MV("Wiimote spin bit", -0x7C4A, SMG2.PosRefValue, ByteType)
 GV.nunchukShakeBit =
-  MV("Nunchuk spin bit", -0x7C49, SMG2.PosRefValue, ByteValue)
+  MV("Nunchuk spin bit", -0x7C49, SMG2.PosRefValue, ByteType)
 GV.spinCooldownTimer =
-  MV("Spin cooldown timer", -0x7E19, SMG2.PosRefValue, ByteValue)
+  MV("Spin cooldown timer", -0x7E19, SMG2.PosRefValue, ByteType)
 GV.spinAttackTimer =
-  MV("Spin attack timer", -0x7E1C, SMG2.PosRefValue, ByteValue)
+  MV("Spin attack timer", -0x7E1C, SMG2.PosRefValue, ByteType)
 
-GV.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatValue)
-GV.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatValue)
+GV.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatType)
+GV.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatType)
 
 
 return SMG2
