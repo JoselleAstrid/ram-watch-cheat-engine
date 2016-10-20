@@ -11,12 +11,7 @@
 package.loaded.utils = nil
 local utils = require 'utils'
 local readIntBE = utils.readIntBE
-local readFloatBE = utils.readFloatBE
-local floatToStr = utils.floatToStr
-local initLabel = utils.initLabel
-local StatRecorder = utils.StatRecorder
 local subclass = utils.subclass
-local classInstantiate = utils.classInstantiate
 
 package.loaded.dolphin = nil
 local dolphin = require 'dolphin'
@@ -28,18 +23,16 @@ local MV = valuetypes.MV
 local Block = valuetypes.Block
 local Value = valuetypes.Value
 local MemoryValue = valuetypes.MemoryValue
-local FloatType = valuetypes.FloatType
-local IntType = valuetypes.IntType
-local ShortType = valuetypes.ShortType
+local FloatType = valuetypes.FloatTypeBE
+local IntType = valuetypes.IntTypeBE
+local ShortType = valuetypes.ShortTypeBE
 local ByteType = valuetypes.ByteType
-local SignedIntType = valuetypes.SignedIntType
-local SignedShortType = valuetypes.SignedShortType
+local SignedIntType = valuetypes.SignedIntTypeBE
+local SignedShortType = valuetypes.SignedShortTypeBE
 local SignedByteType = valuetypes.SignedByteType
 local StringType = valuetypes.StringType
 local BinaryType = valuetypes.BinaryType
 local Vector3Value = valuetypes.Vector3Value
-local RateOfChange = valuetypes.RateOfChange
-local addAddressToList = valuetypes.addAddressToList
 
 package.loaded.layouts = nil
 local layoutsModule = require 'layouts'

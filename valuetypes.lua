@@ -280,19 +280,24 @@ function TypeMixin:equals(obj2)
 end
 
 
-local FloatType = subclass(TypeMixin)
-valuetypes.FloatType = FloatType
-function FloatType:read(address)
-  return utils.readFloatBE(address, self.numOfBytes)
+-- Floating-point value, single precision, Little Endian.
+local FloatTypeLE = subclass(TypeMixin)
+valuetypes.FloatTypeLE = FloatTypeLE
+FloatTypeLE.numOfBytes = 4
+-- For the memory record type constants, look up defines.lua in
+-- your Cheat Engine folder.
+FloatTypeLE.addressListType = vtSingle  -- TODO: Check
+function FloatTypeLE:read(address)
+  return utils.readFloatLE(address, self.numOfBytes)
 end
-function FloatType:write(address, v)
-  return utils.writeFloatBE(address, v, self.numOfBytes)
+function FloatTypeLE:write(address, v)
+  return utils.writeFloatLE(address, v, self.numOfBytes)
 end
-function FloatType:strToValue(s) return tonumber(s) end
-function FloatType:displayValue(options)
+function FloatTypeLE:strToValue(s) return tonumber(s) end
+function FloatTypeLE:displayValue(options)
   return utils.floatToStr(self.value, options)
 end
-function FloatType:toStrForEditField(v, options)
+function FloatTypeLE:toStrForEditField(v, options)
   -- Here we have less concern of looking good, and more concern of
   -- giving more info.
   options = options or {}
@@ -300,37 +305,63 @@ function FloatType:toStrForEditField(v, options)
   options.trimTrailingZeros = options.trimTrailingZeros or false
   return utils.floatToStr(v, options)
 end
-FloatType.numOfBytes = 4
--- For the memory record type constants, look up defines.lua in
--- your Cheat Engine folder.
-FloatType.addressListType = vtCustom
-FloatType.addressListCustomTypeName = "Float Big Endian"
 
-local IntType = subclass(TypeMixin)
-valuetypes.IntType = IntType
-function IntType:read(address)
+-- Big-Endian version.
+local FloatTypeBE = subclass(FloatTypeLE)
+valuetypes.FloatTypeBE = FloatTypeBE
+-- Must have a custom Cheat Engine type defined called Float Big Endian.
+FloatTypeBE.addressListType = vtCustom
+FloatTypeBE.addressListCustomTypeName = "Float Big Endian"
+function FloatTypeBE:read(address)
+  return utils.readFloatBE(address, self.numOfBytes)
+end
+function FloatTypeBE:write(address, v)
+  return utils.writeFloatBE(address, v, self.numOfBytes)
+end
+
+
+local IntTypeLE = subclass(TypeMixin)
+valuetypes.IntTypeLE = IntTypeLE
+function IntTypeLE:read(address)
+  return utils.readIntLE(address, self.numOfBytes)
+end
+function IntTypeLE:write(address, v)
+  return utils.writeIntLE(address, v, self.numOfBytes)
+end
+function IntTypeLE:strToValue(s) return tonumber(s) end
+function IntTypeLE:displayValue() return tostring(self.value) end
+function IntTypeLE:toStrForEditField(v) return tostring(v) end 
+IntTypeLE.numOfBytes = 4
+IntTypeLE.addressListType = vtDword  -- TODO: Check
+
+local IntTypeBE = subclass(IntTypeLE)
+valuetypes.IntTypeBE = IntTypeBE
+function IntTypeBE:read(address)
   return utils.readIntBE(address, self.numOfBytes)
 end
-function IntType:write(address, v)
+function IntTypeBE:write(address, v)
   return utils.writeIntBE(address, v, self.numOfBytes)
 end
-function IntType:strToValue(s) return tonumber(s) end
-function IntType:displayValue() return tostring(self.value) end
-function IntType:toStrForEditField(v) return tostring(v) end 
-IntType.numOfBytes = 4
-IntType.addressListType = vtCustom
-IntType.addressListCustomTypeName = "4 Byte Big Endian"
+IntTypeBE.addressListType = vtCustom
+IntTypeBE.addressListCustomTypeName = "4 Byte Big Endian"
 
-local ShortType = subclass(IntType)
-valuetypes.ShortType = ShortType
-ShortType.numOfBytes = 2
-ShortType.addressListType = vtCustom
-ShortType.addressListCustomTypeName = "2 Byte Big Endian"
 
-local ByteType = subclass(IntType)
+local ShortTypeLE = subclass(IntTypeLE)
+valuetypes.ShortTypeLE = ShortTypeLE
+ShortTypeLE.numOfBytes = 2
+ShortTypeLE.addressListType = vtWord  -- TODO: Check
+
+local ShortTypeBE = subclass(IntTypeBE)
+valuetypes.ShortTypeBE = ShortTypeBE
+ShortTypeBE.numOfBytes = 2
+ShortTypeBE.addressListType = vtCustom
+ShortTypeBE.addressListCustomTypeName = "2 Byte Big Endian"
+
+local ByteType = subclass(IntTypeLE)
 valuetypes.ByteType = ByteType
 ByteType.numOfBytes = 1
 ByteType.addressListType = vtByte
+
 
 -- Floats are interpreted as signed by default, while integers are interpreted
 -- as unsigned by default. We'll define a few classes to interpret integers
@@ -344,13 +375,21 @@ local function writeSigned(self, address, v)
   return utils.writeIntBE(address, v2, self.numOfBytes)
 end
 
-valuetypes.SignedIntType = subclass(IntType)
-valuetypes.SignedIntType.read = readSigned
-valuetypes.SignedIntType.write = writeSigned
+valuetypes.SignedIntTypeLE = subclass(IntTypeLE)
+valuetypes.SignedIntTypeLE.read = readSigned
+valuetypes.SignedIntTypeLE.write = writeSigned
 
-valuetypes.SignedShortType = subclass(ShortType)
-valuetypes.SignedShortType.read = readSigned
-valuetypes.SignedShortType.write = writeSigned
+valuetypes.SignedIntTypeBE = subclass(IntTypeBE)
+valuetypes.SignedIntTypeBE.read = readSigned
+valuetypes.SignedIntTypeBE.write = writeSigned
+
+valuetypes.SignedShortTypeLE = subclass(ShortTypeLE)
+valuetypes.SignedShortTypeLE.read = readSigned
+valuetypes.SignedShortTypeLE.write = writeSigned
+
+valuetypes.SignedShortTypeBE = subclass(ShortTypeBE)
+valuetypes.SignedShortTypeBE.read = readSigned
+valuetypes.SignedShortTypeBE.write = writeSigned
 
 valuetypes.SignedByteType = subclass(ByteType)
 valuetypes.SignedByteType.read = readSigned
@@ -377,7 +416,6 @@ StringType.addressListType = vtString
 -- TODO: Figure out the remaining details of adding a String to the
 -- address list. I think there's a couple of special fields for vtString?
 -- Check Cheat Engine's help.
-
 
 
 local BinaryType = subclass(TypeMixin)

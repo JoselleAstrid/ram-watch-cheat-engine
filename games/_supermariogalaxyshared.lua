@@ -24,10 +24,6 @@ local ResettableValue = valuetypes.ResettableValue
 
 local SMGshared = subclass(dolphin.DolphinGame)
 
-function SMGshared:init(options)
-  dolphin.DolphinGame.init(self, options)
-end
-
 local GV = SMGshared.blockValues
 
 

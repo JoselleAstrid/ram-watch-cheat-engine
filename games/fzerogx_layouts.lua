@@ -12,8 +12,6 @@ local Layout = layoutsModule.Layout
 
 local layouts = {}
 
-local narrowWindowWidth = 144
-local dolphinNativeResolutionHeight = 528
 local margin = 6
 local fontSize = 12
 -- alt: Lucida Console

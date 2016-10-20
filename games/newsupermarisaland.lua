@@ -4,300 +4,188 @@
 
 -- Imports.
 
--- First make sure that the imported modules get de-cached as needed, since
--- we may be re-running the script in the same run of Cheat Engine.
-package.loaded.shared = nil
+-- First make sure that the imported modules get de-cached as needed. That way,
+-- if we change the code in those modules and then re-run the script, we won't
+-- need to restart Cheat Engine to see the code changes take effect.
+
 package.loaded.utils = nil
-
-local shared = require "shared"
-local utils = require "utils"
-
+local utils = require 'utils'
 local readIntLE = utils.readIntLE
-local readFloatLE = utils.readFloatLE
-local floatToStr = utils.floatToStr
-local initLabel = utils.initLabel
-local debugDisp = utils.debugDisp
-local StatRecorder = utils.StatRecorder
+local subclass = utils.subclass
 
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
+package.loaded.game = nil
+local gameModule = require 'game'
 
-
-
--- Static value (as an offset from 6kinoko.exe) that increases by 1
--- once per frame.
-local frameCounterAddress = 0x11B750
--- Static instruction that runs once per frame. (This is just the
--- instruction that updates the above)
-local oncePerFrameAddress = 0xE0F3
-
-
-
--- Data structure for RAM values we care about.
-
-local values = {}
+package.loaded.valuetypes = nil
+local valuetypes = require 'valuetypes'
+local V = valuetypes.V
+local MV = valuetypes.MV
+local Block = valuetypes.Block
+local Value = valuetypes.Value
+local MemoryValue = valuetypes.MemoryValue
+local FloatType = valuetypes.FloatTypeLE
+local IntType = valuetypes.IntTypeLE
+local ShortType = valuetypes.ShortTypeLE
+local ByteType = valuetypes.ByteType
+local SignedIntType = valuetypes.SignedIntTypeLE
+local SignedShortType = valuetypes.SignedShortTypeLE
+local SignedByteType = valuetypes.SignedByteType
+local StringType = valuetypes.StringType
+local BinaryType = valuetypes.BinaryType
 
 
 
--- Computing RAM values.
+local NSML = subclass(gameModule.Game)
+NSML.exeName = '6kinoko.exe'
 
-local compute = {
+NSML.layoutModuleNames = {'newsupermarisaland_layouts'}
+
+function NSML:init(options)
+  gameModule.Game.init(self, options)
   
-  o = function()
-    values.o = getAddress("6kinoko.exe")
-  end,
-  
-  refPointer = function()
-    values.refPointer = readIntLE(0x114424 + values.o, 4)
-  end,
-  
-  marisaSpriteAddress = function()
-    -- Not sure if this is actually the sprite count. It generally goes
-    -- up/down along with sprite creation and erasure. But it could be the
-    -- index of a particular sprite.
-    values.spriteCount = readIntLE(0x114354 + values.o, 4)
-    
-    if values.spriteCount < 2 then
-      -- There is no Marisa sprite, and no valid sprite in the location where
-      -- we'd normally look.
-      -- Possible situations: transitioning from an empty room like in
-      -- Hakurei Shrine, entering a level, or exiting to the title screen.
-      values.marisaSpriteAddress = nil
-      return
-    end
-    
-    local spritePtrArrayStart = readIntLE(0x114344 + values.o, 4)
-    local arrayOffset = (values.spriteCount - 2) * 4
-    values.marisaSpriteAddress = readIntLE(spritePtrArrayStart + arrayOffset, 4)
-  end,
-  
-  posAndVel = function()
-    if values.marisaSpriteAddress == nil then
-      values.posX = nil
-      values.posY = nil
-      values.velX = nil
-      values.velY = nil
-      return
-    end
-    
-    values.posX = readFloatLE(values.marisaSpriteAddress + 0xF0, 4)
-    values.posY = readFloatLE(values.marisaSpriteAddress + 0xF4, 4)
-    values.velX = readFloatLE(values.marisaSpriteAddress + 0x100, 4)
-    values.velY = readFloatLE(values.marisaSpriteAddress + 0x104, 4)
-  end,
-  
-  ticksLeft = function()
-    -- TODO: Another run of the game says 0x1A7ABC, maybe pointer is bad
-    local address = values.refPointer + 0x194404
-    values.ticksLeft = readIntLE(address, 4)
-  end,
-  
-  framesLeft = function()
-    -- TODO: Another run of the game says 0x3AB4C, maybe pointer is bad
-    local address = values.refPointer + 0x3AA8C
-    values.framesLeft = readIntLE(address, 4) / 2
-  end,
-  
-  frameCount = function()
-    local address = frameCounterAddress + values.o
-    values.frameCount = readIntLE(address, 4)
-  end,
-}
-
-
-
--- Displaying RAM values.
-
-local keysToLabels = {
-  frameCount = "Frames",
-  spriteCount = "Sprites",
-  timeTicks = "Timer",
-  velX = "Vel X",
-  velY = "Vel Y",
-}
-
-local getStr = {
-  
-  int = function(key)
-    local label = keysToLabels[key]
-    
-    if values[key] == nil then
-      return string.format("%s: nil", label)
-    end
-    
-    return string.format("%s: %d", label, values[key])
-  end,
-  
-  flt = function(key, afterDecimal)
-    local label = keysToLabels[key]
-    
-    if values[key] == nil then
-      return string.format("%s: nil", label)
-    end
-    
-    return string.format("%s: %s", label, floatToStr(values[key], {afterDecimal=afterDecimal}))
-  end,
-  
-  pos = function()
-    if values.posX == nil or values.posY == nil then
-      return "Pos: nil"
-    end
-    
-    return string.format(
-      "Pos: %.2f, %.2f",
-      values.posX, values.posY
-    )
-  end,
-  
-  ticksAndFramesLeft = function()
-    local ticks = (values.framesLeft - (values.framesLeft % 30)) / 30
-    local frames = values.framesLeft % 30
-    return string.format("Timer: %dT %02dF", ticks, frames)
-  end,
-}
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
-
-
--- GUI layout specifications.
-
-local vars = {}
-local updateMethod = nil
-local timer = nil
-local timerInterval = nil
-local timerFunction = nil
-
-local layout1 = {
-  
-  init = function(window)
-    updateMethod = "timer"
-    timerInterval = 16
-    
-    -- Set the display window's size.
-    window:setSize(300, 200)
-  
-    -- Add a blank label to the window at position (10,5). In the update
-    -- function, which is called on every frame, we'll update the label text.
-    vars.label1 = initLabel(window, 10, 5, "")
-  end,
-  
-  update = function()
-    compute.o()
-    compute.refPointer()
-    compute.framesLeft()
-    compute.frameCount()
-    vars.label1:setCaption(
-      table.concat(
-        {
-          getStr.ticksAndFramesLeft(),
-          getStr.int("frameCount"),
-        },
-        "\n"
-      )
-    )
-  end,
-}
-
-local layout2 = {
-  
-  init = function(window)
-    updateMethod = "timer"
-    timerInterval = 16
-  
-    window:setSize(300, 200)
-  
-    vars.label1 = initLabel(window, 10, 5, "")
-    
-    --debugLabel = initLabel(window, 10, 120, "")
-  end,
-  
-  update = function()
-    compute.o()
-    compute.refPointer()
-    compute.framesLeft()
-    compute.marisaSpriteAddress()
-    compute.posAndVel()
-    compute.frameCount()
-    vars.label1:setCaption(
-      table.concat(
-        {
-          getStr.int("frameCount"),
-          getStr.flt("velX", 2),
-          getStr.flt("velY", 2),
-          getStr.pos(),
-        },
-        "\n"
-      )
-    )
-  end,
-}
-
-
-
--- *** CHOOSE YOUR LAYOUT HERE ***
-local layout = layout1
-
-
-
--- Initializing the GUI window.
-
-local window = createForm(true)
--- Put it in the center of the screen.
-window:centerScreen()
--- Set the window title.
-window:setCaption("RAM Display")
--- Customize the font.
-local font = window:getFont()
-font:setName("Calibri")
-font:setSize(16)
-
-layout.init(window)
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
-
-
--- Clean up from previous runs of the script 
-if oncePerFrameAddress then
-  debug_removeBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
+  self.addrs = {}
+  self:initConstantAddresses()
 end
 
+local GV = NSML.blockValues
 
-if updateMethod == "timer" then
 
-  -- Set the window to be the timer's parent, so that when the window is
-  -- closed, the timer will stop being called. This allows us to edit and then
-  -- re-run the script, and then close the old window to stop previous timer
-  -- loops.
-  timer = createTimer(window)
-  timer.setInterval(timerInterval)
-  
-  timerFunction = function()
-    layout.update()
-    
-    timer.destroy()
-    timer = createTimer(window)
-    timer.setInterval(timerInterval)
-    timer.setOnTimer(timerFunction)
-  end
-  timer.setOnTimer(timerFunction)
 
-elseif updateMethod == "breakpoint" then
+function NSML:initConstantAddresses()
+  self.addrs.o = getAddress(self.exeName)
   
-  debug_setBreakpoint(getAddress("6kinoko.exe")+oncePerFrameAddress)
-  
-  -- If the oncePerFrameAddress was chosen correctly, everything in the
-  -- following function should run exactly once every frame.
-  function debugger_onBreakpoint()
-    layout.update()
-    return 1
-  end
-  
+  -- Static value that increases by 1 once per frame.
+  self.frameCounterAddress = self.addrs.o + 0x11B750
+  -- Static instruction that runs once per frame. (This is just the
+  -- instruction that updates the above)
+  self.oncePerFrameAddress = self.addrs.o + 0xE0F3
 end
 
 
 
+-- These addresses can change more frequently, so we specify them as
+-- functions that can be run continually.
+
+function NSML:updateRefPointer()
+  -- Not sure what this is meant to point to exactly, but when this pointer
+  -- changes value, many other relevant addresses (like the settings
+  -- slider value) move by the same amount as the value change.
+  self.addrs.refPointer = readIntLE(self.addrs.o + 0x114424, 4)
+end
+
+function NSML:updateMarisaSpriteAddress()
+  -- Not sure if this is actually the sprite count. It generally goes
+  -- up/down along with sprite creation and erasure. But it could be the
+  -- index of a particular sprite.
+  self.spriteCount = readIntLE(self.addrs.o + 0x114354, 4)
+  self.addrs.spritePtrArrayStart = readIntLE(self.addrs.o + 0x114344, 4)
+  
+  if self.spriteCount < 2 then
+    -- There is no Marisa sprite (see below), and no valid sprite in the
+    -- location where we'd normally look.
+    -- Possible situations: transitioning from an empty room like in
+    -- Hakurei Shrine, entering a level, or exiting to the title screen.
+    self.addrs.marisaSprite = nil
+    return
+  end
+  
+  -- Marisa's sprite seems to be the second to last sprite most of the time.
+  -- TODO: Cover the cases where it's not. Only example so far is the start of
+  -- 7-4, after walking right a bit to see the cactus-holding fairies.
+  local arrayOffset = (self.spriteCount - 2) * 4
+  self.addrs.marisaSprite =
+    readIntLE(self.addrs.spritePtrArrayStart + arrayOffset, 4)
+end
+
+function NSML:updateAddresses()
+  self:updateRefPointer()
+  self:updateMarisaSpriteAddress()
+end
+
+
+
+-- Values that don't exist if Marisa's sprite doesn't exist.
+local MarisaValue = {}
+NSML.MarisaValue = MarisaValue
+
+function MarisaValue:isValid()
+  local valid = (self.game.addrs.marisaSprite ~= nil)
+  if not valid then self.invalidDisplay = "<No Marisa sprite>" end
+  return valid
+end
+
+
+
+-- Memory values at static addresses (from the beginning of the game memory).
+local StaticValue = subclass(MemoryValue)
+NSML.StaticValue = StaticValue
+
+function StaticValue:getAddress()
+  return self.game.addrs.o + self.offset
+end
+
+
+
+-- Memory values that are a constant offset from the refPointer.
+local RefValue = subclass(MemoryValue)
+NSML.RefValue = RefValue
+
+function RefValue:getAddress()
+  return self.game.addrs.refPointer + self.offset
+end
+
+
+
+-- Memory values that are a constant offset from Marisa's sprite start.
+local MarisaStateValue = subclass(MemoryValue, MarisaValue)
+NSML.MarisaStateValue = MarisaStateValue
+
+function MarisaStateValue:getAddress()
+  return self.game.addrs.marisaSprite + self.offset
+end
+
+
+
+GV.posX = MV("Pos X", 0xF0, MarisaStateValue, FloatType)
+GV.posY = MV("Pos Y", 0xF4, MarisaStateValue, FloatType)
+GV.posX.displayDefaults = {signed=false, beforeDecimal=4, afterDecimal=2}
+GV.posY.displayDefaults = {signed=false, beforeDecimal=4, afterDecimal=2}
+
+GV.velX = MV("Vel X", 0x100, MarisaStateValue, FloatType)
+GV.velY = MV("Vel Y", 0x104, MarisaStateValue, FloatType)
+GV.velX.displayDefaults = {signed=true, beforeDecimal=2, afterDecimal=2}
+GV.velY.displayDefaults = {signed=true, beforeDecimal=2, afterDecimal=2}
+
+
+GV.pos = V(subclass(Value, MarisaValue))
+GV.pos.label = "Pos"
+function GV.pos:updateValue()
+  self.game.posX:update()
+  self.game.posY:update()
+end
+function GV.pos:displayValue(options)
+  return (
+    self.game.posX:display({nolabel=true}, options)
+    ..", "..self.game.posY:display({nolabel=true}, options)
+  )
+end
+
+
+-- TODO: This pointer doesn't work. Find a working one.
+-- GV.timerTicks = MV("Timer ticks", 0x194404, RefValue, IntType)
+-- TODO: This pointer doesn't work. Find a working one.
+-- TODO: Divide by 2 to get frames in 60 FPS; otherwise it's in 120 FPS
+-- GV.timerFrames = MV("Timer frames", 0x3AA8C, RefValue, IntType)
+
+-- GV.timer = V(Value)
+-- GV.timer.label = "Timer"
+-- function GV.timer:displayValue(options)
+--   local totalFrames = self.game.timerFrames:get()
+--   local ticks = (totalFrames - (totalFrames % 30)) / 30
+--   local frames = totalFrames % 30
+--   return string.format("%dT %02dF", ticks, frames)
+-- end
+
+
+return NSML
 
