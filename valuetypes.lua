@@ -286,7 +286,7 @@ valuetypes.FloatTypeLE = FloatTypeLE
 FloatTypeLE.numOfBytes = 4
 -- For the memory record type constants, look up defines.lua in
 -- your Cheat Engine folder.
-FloatTypeLE.addressListType = vtSingle  -- TODO: Check
+FloatTypeLE.addressListType = vtSingle
 function FloatTypeLE:read(address)
   return utils.readFloatLE(address, self.numOfBytes)
 end
@@ -332,7 +332,7 @@ function IntTypeLE:strToValue(s) return tonumber(s) end
 function IntTypeLE:displayValue() return tostring(self.value) end
 function IntTypeLE:toStrForEditField(v) return tostring(v) end 
 IntTypeLE.numOfBytes = 4
-IntTypeLE.addressListType = vtDword  -- TODO: Check
+IntTypeLE.addressListType = vtDword
 
 local IntTypeBE = subclass(IntTypeLE)
 valuetypes.IntTypeBE = IntTypeBE
@@ -349,7 +349,7 @@ IntTypeBE.addressListCustomTypeName = "4 Byte Big Endian"
 local ShortTypeLE = subclass(IntTypeLE)
 valuetypes.ShortTypeLE = ShortTypeLE
 ShortTypeLE.numOfBytes = 2
-ShortTypeLE.addressListType = vtWord  -- TODO: Check
+ShortTypeLE.addressListType = vtWord
 
 local ShortTypeBE = subclass(IntTypeBE)
 valuetypes.ShortTypeBE = ShortTypeBE
