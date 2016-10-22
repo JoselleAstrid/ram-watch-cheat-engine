@@ -269,9 +269,28 @@ GV.spinCooldownTimer =
   MV("Spin cooldown timer", 0x2217, SMG1.RefValue, ByteType)
 GV.spinAttackTimer =
   MV("Spin attack timer", 0x2214, SMG1.RefValue, ByteType)
+-- When this timer is inactive, its value is 180
+GV.midairSpinTimer =
+  MV("Midair spin timer", 0x41BF, SMG1.RefValue, ByteType)
+GV.midairSpinType =
+  MV("Midair spin state", 0x41DF, SMG1.RefValue, ByteType)
 
 GV.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatType)
 GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatType)
+
+
+
+-- Some other stuff.
+
+-- Jump, double jump or rainbow star jump, triple jump,
+-- bonk or forward facing slope jump, sideflip, long jump, backflip, wall jump,
+-- midair spin, ?, ledge hop, spring topman bounce, enemy bounce,
+-- jump off swing / pull star release / after planet landing / spin out of water
+GV.lastJumpType =
+  MV("Last jump type", 0x41EF, SMG1.RefValue, ByteType)
+-- Not quite sure what this is
+GV.groundTurnTimer =
+  MV("Ground turn timer", 0x41CB, SMG1.RefValue, ByteType)
 
 
 

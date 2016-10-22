@@ -504,8 +504,8 @@ end
 function GV.shake:display()
   self:update()
   
-  if self.value.wiimote == 1 then return "Wiimote shake"
-  elseif self.value.nunchuk == 1 then return "Nunchuk shake"
+  if self.value.wiimote == 1 then return "Shake Wiimote"
+  elseif self.value.nunchuk == 1 then return "Shake Nunchuk"
   else return ""
   end
 end
@@ -513,85 +513,54 @@ end
 
 
 GV.spinStatus = V(Value)
-GV.spinStatus.initialValue = {phase='noSpin', spinType='unknown'}
+GV.spinStatus.initialValue = 'neutral'
+
+function GV.spinStatus:getMidairSpinType()
+  local code = self.game.midairSpinType:get()
+  
+  if code == 1 then return 'wiimote'
+  elseif code == 2 then return 'nunchuk'
+  else return 'unknown'
+  end
+end
 
 function GV.spinStatus:updateValue()
   local cooldownTimer = self.game.spinCooldownTimer:get()
   local attackTimer = self.game.spinAttackTimer:get()
-  local shakeValues = self.game.shake:get()
+  local midairSpinTimer = self.game.midairSpinTimer:get()
   
-  self.previousValue = self.value
-  self.value = {phase=nil, spinType=nil}
-  
-  if cooldownTimer > 0 then
-    if attackTimer > 0 then
-      -- We know we're in the middle of the spin animation.
-      self.value.phase = 'spin'
-      
-      -- Update the spin type based on the current shake input,
-      -- ONLY if we have just started a spin.
-      if self.previousValue.phase == 'noSpin' or cooldownTimer == 79 then
-        -- Just started a spin: either there was no spin on the previous frame,
-        -- or the cooldown timer is at its max value.
-        -- Both checks are imperfect. The 'noSpin' check misses the case where
-        -- a new spin is started JUST as the previous spin ends (1 frame
-        -- window). The timer check might miss a spin-start if this Lua script
-        -- skips a frame.
-        -- The idea is that reliability should be higher with both checks
-        -- working together.
-        if shakeValues.wiimote == 1 then self.value.spinType = 'wiimote'
-        elseif shakeValues.nunchuk == 1 then self.value.spinType = 'nunchuk'
-        else self.value.spinType = 'unknown'
-        end
-      else
-        -- If we haven't just started a spin, then the previous spin is
-        -- still going.
-        self.value.spinType = self.previousValue.spinType
-      end
-    else
-      -- Spin attack is over, but need to wait to do another spin.
-      self.value.phase = 'cooldown'
-      self.value.spinType = self.previousValue.spinType
-    end
+  if midairSpinTimer ~= 180 and attackTimer > 0 then
+    -- This timer is 180 if no midair spin boost is happening. Otherwise, it's
+    -- anywhere from 1 to 22.
+    -- This timer is interrupted and gets stuck if a spin stomp is
+    -- executed. To prevent this spin status from also getting stuck, we
+    -- check the attack timer too, as that won't get stuck from a spin stomp.
+    self.value = 'midair-spin-'..self:getMidairSpinType()
+  elseif attackTimer > 0 then
+    -- No spin boost, but some kind of spin; on ground, underwater, last few
+    -- frames of a midair spin, multiple mini-spins in a single jump. This case
+    -- also applies slightly after a jump-canceled ground spin.
+    -- Perhaps this corresponds to having the spin hitbox out, but this
+    -- hasn't been tested.
+    self.value = 'spin'
+  elseif cooldownTimer > 0 then
+    -- LIMITATION: This only detects cooldown on the ground, not underwater.
+    -- Haven't found a way to do that.
+    self.value = 'cooldown'
   else
-    if attackTimer > 0 then
-      -- Spin attack is going in midair. (This includes "fake" midair spins,
-      -- and still-active spin attacks after jump canceling a ground spin.)
-      self.value.phase = 'attackSpin'
-      
-      -- TODO: Check if the max timer here is still 79.
-      if self.previousValue.phase == 'noSpin' or cooldownTimer == 79 then
-        if shakeValues.wiimote == 1 then self.value.spinType = 'wiimote'
-        elseif shakeValues.nunchuk == 1 then self.value.spinType = 'nunchuk'
-        else self.value.spinType = 'unknown'
-        end
-      else
-        self.value.spinType = self.previousValue.spinType
-      end
-    else
-      -- Both spin animation and effect are inactive.
-      self.value.phase = 'noSpin'
-    end
+    self.value = 'neutral'
   end
 end
 
 function GV.spinStatus:display()
   self:update()
 
-  if self.value.phase == 'spin' or self.value.phase == 'attackSpin' then
-    -- We'll just display an attacking-only spin (no height boost)
-    -- the same way as a full spin.
-    if self.value.spinType == 'wiimote' then return "Wiimote spin"
-    elseif self.value.spinType == 'nunchuk' then return "Nunchuk spin"
-    elseif self.value.spinType == 'unknown' then return "? spin"
-    else error("Unrecognized spin type: " .. self.value.spinType)
-    end
-  elseif self.value.phase == 'cooldown' then
-    return "(Cooldown)"
-  elseif self.value.phase == 'noSpin' then
-    return ""
-  else
-    error("Unrecognized spin phase: " .. self.value.phase)
+  if self.value == 'midair-spin-wiimote' then return "Spin Wiimote"
+  elseif self.value == 'midair-spin-nunchuk' then return "Spin Nunchuk"
+  elseif self.value == 'midair-spin-unknown' then return "Spin ???"
+  elseif self.value == 'spin' then return "Spin"
+  elseif self.value == 'cooldown' then return "(Cooldown)"
+  else return ""
   end
 end
 

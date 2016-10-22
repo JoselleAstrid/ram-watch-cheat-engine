@@ -283,9 +283,38 @@ GV.spinCooldownTimer =
   MV("Spin cooldown timer", -0x7E19, SMG2.PosRefValue, ByteType)
 GV.spinAttackTimer =
   MV("Spin attack timer", -0x7E1C, SMG2.PosRefValue, ByteType)
-
+-- Not quite sure what this is; it keeps counting up if you do multiple
+-- mini-spins in one jump
+GV.spinFrames =
+  MV("Spin frames", -0x7E1B, SMG2.PosRefValue, ByteType)
+-- Counts up during a ground spin. If interrupted by jumping, tapping crouch
+-- while standing still, etc., stops counting up.
+-- Doesn't apply to a crouching spin (and couldn't find a similar value
+-- that does apply to crouching spins).
+GV.spinAnimationFrames =
+  MV("Spin animation frames", -0x1BE1, SMG2.PosRefValue, ByteType)
+-- This timer ends a little after the cooldown ends.
+GV.lumaReturnAnimationTimer =
+  MV("Luma return animation timer", -0x7E15, SMG2.PosRefValue, ByteType)
+GV.midairSpinTimer =
+  MV("Midair spin timer", -0x4E05, SMG2.PosRefValue, ByteType)
+GV.midairSpinType =
+  MV("Midair spin type", -0x4DE1, SMG2.PosRefValue, ByteType)
+  
 GV.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatType)
 GV.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatType)
+
+
+
+-- Some other stuff.
+
+GV.lastJumpType =
+  MV("Last jump type", -0x4DD9, SMG2.PosRefValue, ByteType)
+-- Not quite sure what this is
+GV.groundTurnTimer =
+  MV("Ground turn timer", -0x4DFB, SMG2.PosRefValue, ByteType)
+GV.unknownState =
+  MV("Unknown state", -0x7D23, SMG2.PosRefValue, ByteType)
 
 
 return SMG2
