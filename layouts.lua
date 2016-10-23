@@ -854,7 +854,6 @@ function EditableValue:editWindowOKAction(window, textField)
   
   -- Delay for a bit first, because it seems that the
   -- write to the memory address needs a bit of time to take effect.
-  -- TODO: Use Timer instead of sleep?
   sleep(50)
   -- Update the display
   self:update()
