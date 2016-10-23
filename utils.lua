@@ -1,5 +1,7 @@
 -- Various utility functions.
 
+local utils = {}
+
 
 
 -- tonumber fix, so that it properly handles strings starting with "-0".
@@ -31,7 +33,7 @@ end
 -- testing so far, at least.
 --
 -- Source: http://stackoverflow.com/questions/15429236/
-local function isModuleAvailable(name)
+function utils.isModuleAvailable(name)
   if package.loaded[name] then
     return true
   else
@@ -48,7 +50,7 @@ end
 
 
 
-local function tableContentsToStr(t)
+function utils.tableContentsToStr(t)
   local items = {}
   for key, value in pairs(t) do
     table.insert(items, tostring(key)..": "..tostring(value))
@@ -57,7 +59,7 @@ local function tableContentsToStr(t)
 end
 
 
-local function updateTable(tableToUpdate, table2)
+function utils.updateTable(tableToUpdate, table2)
   -- Update tableToUpdate with the values in table2. If a key exists in both
   -- tables, overwrite.
   for key, value in pairs(table2) do
@@ -73,7 +75,7 @@ end
 --
 -- However, sometimes it's easier to add as values and you don't care about
 -- performance. That's where this function comes in.
-local function isValueInTable(tbl, value)
+function utils.isValueInTable(tbl, value)
   for _, v in pairs(tbl) do
     if v == value then return true end
   end
@@ -88,23 +90,23 @@ end
 local function curry1(f,v)
   return function (...)  return f(v,...)  end
 end
-local function curry(f,v,...)
+function utils.curry(f,v,...)
   if v == nil then return f end
-  return curry( curry1(f,v), ... )
+  return utils.curry( curry1(f,v), ... )
 end
 
 -- Curry an instance function.
-local function curryInstance(f, ...)
+function utils.curryInstance(f, ...)
   local function func(f_, args, instance)
     return f_(instance, unpack(args))
   end
   -- From here, all that remains is to pass in the instance.
-  return curry(func, f, {...})
+  return utils.curry(func, f, {...})
 end
 
 
 
-local function readIntBE(address, numberOfBytesToRead)
+function utils.readIntBE(address, numberOfBytesToRead)
   -- In: address - address of a big-endian memory value we want to read
   --     numberOfBytesToRead - the number of bytes to read from that address
   -- Out: integer value of the memory that was read
@@ -125,7 +127,7 @@ local function readIntBE(address, numberOfBytesToRead)
   return sum
 end
 
-local function readIntLE(address, numberOfBytesToRead)
+function utils.readIntLE(address, numberOfBytesToRead)
   -- Same, but for little-endian
   
   if numberOfBytesToRead == nil then numberOfBytesToRead = 4 end
@@ -149,7 +151,7 @@ local twoTo23 = 0x800000
 local twoTo63 = 0x8000000000000000
 local twoTo52 = 0x10000000000000
 
-local function intToFloat(x)
+function utils.intToFloat(x)
   -- In: 4-byte integer value
   -- Out: floating-point value from the same bytes
   --
@@ -174,7 +176,7 @@ local function intToFloat(x)
   return s*(2^e)*m
 end
 
-local function intToDouble(x)
+function utils.intToDouble(x)
   -- In: 8-byte integer value
   -- Out: floating-point value from the same bytes
   
@@ -194,19 +196,19 @@ local function intToDouble(x)
   return s*(2^e)*m
 end
 
-local function readFloatBE(address, numberOfBytesToRead)
-  return intToFloat(readIntBE(address, numberOfBytesToRead))
+function utils.readFloatBE(address, numberOfBytesToRead)
+  return utils.intToFloat(utils.readIntBE(address, numberOfBytesToRead))
 end
 
-local function readFloatLE(address, numberOfBytesToRead)
-  return intToFloat(readIntLE(address, numberOfBytesToRead))
+function utils.readFloatLE(address, numberOfBytesToRead)
+  return utils.intToFloat(utils.readIntLE(address, numberOfBytesToRead))
 end
 
 -- Note: Cheat Engine already has a readFloat(), which probably does LE
 -- (little-endian). So don't be surprised if you forget the BE/LE in the name
 -- and it still runs.
 
-local function unsignedToSigned(v, numOfBytes)
+function utils.unsignedToSigned(v, numOfBytes)
   -- In: unsigned integer value, and the number of bytes at its address
   -- Out: signed version of this value
   local possibleValues = 2^(numOfBytes*8)
@@ -216,7 +218,7 @@ local function unsignedToSigned(v, numOfBytes)
     return v
   end
 end
-local function signedToUnsigned(v, numOfBytes)
+function utils.signedToUnsigned(v, numOfBytes)
   local possibleValues = 2^(numOfBytes*8)
   if v < 0 then
     return v + possibleValues
@@ -225,7 +227,7 @@ local function signedToUnsigned(v, numOfBytes)
   end
 end
 
-local function intToHexStr(x)
+function utils.intToHexStr(x)
   -- In: integer value
   -- Out: string of the integer's hexadecimal representation
   if x == nil then return "nil" end
@@ -233,7 +235,7 @@ local function intToHexStr(x)
   return string.format("0x%08X", x)
 end
   
-local function intToStr(x, options)
+function utils.intToStr(x, options)
   -- In: integer value
   -- Out: string representation, as detailed by the options
   if x == nil then return "nil" end
@@ -254,7 +256,7 @@ local function intToStr(x, options)
   return string.format(f, x)
 end
 
-local function floatToStr(x, options)
+function utils.floatToStr(x, options)
   -- In: floating-point value
   -- Out: string representation, as detailed by the options
   if x == nil then return "nil" end
@@ -294,13 +296,13 @@ local function floatToStr(x, options)
   return s
 end
 
-local function displayAnalog(v, valueType, posSymbol, negSymbol, options)
+function utils.displayAnalog(v, valueType, posSymbol, negSymbol, options)
   -- Display a signed analog value, e.g. something that ranges
   -- anywhere from -100 to +100.
   -- Can provide custom positive/negative symbols such as > and <.
   local s = nil
-  if valueType == 'int' then s = intToStr(math.abs(v), options)
-  elseif valueType == 'float' then s = floatToStr(math.abs(v), options)
+  if valueType == 'int' then s = utils.intToStr(math.abs(v), options)
+  elseif valueType == 'float' then s = utils.floatToStr(math.abs(v), options)
   else error("Unsupported valueType: "..tostring(valueType))
   end
   
@@ -314,7 +316,7 @@ end
 
 -- Functions for writing values to memory.
 
-local function writeIntBE(address, value, numberOfBytesToWrite)
+function utils.writeIntBE(address, value, numberOfBytesToWrite)
   local remainingValue = value
   local bytes = {}
   for n = numberOfBytesToWrite,1,-1 do
@@ -328,7 +330,7 @@ local function writeIntBE(address, value, numberOfBytesToWrite)
   writeBytes(address, bytes)
 end
 
-local function floatToInt(x)
+function utils.floatToInt(x)
   -- In: floating-point value
   -- Out: 4-byte integer value from the same bytes
   --
@@ -370,9 +372,9 @@ local function floatToInt(x)
   return result
 end
 
-local function writeFloatBE(address, value, numberOfBytesToWrite)
-  writeIntBE(
-    address, floatToInt(value, numberOfBytesToWrite), numberOfBytesToWrite
+function utils.writeFloatBE(address, value, numberOfBytesToWrite)
+  utils.writeIntBE(
+    address, utils.floatToInt(value, numberOfBytesToWrite), numberOfBytesToWrite
   )
 end
 
@@ -380,7 +382,7 @@ end
 
 -- Scan for a string and return the address of the first result.
 -- If there is no result, it returns nil.
-local function scanStr(str)
+function utils.scanStr(str)
   local startaddr=0
   local stopaddr=0x7fffffffffffffff
   local scan = createMemScan()
@@ -405,7 +407,7 @@ end
 --
 -- It also means no "super" calls; you'd have to explicitly go
 -- like MySuperClass.myFunc(self, ...) instead of doing a super call.
-local function copyFields(child, parents)
+function utils.copyFields(child, parents)
   for _, parent in pairs(parents) do
     for key, value in pairs(parent) do
       if type(value) == 'table' then
@@ -413,7 +415,7 @@ local function copyFields(child, parents)
         -- share the same table for this field.
         -- Instead, we must build a new table. 
         child[key] = {}
-        updateTable(child[key], value)
+        utils.updateTable(child[key], value)
       else
         child[key] = value
       end
@@ -422,55 +424,27 @@ local function copyFields(child, parents)
 end
 
 -- Basically a shortcut for copyFields.
-local function subclass(...)
+function utils.subclass(...)
   local parents = {}
   for _, v in pairs({...}) do
     table.insert(parents, v)
   end
   
   local subcls = {}
-  copyFields(subcls, parents)
+  utils.copyFields(subcls, parents)
   return subcls
 end
 
 -- Create an object of a class, and call init() to initialize the object.
 -- Similar to class instantiation in Python, or 'new' keyword in Java (init is
 -- basically the constructor), etc.
-local function classInstantiate(class, ...)
-  local obj = subclass(class)
+function utils.classInstantiate(class, ...)
+  local obj = utils.subclass(class)
   obj:init(...)
   return obj
 end
 
 
 
-return {
-  isModuleAvailable = isModuleAvailable,
-  
-  tableContentsToStr = tableContentsToStr,
-  updateTable = updateTable,
-  isValueInTable = isValueInTable,
-  curry = curry,
-  curryInstance = curryInstance,
-  
-  readIntBE = readIntBE,
-  readIntLE = readIntLE,
-  intToDouble = intToDouble,
-  readFloatBE = readFloatBE,
-  readFloatLE = readFloatLE,
-  unsignedToSigned = unsignedToSigned,
-  signedToUnsigned = signedToUnsigned,
-  intToHexStr = intToHexStr,
-  intToStr = intToStr,
-  floatToStr = floatToStr,
-  displayAnalog = displayAnalog,
-  
-  writeIntBE = writeIntBE,
-  writeFloatBE = writeFloatBE,
-  
-  scanStr = scanStr,
-  
-  copyFields = copyFields,
-  subclass = subclass,
-  classInstantiate = classInstantiate,
-}
+return utils
+
