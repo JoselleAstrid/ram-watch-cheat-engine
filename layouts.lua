@@ -10,9 +10,7 @@ local Layout = {
 
 
 function Layout:update()
-  local game = self.game
-
-  game:updateAddresses()
+  self.game:updateAddresses()
   
   for _, element in pairs(self.elements) do
     -- Update elements which are not hidden and have an update function
@@ -187,9 +185,10 @@ end
 function Layout:setBreakpointUpdateMethod()
   self.updateMethod = 'breakpoint'
 end
-function Layout:setTimerUpdateMethod(updateTimeInterval)
+function Layout:setUpdatesPerSecond(timesPerSecond)
   self.updateMethod = 'timer'
-  self.updateTimeInterval = updateTimeInterval
+  -- updateTimeInterval is measured in milliseconds
+  self.updateTimeInterval = 1000/timesPerSecond
 end
 function Layout:setButtonUpdateMethod(updateButton)
   self.updateMethod = 'button'
@@ -618,15 +617,13 @@ utils.updateTable(FileWriter, {
   valuesTaken = nil,
 })
     
-function FileWriter:init(window, filename, outputStringGetter, options)
+function FileWriter:init(window, game, filename, outputStringGetter, options)
   options = options or {}
   
+  self.framerate = game.framerate
   self.filename = filename
   self.outputStringGetter = outputStringGetter
   self:initializeUI(window, options)
-  
-  -- TODO: Make framerate a variable on the game class
-  self.framerate = 60
 end
 
 function FileWriter:initializeUI(window, options)
@@ -746,7 +743,7 @@ function Layout:addFileWriter(
   
   local creationCallable = utils.curry(
     classInstantiate, FileWriter,
-    self.window, filename, outputStringGetter, initOptions)
+    self.window, self.game, filename, outputStringGetter, initOptions)
   return self:addElement(creationCallable, options)
 end
 

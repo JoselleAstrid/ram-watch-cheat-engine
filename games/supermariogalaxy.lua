@@ -35,6 +35,7 @@ local SMGshared = require "_supermariogalaxyshared"
 local SMG1 = subclass(SMGshared)
 
 SMG1.layoutModuleNames = {'supermariogalaxy_layouts'}
+SMG1.framerate = 60
 
 function SMG1:init(options)
   SMGshared.init(self, options)

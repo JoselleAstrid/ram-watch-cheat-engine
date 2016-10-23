@@ -23,6 +23,10 @@ function Game:init(options)
     error("This game doesn't have an exeName specified.")
   end
   
+  if not self.framerate then
+    error("This game doesn't have a framerate specified.")
+  end
+  
   if options.frameCounterAddress then
     self.frameCounterAddress =
       getAddress(self.exeName) + options.frameCounterAddress

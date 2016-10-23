@@ -36,6 +36,7 @@ local SMG2 = subclass(SMGshared)
 
 -- Shares layouts with SMG1.
 SMG2.layoutModuleNames = {'supermariogalaxy_layouts'}
+SMG2.framerate = 60
 
 function SMG2:init(options)
   SMGshared.init(self, options)

@@ -25,7 +25,7 @@ layouts.addressTest = subclass(Layout)
 function layouts.addressTest:init()
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
   
@@ -75,7 +75,7 @@ function layouts.energy:init(numOfRacers)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(400, 23*numOfRacers + 25)
@@ -94,7 +94,7 @@ function layouts.energyEditable:init(numOfRacers)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(520, 28*numOfRacers + 25)
@@ -112,7 +112,7 @@ function layouts.position:init(numOfRacers)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(350, 23*4*numOfRacers + 25)
@@ -134,7 +134,7 @@ function layouts.oneMachineStat:init(statName, numOfRacers, withBase)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:setUpdatesPerSecond(5)
   self:activateAutoPositioningY()
   
   self.window:setSize(500, 23*2*numOfRacers + 25)
@@ -171,7 +171,7 @@ function layouts.allMachineStats:init(withBase)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:setUpdatesPerSecond(5)
   self:activateAutoPositioningY()
   
   self.window:setSize(400, 700)
@@ -223,7 +223,7 @@ function layouts.allMachineStatsEditable:init(
     self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
     self.window:setSize(470, 25 + 27*2 + 27*#game.statNames)
   else
-    self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+    self:setUpdatesPerSecond(5)
     self.window:setSize(470, 25 + 27 + 27*#game.statNames)
   end
   
@@ -245,7 +245,7 @@ function layouts.inputs:init(calibrated, playerNumber)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY('compact')
   
   self.window:setSize(300, 250)
@@ -278,7 +278,7 @@ function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY('compact')
   
   self.window:setSize(300, 500)
@@ -309,7 +309,7 @@ layouts.checkpoints = subclass(Layout)
 function layouts.checkpoints:init()
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(250, 400)
@@ -338,7 +338,7 @@ function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
 
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(500, 300)
@@ -360,7 +360,7 @@ function layouts.speed224:init(racerNumber)
 
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(450, 250)
@@ -385,7 +385,7 @@ function layouts.testMisc:init(racerNumber)
 
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(50)  -- Update every 50 ms (20x per second)
+  self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
   
   self.window:setSize(450, 250)

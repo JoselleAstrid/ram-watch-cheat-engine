@@ -37,6 +37,7 @@ local BinaryType = valuetypes.BinaryType
 
 local NSML = subclass(gameModule.Game)
 NSML.exeName = '6kinoko.exe'
+NSML.framerate = 60
 
 NSML.layoutModuleNames = {'newsupermarisaland_layouts'}
 

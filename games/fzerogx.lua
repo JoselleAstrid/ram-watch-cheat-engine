@@ -42,6 +42,7 @@ local layoutsModule = require 'layouts'
 local GX = subclass(dolphin.DolphinGame)
 
 GX.layoutModuleNames = {'fzerogx_layouts'}
+GX.framerate = 60
 
 function GX:init(options)
   dolphin.DolphinGame.init(self, options)

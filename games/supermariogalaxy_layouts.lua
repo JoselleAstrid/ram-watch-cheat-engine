@@ -27,7 +27,7 @@ layouts.addressTestSMG1 = subclass(Layout)
 function layouts.addressTestSMG1:init()
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
   
@@ -51,7 +51,7 @@ layouts.addressTestSMG2 = subclass(Layout)
 function layouts.addressTestSMG2:init()
   local game = self.game
   self.margin = margin
-  self:setTimerUpdateMethod(200)  -- Update every 200 ms (5x per second)
+  self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
   
