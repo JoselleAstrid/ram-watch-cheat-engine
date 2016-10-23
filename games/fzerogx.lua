@@ -43,6 +43,8 @@ local GX = subclass(dolphin.DolphinGame)
 
 GX.layoutModuleNames = {'fzerogx_layouts'}
 GX.framerate = 60
+-- Use D-Pad Left to reset max-value displays, average-value displays, etc.
+GX.defaultResetButton = '<'
 
 function GX:init(options)
   dolphin.DolphinGame.init(self, options)

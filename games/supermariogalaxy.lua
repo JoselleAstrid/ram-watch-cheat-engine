@@ -36,6 +36,8 @@ local SMG1 = subclass(SMGshared)
 
 SMG1.layoutModuleNames = {'supermariogalaxy_layouts'}
 SMG1.framerate = 60
+-- Use D-Pad Down to reset max-value displays, average-value displays, etc.
+SMG1.defaultResetButton = 'v'
 
 function SMG1:init(options)
   SMGshared.init(self, options)

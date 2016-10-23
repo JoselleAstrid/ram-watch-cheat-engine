@@ -618,10 +618,10 @@ valuetypes.ResettableValue = ResettableValue
 function ResettableValue:init(resetButton)
   Value.init(self)
   
-  -- Default reset button is D-Pad Down, which is assumed to be represented
+  -- If a reset button isn't passed in or specified by the game, then the
+  -- default reset button is D-Pad Down, which is assumed to be represented
   -- with 'v'.
-  -- TODO: Allow each game to define a default reset button.
-  self.resetButton = resetButton or 'v'
+  self.resetButton = resetButton or self.game.defaultResetButton or 'v'
 end
 
 function ResettableValue:reset()
