@@ -55,6 +55,10 @@ end
 -- The built-in require() will get an error if the module doesn't exist.
 -- So, use this function and then call require() only if true is returned.
 --
+-- Note that ipairs does almost the same thing as pairs, except it stops
+-- when one of the values is nil. It seems to work for our purposes from
+-- testing so far, at least.
+--
 -- Source: http://stackoverflow.com/questions/15429236/
 local function isModuleAvailable(name)
   if package.loaded[name] then
@@ -449,8 +453,7 @@ end
 -- Basically a shortcut for copyFields.
 local function subclass(...)
   local parents = {}
-  -- TODO: Replace arg with {...} for future Lua compatibility?
-  for _,v in ipairs(arg) do
+  for _, v in pairs({...}) do
     table.insert(parents, v)
   end
   
