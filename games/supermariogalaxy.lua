@@ -42,14 +42,17 @@ SMG1.defaultResetButton = 'v'
 function SMG1:init(options)
   SMGshared.init(self, options)
   
-  if options.gameVersion == 'US' then
+  local version = string.lower(options.gameVersion)
+  if version == 'us' or version == 'na' then
     self.gameId = "RMGE01"
     self.refPointerOffset = 0xF8EF88
-  elseif options.gameVersion == 'JP' then
+  elseif version == 'jp' or version == 'ja' then
     self.gameId = "RMGJ01"
     self.refPointerOffset = 0xF8F328
-  elseif options.gameVersion == 'EU' then
+  elseif version == 'eu' or version == 'pal' then
     self.gameId = "RMGP01"
+    -- TODO: This works for English language,
+    -- but not for German language for example.
     self.refPointerOffset = 0xF8EF88
   else
     error("gameVersion not supported: " .. options.gameVersion)

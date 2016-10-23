@@ -43,7 +43,8 @@ SMG2.defaultResetButton = 'v'
 function SMG2:init(options)
   SMGshared.init(self, options)
   
-  if options.gameVersion == 'US' then
+  local version = string.lower(options.gameVersion)
+  if version == 'us' or version == 'na' then
     self.gameId = "SB4E01"
     self.refPointerOffset = 0xC7A2C8
   else

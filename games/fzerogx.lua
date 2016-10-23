@@ -49,7 +49,8 @@ GX.defaultResetButton = '<'
 function GX:init(options)
   dolphin.DolphinGame.init(self, options)
   
-  if options.gameVersion == 'US' then
+  local version = string.lower(options.gameVersion)
+  if version == 'us' or version == 'na' then
     self.gameId = "GFZE01"
   else
     error("gameVersion not supported: " .. options.gameVersion)
