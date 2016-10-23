@@ -2,35 +2,6 @@
 
 
 
--- If you need to debug something, you'll probably want a
--- debug display on the window.
---
--- To use this, first use utils.setDebugLabel(initLabel(<your arguments here>))
--- in your layout's init() function.
--- Then call utils.debugDisp("your debug text here") whenever you want to
--- display some debug text.
---
--- Tip: If you are trying to display an object that might have a nil value,
--- use tostring, like this:
--- utils.debugDisp(tostring(myObject))
--- so that nil will display as "nil", instead of as no text at all. tostring
--- also improves the display of some other kinds of objects.
---
--- Tip: To display the contents of a table, use tableContentsToStr,
--- also defined here in utils.
-
-local debugLabel = nil
-local function setDebugLabel(label)
-  debugLabel = label
-end
-local function debugDisp(str)
-  if debugLabel ~= nil then
-    debugLabel:setCaption(str)
-  end
-end
-
-
-
 -- tonumber fix, so that it properly handles strings starting with "-0".
 -- See the following bug report: http://cheatengine.org/mantis/view.php?id=328
 if originalTonumber==nil then
@@ -474,8 +445,6 @@ end
 
 
 return {
-  setDebugLabel = setDebugLabel,
-  debugDisp = debugDisp,
   isModuleAvailable = isModuleAvailable,
   
   tableContentsToStr = tableContentsToStr,
