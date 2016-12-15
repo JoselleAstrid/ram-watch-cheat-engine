@@ -6,6 +6,7 @@ local classInstantiate = utils.classInstantiate
 
 local Layout = {
   elements = {},
+  margin = 6,
 }
 
 
@@ -90,7 +91,7 @@ function Layout:autoPositionElements()
   local minPos = nil
   local elementSpacing = nil
   if self.autoPositioningType == 'fill' then
-    -- Have a gutter of 6 pixels at each end of the window,
+    -- Have a margin at each end of the window,
     -- and space out the elements uniformly.
     --
     -- It's possible for the spacing to be negative, meaning elements will
@@ -101,7 +102,7 @@ function Layout:autoPositionElements()
     local numSpaces = #(elements) - 1
     elementSpacing = (maxPos - minPos - lengthSum) / (numSpaces)
   elseif self.autoPositioningType == 'compact' then
-    -- Have a gutter of 6 pixels at the start of the window,
+    -- Have a margin at the start of the window,
     -- and position the elements compactly one after the other from there.
     minPos = self.margin
     elementSpacing = self.margin
@@ -739,7 +740,17 @@ function Layout:addFileWriter(
   if passedOutputOptions then
     utils.updateTable(outputOptions, passedOutputOptions)
   end
-  local outputStringGetter = utils.curry(item.display, item, outputOptions)
+  
+  local outputStringGetter = nil
+  if tostring(type(item)) == 'function' then
+    -- We'll call the item (a function) to get the output string.
+    outputStringGetter = item
+  elseif item.display then
+    -- We'll call the item's display() function to get the output string.
+    outputStringGetter = utils.curry(item.display, item, outputOptions)
+  else
+    error("Don't know how to get file output from this item: "..tostring(item))
+  end
   
   local creationCallable = utils.curry(
     classInstantiate, FileWriter,

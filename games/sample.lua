@@ -1,180 +1,91 @@
--- Metroid Prime
--- US version 1.00
-local gameId = "GM8E01"
-
 -- This is a sample script that is simpler and less structured than the other
 -- game scripts (F-Zero GX, Super Mario Galaxy, etc.).
--- It's meant to be a little easier to follow for those new to Lua.
-
--- If you have a lot of possible RAM values you might want to look at, or
--- a lot of different layouts with code overlap, consider looking at the
--- other game scripts for ideas on making things more structured. 
+-- It's meant to be easier to follow (or at least to imitate) for anyone new
+-- to these Lua scripts.
 
 
 
 -- Imports.
 
--- First we make sure that the imported modules get de-cached as needed, since
--- we may be re-running the script in the same run of Cheat Engine.
-package.loaded.shared = nil
+-- package.loaded.<module> ensures that the module gets de-cached as needed.
+-- That way, if we change the code in those modules and then re-run the script,
+-- we won't need to restart Cheat Engine to see the code changes take effect.
 package.loaded.utils = nil
+local utils = require 'utils'
+local subclass = utils.subclass
+
 package.loaded.dolphin = nil
+local dolphin = require 'dolphin'
 
-local shared = require "shared"
-local utils = require "utils"
-local dolphin = require "dolphin"
-
-local readIntBE = utils.readIntBE
-local readFloatBE = utils.readFloatBE
-local floatToStr = utils.floatToStr
-local initLabel = utils.initLabel
-local debugDisp = utils.debugDisp
-local StatRecorder = utils.StatRecorder
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
+package.loaded.valuetypes = nil
+local valuetypes = require "valuetypes"
+local V = valuetypes.V
+local MV = valuetypes.MV
+local MemoryValue = valuetypes.MemoryValue
+local FloatType = valuetypes.FloatTypeBE
+local Vector3Value = valuetypes.Vector3Value
 
 
 
--- Here's the memory address where the game's memory begins.
-local o = dolphin.getGameStartAddress(gameId)
+local MP1 = subclass(dolphin.DolphinGame)
 
+MP1.layoutModuleNames = {'sample_layouts'}
+MP1.framerate = 60
+-- Metroid Prime, North American version 1.00.
+MP1.gameId = 'GM8E01'
 
-
--- GUI layout specifications.
-
-local mainLabel = nil
-local statRecorder = {}
-
-local updateMethod = nil
-local updateTimeInterval = nil
-local updateButton = nil
-
-local layoutA = {
+function MP1:init(options)
+  dolphin.DolphinGame.init(self, options)
   
-  init = function(window)
-    -- This function will get called once at the beginning,
-    -- to initialize things.
-    
-    -- We'll have the display refresh every time a time interval has passed.
-    -- Other options are "breakpoint" (refresh on every game frame) and
-    -- "button" (refresh when a button is clicked).
-    -- Note: this update-method stuff is only built in for Dolphin. If it's
-    -- another emulator/PC game, then you will have to figure out how to get
-    -- "breakpoint" updates working yourself.
-    updateMethod = "timer"
-    -- The time interval will be 0.033 seconds, so it'll try to refresh
-    -- about 30 times per second.
-    updateTimeInterval = 33
-  
-    -- Set the display window's size.
-    window:setSize(400, 80)
-  
-    -- Add a blank label to the window at position x=10, y=5. In the update
-    -- function, which is called on every frame, we'll update the label text.
-    mainLabel = initLabel(window, 10, 5, "")
-  end,
-  
-  update = function()
-    -- This function will get called once per frame.
-  
-    -- Get the RAM values for Samus's position.
-    local posX = readFloatBE(o + 0x46B9BC, 4)
-    local posY = readFloatBE(o + 0x46B9CC, 4)
-    local posZ = readFloatBE(o + 0x46B9DC, 4)
-    
-    -- Display the position values on the Cheat Engine window's label.
-    -- The "1" passed into floatToStr tells it to display one decimal place.
-    mainLabel:setCaption(
-      "Pos: " .. floatToStr(posX, {afterDecimal=1})
-      .. " | " .. floatToStr(posY, {afterDecimal=1})
-      .. " | " .. floatToStr(posZ, {afterDecimal=1})
-    )
-  end,
-}
-
-
-local layoutB = {
-  
-  init = function(window)
-    updateMethod = "timer"
-    updateTimeInterval = 33
-    
-    window:setSize(300, 130)
-  
-    mainLabel = initLabel(window, 10, 5, "")
-    
-    -- Set up GUI elements for recording stats to a file. Put the GUI
-    -- elements at y position 90.
-    statRecorder = StatRecorder:new(window, 90)
-  end,
-  
-  update = function()
-    -- Get the RAM values for Samus's X and Y velocity.
-    local velX = readFloatBE(o + 0x46BAB4, 4)
-    local velY = readFloatBE(o + 0x46BAB8, 4)
-    
-    -- Compute Samus's speed in the XY plane.
-    local speedXY = math.sqrt(velX*velX + velY*velY)
-    
-    -- Display the speed.
-    mainLabel:setCaption(
-      "XY Speed: " .. floatToStr(speedXY)
-    )
-    
-    -- Additionally, record the speed stats to a text file, one text line per
-    -- number.
-    --
-    -- This file will be called "stats.txt", and will be in one of two places:
-    -- (A) The same directory as the cheat table you have open.
-    -- (B) The same directory as the Cheat Engine .exe file, if you don't
-    --     have a cheat table open.
-    --
-    -- For example, if the stat recording goes for 10 seconds (600
-    -- frames), then stats.txt will have 600 lines like:
-    -- 8.83
-    -- 9.16
-    -- 9.43
-    -- (etc.)
-    if statRecorder.currentlyTakingStats then
-      local s = floatToStr(speedXY, {afterDecimal=2})
-      statRecorder:takeStat(s)
-    end
-  end,
-}
+  self.addrs = {}
+  self:initConstantAddresses()
+end
 
 
 
--- *** CHOOSE YOUR LAYOUT HERE ***
+-- These are addresses that should stay constant for the most part,
+-- as long as the game start address is constant.
+function MP1:initConstantAddresses()
+  self.addrs.o = self:getGameStartAddress()
+end
 
--- To switch between GUI layouts, just change this one line. If you want
--- layoutB, then this line should read "local layout = layoutB".
--- Then in the "Lua script: Cheat Table" dialog, click "Execute script" again.
-
-local layout = layoutA
-
-
-
--- Initializing and customizing the GUI window.
-
-local window = createForm(true)
-
--- Put it in the center of the screen.
--- Alternatively you can use something like: window:setPosition(100, 300) 
-window:centerScreen()
--- Set the window title.
-window:setCaption("RAM Display")
--- Customize the font.
-local font = window:getFont()
-font:setName("Calibri")
-font:setSize(16)
-
-layout.init(window)
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
+-- If there are any addresses that can change during the game, calculate
+-- them in this function, which will be called on every frame.
+function MP1:updateAddresses()
+  -- We don't have any dynamic addresses for this game yet,
+  -- so we'll just do nothing here.
+end
 
 
-dolphin.setupDisplayUpdates(
-  updateMethod, layout.update, window, updateTimeInterval, updateButton)
+
+-- Values at static addresses (from the beginning of the game memory).
+MP1.StaticValue = subclass(MemoryValue)
+
+function MP1.StaticValue:getAddress()
+  return self.game.addrs.o + self.offset
+end
+
+
+
+-- Position.
+MP1.blockValues.posX = MV("Pos X", 0x46B9BC, MP1.StaticValue, FloatType)
+MP1.blockValues.posY = MV("Pos Y", 0x46B9CC, MP1.StaticValue, FloatType)
+MP1.blockValues.posZ = MV("Pos Z", 0x46B9DC, MP1.StaticValue, FloatType)
+
+-- Velocity.
+MP1.blockValues.velX = MV("Vel X", 0x46BAB4, MP1.StaticValue, FloatType)
+MP1.blockValues.velY = MV("Vel Y", 0x46BAB8, MP1.StaticValue, FloatType)
+MP1.blockValues.velZ = MV("Vel Z", 0x46BABC, MP1.StaticValue, FloatType)
+
+-- We can also use a Vector3Value to group a set of coordinates together.
+MP1.blockValues.pos = V(
+  subclass(Vector3Value),
+  MP1.blockValues.posX,
+  MP1.blockValues.posY,
+  MP1.blockValues.posZ
+)
+MP1.blockValues.pos.label = "Position"
+
+
+return MP1
 
