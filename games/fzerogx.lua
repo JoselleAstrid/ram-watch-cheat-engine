@@ -1122,10 +1122,14 @@ function raceTimer:display(options)
   table.insert(lines, self.total:display(options))
   table.insert(lines, self.currLap:display(options))
   
-  if not self.racer.lapIndex:isValid() then return s end
+  local completedLaps = 0
+  local finishedRace = false
+  if self.racer.lapIndex:isValid() then
+    completedLaps = self.racer.lapIndex:get()
+    finishedRace = self.racer:finishedRace()
+  end
   
   -- Show up to maxPrevLaps previous individual lap times
-  local completedLaps = self.racer.lapIndex:get()
   local firstLapToShow = math.max(1, completedLaps - options.maxPrevLaps + 1)
   for lapN = firstLapToShow, completedLaps do
     local prevLapN = completedLaps - lapN + 1
@@ -1137,7 +1141,7 @@ function raceTimer:display(options)
     table.insert(lines, self.prevLaps[prevLapN]:display(lapOptions))
   end
   
-  if self.racer:finishedRace() then
+  if finishedRace then
     local finalOptions = {}
     utils.updateTable(finalOptions, options)
     finalOptions.label = "Final time"
