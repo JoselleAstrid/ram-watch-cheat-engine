@@ -59,19 +59,19 @@ end
 
 function Time:displayValue(options)
   local frames = self.frames:get()
-  
+
   local hours = math.floor(frames / (60*60*60))
   local mins = math.floor(frames / (60*60)) % 60
   local secs = math.floor(frames / 60) % 60
   local centis = math.floor((frames % 60) * (100/60))
-  
+
   local timeStr = nil
   if hours > 0 then
     timeStr = string.format("%d:%02d:%02d.%02d", hours, mins, secs, centis)
   else
     timeStr = string.format("%d:%02d.%02d", mins, secs, centis)
   end
-    
+
   if options.narrow then
     return string.format("%s\n %d", timeStr, frames)
   else
@@ -106,17 +106,17 @@ Velocity.initialValue = 0.0
 
 function Velocity:init(coordinates)
   Value.init(self)
-  
+
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
   self.posObjects = {}
   if string.find(coordinates, "X") then table.insert(self.posObjects, self.game.pos.x) end
   if string.find(coordinates, "Y") then table.insert(self.posObjects, self.game.pos.y) end
   if string.find(coordinates, "Z") then table.insert(self.posObjects, self.game.pos.z) end
   self.numCoordinates = #self.posObjects
-  
+
   if self.numCoordinates == 1 then self.label = coordinates.." Vel"
   else self.label = coordinates.." Speed" end
-  
+
   -- If we're tracking velocity of 1 coordinate, it should have a +/- display.
   -- If more than 1 coordinate, it'll just be a magnitude, so need no +/-.
   local defaultSigned = (self.numCoordinates == 1)
@@ -130,19 +130,19 @@ function Velocity:updateValue()
   for _, posObject in pairs(self.posObjects) do
     table.insert(self.currPos, posObject:get())
   end
-  
+
   if self.prevPos == nil then
     self.value = 0.0
     return
   end
-  
+
   -- Update velocity based on prev and curr position
   if self.numCoordinates == 1 then
     self.value = self.currPos[1] - self.prevPos[1]
   else
     local sumOfSquaredDiffs = 0.0
     for n = 1, self.numCoordinates do
-      local diff = self.currPos[n] - self.prevPos[n] 
+      local diff = self.currPos[n] - self.prevPos[n]
       sumOfSquaredDiffs = sumOfSquaredDiffs + diff*diff
     end
     self.value = math.sqrt(sumOfSquaredDiffs)
@@ -162,7 +162,7 @@ tilt.initialValue = "Value field not used"
 
 function tilt:init()
   Value.init(self)
-  
+
   self.dgrav = self.game.downVectorGravity
   self.utilt = self.game.upVectorTilt
 end
@@ -170,7 +170,7 @@ end
 function tilt:updateValue()
   local ugrav = self.dgrav:get():times(-1)
   local utilt = self.utilt:get()
-  
+
   -- Catch the case where the up vectors are the same. This should keep us from
   -- displaying undefined values like -1.#J or -1.#IO.
   if ugrav:nearlyEquals(utilt) then
@@ -179,12 +179,12 @@ function tilt:updateValue()
     self.diff = Vector3:new(0.0,0.0,0.0)
     return
   end
-  
+
   -- Cross product: to get a rotation axis, from gravity up vector
   -- to tilt up vector.
   -- Then ensure we get a normalized rotation axis.
   self.rotationAxis = ugrav:cross(utilt):normalized()
-  
+
   local x = self.rotationAxis.x
   -- Check for NaN or +/-infinity.
   if x ~= x or x == math.huge or x == -math.huge then
@@ -196,10 +196,10 @@ function tilt:updateValue()
     self.diff = Vector3:new(0.0,0.0,0.0)
     return
   end
-  
+
   -- Dot product: to get rotational difference between gravity and tilt.
   self.rotationRadians = math.acos(ugrav:dot(utilt))
-  
+
   -- Alternate, crude representation of tilt: difference between up vectors
   self.diff = utilt:minus(ugrav)
 end
@@ -212,7 +212,7 @@ end
 function tilt:displayRotation()
   self:update()
   local format = "Tilt:\n %+.2f°\n Axis %+.2f\n      %+.2f\n      %+.2f"
-  
+
   return string.format(
     format,
     math.deg(self.rotationRadians),
@@ -230,7 +230,7 @@ end
 function tilt:displayDiff(options)
   options = options or {}
   self:update()
-  
+
   options.beforeDecimal = options.beforeDecimal or 1
   options.afterDecimal = options.afterDecimal or 3
   options.signed = options.signed or true
@@ -247,14 +247,14 @@ upwardVelocity.displayDefaults = {signed=true}
 
 function upwardVelocity:init()
   Value.init(self)
-  
+
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
 function upwardVelocity:updateValue()
   local pos = self.pos:get()
-  
+
   if self.prevPos == nil then
     self.value = 0.0
   else
@@ -263,7 +263,7 @@ function upwardVelocity:updateValue()
     -- 1D upward velocity = dot product of up vector and velocity vector
     self.value = vel:dot(self.prevUp)
   end
-  
+
   -- Prepare for next step
   self.prevPos = pos
   self.prevUp = self.dgrav:get():times(-1)
@@ -278,14 +278,14 @@ lateralVelocity.initialValue = 0.0
 
 function lateralVelocity:init()
   Value.init(self)
-  
+
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
 
 function lateralVelocity:updateValue()
   local pos = self.pos:get()
-  
+
   if self.prevPos == nil then
     self.value = 0.0
   else
@@ -299,7 +299,7 @@ function lateralVelocity:updateValue()
     -- magnitude of (overall velocity vector minus upward velocity vector)
     self.value = vel:minus(upVelVector):magnitude()
   end
-  
+
   -- Prepare for next step
   self.prevPos = pos
   self.prevUp = self.dgrav:get():times(-1)
@@ -315,7 +315,7 @@ upwardVelocityLastJump.displayDefaults = {signed=true}
 
 function upwardVelocityLastJump:init()
   Value.init(self)
-  
+
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end
@@ -323,7 +323,7 @@ end
 function upwardVelocityLastJump:updateValue()
   local pos = self.pos:get()
   local onGround = self.game:onGround()
-      
+
   -- Implementation based on up velocity value.
   local vel = nil
   local upVel = nil
@@ -335,22 +335,22 @@ function upwardVelocityLastJump:updateValue()
     end
   end
   self.prevUpVel = upVel
-  
+
   -- Implementation based on the onGround bit. Finicky for anything
   -- other than regular jumps.
   -- if self.prevPos ~= nil then
   --   if not onGround and self.prevOnGround then
   --     -- We just jumped. Time to update.
-      
+
   --     -- First get the overall velocity
   --     local vel = pos:minus(self.prevPos)
   --     -- 1D upward velocity = dot product of up vector and velocity vector
   --     local upVel = vel:dot(self.prevUp)
-      
+
   --     self.value = upVel
   --   end
   -- end
-  
+
   -- Prepare for next step
   self.prevPos = pos
   self.prevUp = self.dgrav:get():times(-1)
@@ -372,17 +372,17 @@ upVelocityTiltBonus.displayDefaults = {signed=true}
 
 function upVelocityTiltBonus:init()
   Value.init(self)
-  
+
   -- A Vector3's x, y, and z fields aren't set until the vector is initialized.
   valuetypes.initValueAsNeeded(self.game.pos_early1)
-  
+
   self.nextVel = self.game:V(
     Vector3Value,
     self.game:V(RateOfChange, self.game.pos_early1.x),
     self.game:V(RateOfChange, self.game.pos_early1.y),
     self.game:V(RateOfChange, self.game.pos_early1.z)
   )
-  
+
   self.dgrav = self.game.downVectorGravity
   self.tilt = self.game.tilt
 end
@@ -392,12 +392,12 @@ function upVelocityTiltBonus:updateValue()
   -- This way, during a jump, we can see what the
   -- predicted bonus velocity was for that jump.
   if not self.game:onGround() then return end
-  
+
   -- Get the tilt.
   local array = self.tilt:getRotation()
   local tiltRadians = array[1]
   local tiltAxis = array[2]
-  
+
   -- If no tilt, then we know there's no up vel bonus, and we're done.
   if tiltRadians == 0.0 then
     self.value = 0.0
@@ -406,7 +406,7 @@ function upVelocityTiltBonus:updateValue()
 
   -- Get the in-memory velocity that'll be observed on the NEXT frame.
   local nextVel = self.nextVel:get()
-  
+
   -- Account for the fact that lateral speed gets
   -- multiplied by a factor when you jump.
   -- This factor is related to the character's max run speed.
@@ -419,13 +419,13 @@ function upVelocityTiltBonus:updateValue()
   else error("Unrecognized character: "..tostring(self.game.character))
   end
   nextVel = nextVel:times(12.5/maxRunSpeed)
-  
+
   -- If no velocity, then we know there's no up vel bonus, and we're done.
   if math.abs(nextVel:magnitude()) < 0.000001 then
     self.value = 0.0
     return
   end
-  
+
   -- The up vel tilt bonus doesn't care about slopes if they don't affect
   -- your tilt.
   --
@@ -439,24 +439,24 @@ function upVelocityTiltBonus:updateValue()
   -- First, get the upward component of velocity (upward in terms of gravity).
   local ugrav = self.dgrav:get():times(-1)
   local upVel = ugrav:times(nextVel:dot(ugrav))
-  
+
   -- Overall velocity - upward component = lateral component. (Again, in
   -- terms of gravity.)
   local lateralVel = nextVel:minus(upVel)
-  
+
   -- Apply the original magnitude.
   -- We'll call the result "ground velocity".
   local lateralVelMagnitude = lateralVel:magnitude()
   local groundVel = lateralVel:times(
       nextVel:magnitude() / lateralVelMagnitude )
-  
+
   -- Apply the tilt to the ground velocity vector.
   -- This is a vector rotation, which we'll calculate with Rodrigues' formula.
   local term1 = groundVel:times(math.cos(tiltRadians))
   local term2 = tiltAxis:cross(groundVel):times(math.sin(tiltRadians))
   local term3 = tiltAxis:times( tiltAxis:dot(groundVel) * (1-math.cos(tiltRadians)) )
   local tiltedVelocity = term1:plus(term2):plus(term3)
-  
+
   -- Finally, find the upward component of the tilted velocity. This is the
   -- bonus up vel that the tilted velocity gives us.
   self.value = tiltedVelocity:dot(ugrav)
@@ -471,7 +471,7 @@ function SMGshared:getButton(button)
   -- and all, for any Wii/GC game.
   local b1 = self.buttons1
   local b2 = self.buttons2
-  
+
   local value = nil
   if button == "H" then value = b1:get()[1]  -- Home
   elseif button == "C" then value = b1:get()[2]
@@ -485,7 +485,7 @@ function SMGshared:getButton(button)
   elseif button == "<" then value = b2:get()[8]
   else error("Button code not recognized: " .. tostring(button))
   end
-  
+
   return value
 end
 
@@ -503,7 +503,7 @@ end
 
 function GV.shake:display()
   self:update()
-  
+
   if self.value.wiimote == 1 then return "Shake Wiimote"
   elseif self.value.nunchuk == 1 then return "Shake Nunchuk"
   else return ""
@@ -517,7 +517,7 @@ GV.spinStatus.initialValue = 'neutral'
 
 function GV.spinStatus:getMidairSpinType()
   local code = self.game.midairSpinType:get()
-  
+
   if code == 1 then return 'wiimote'
   elseif code == 2 then return 'nunchuk'
   else return 'unknown'
@@ -528,7 +528,7 @@ function GV.spinStatus:updateValue()
   local cooldownTimer = self.game.spinCooldownTimer:get()
   local attackTimer = self.game.spinAttackTimer:get()
   local midairSpinTimer = self.game.midairSpinTimer:get()
-  
+
   if midairSpinTimer ~= 180 and attackTimer > 0 then
     -- This timer is 180 if no midair spin boost is happening. Otherwise, it's
     -- anywhere from 1 to 22.
@@ -588,27 +588,27 @@ end
 
 function input:display(options)
   options = options or {}
-  
+
   local lines = {}
-  
+
   if options.shake then table.insert(lines, self.game.shake:display()) end
   if options.spin then table.insert(lines, self.game.spinStatus:display()) end
-  
+
   if options.stick then
     local stickX = utils.displayAnalog(
       self.game.stickX:get(), 'float', ">", "<", {afterDecimal=3})
     local stickY = utils.displayAnalog(
       self.game.stickY:get(), 'float', "^", "v", {afterDecimal=3})
-    
+
     if options.narrow then
       table.insert(lines, stickX.."\n"..stickY)
     else
       table.insert(lines, stickX.." "..stickY)
     end
   end
-  
+
   table.insert(lines, self:displayAllButtons())
-  
+
   return table.concat(lines, "\n")
 end
 
@@ -621,17 +621,17 @@ AnchoredDistance.initialValue = 0.0
 
 function AnchoredDistance:init(coordinates)
   ResettableValue.init(self, resetButton)
-  
+
   -- coordinates - a string such as "X" "Y" "XZ" "XYZ"
   self.posObjects = {}
   if string.find(coordinates, "X") then table.insert(self.posObjects, self.game.pos.x) end
   if string.find(coordinates, "Y") then table.insert(self.posObjects, self.game.pos.y) end
   if string.find(coordinates, "Z") then table.insert(self.posObjects, self.game.pos.z) end
   self.numCoordinates = #self.posObjects
-  
+
   if numCoordinates == 1 then self.label = coordinates.." Pos Diff"
   else self.label = coordinates.." Distance" end
-  
+
   -- If we're tracking velocity of 1 coordinate, it should have a +/- display.
   -- If more than 1 coordinate, it'll just be a magnitude, so need no +/-.
   local defaultSigned = (self.numCoordinates == 1)
@@ -643,13 +643,13 @@ function AnchoredDistance:updateValue()
   for _, posObject in pairs(self.posObjects) do
     table.insert(self.currPos, posObject:get())
   end
-  
+
   if self.numCoordinates == 1 then
     self.value = self.currPos[1] - self.anchor[1]
   else
     local sumOfSquaredDiffs = 0.0
     for n = 1, self.numCoordinates do
-      local diff = self.currPos[n] - self.anchor[n] 
+      local diff = self.currPos[n] - self.anchor[n]
       sumOfSquaredDiffs = sumOfSquaredDiffs + diff*diff
     end
     self.value = math.sqrt(sumOfSquaredDiffs)
@@ -673,7 +673,7 @@ anchoredHeight.initialValue = 0.0
 
 function anchoredHeight:init()
   ResettableValue.init(self, resetButton)
-  
+
   self.pos = self.game.pos
   self.dgrav = self.game.downVectorGravity
 end

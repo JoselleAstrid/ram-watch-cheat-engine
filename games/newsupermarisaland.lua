@@ -43,7 +43,7 @@ NSML.layoutModuleNames = {'newsupermarisaland_layouts'}
 
 function NSML:init(options)
   gameModule.Game.init(self, options)
-  
+
   self.addrs = {}
   self:initConstantAddresses()
 end
@@ -54,7 +54,7 @@ local GV = NSML.blockValues
 
 function NSML:initConstantAddresses()
   self.addrs.o = getAddress(self.exeName)
-  
+
   -- Static value that increases by 1 once per frame.
   self.frameCounterAddress = self.addrs.o + 0x11B750
   -- Static instruction that runs once per frame. (This is just the
@@ -80,7 +80,7 @@ function NSML:updateMarisaSpriteAddress()
   -- index of a particular sprite.
   self.spriteCount = readIntLE(self.addrs.o + 0x114354, 4)
   self.addrs.spritePtrArrayStart = readIntLE(self.addrs.o + 0x114344, 4)
-  
+
   if self.spriteCount < 2 then
     -- There is no Marisa sprite (see below), and no valid sprite in the
     -- location where we'd normally look.
@@ -89,7 +89,7 @@ function NSML:updateMarisaSpriteAddress()
     self.addrs.marisaSprite = nil
     return
   end
-  
+
   -- Marisa's sprite seems to be the second to last sprite most of the time.
   -- TODO: Cover the cases where it's not. Only example so far is the start of
   -- 7-4, after walking right a bit to see the cactus-holding fairies.

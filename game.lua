@@ -22,11 +22,11 @@ function Game:init(options)
   if not self.exeName then
     error("This game doesn't have an exeName specified.")
   end
-  
+
   if not self.framerate then
     error("This game doesn't have a framerate specified.")
   end
-  
+
   if options.frameCounterAddress then
     self.frameCounterAddress =
       getAddress(self.exeName) + options.frameCounterAddress
@@ -35,14 +35,14 @@ function Game:init(options)
     self.oncePerFrameAddress =
       getAddress(self.exeName) + options.oncePerFrameAddress
   end
-    
+
   valuetypes.Block.init(self)
 end
 
 function Game:getBlock(BlockClass, ...)
   -- Assumes getBlockKey() and init() take the same arguments.
   local key = BlockClass:getBlockKey(...)
-  
+
   -- Create the block if it doesn't exist
   if not BlockClass.blockInstances[key] then
     local blockInstance = subclass(BlockClass)
@@ -52,7 +52,7 @@ function Game:getBlock(BlockClass, ...)
     blockInstance:init(...)
     BlockClass.blockInstances[key] = blockInstance
   end
-  
+
   -- Return the block
   return BlockClass.blockInstances[key]
 end
@@ -73,20 +73,20 @@ function Game:getFrameCount()
 end
 
 function Game:startUpdating(layout)
-  -- Clean up from previous runs of the script 
+  -- Clean up from previous runs of the script
   if self.oncePerFrameAddress then
     debug_removeBreakpoint(self.oncePerFrameAddress)
   end
-  
+
   self.updateOK = true
-  
+
   if layout.updateMethod == 'timer' then
-    
+
     -- Frame counter is optional. If it's specified, we'll use it.
     if self.frameCounterAddress then
       self.usingFrameCounter = true
     end
-    
+
     -- Set the window to be the timer's parent, so that when the window is
     -- closed, the timer will stop being called. This allows us to edit and then
     -- re-run the script, and then close the old window to stop previous timer
@@ -94,7 +94,7 @@ function Game:startUpdating(layout)
     self.timer = createTimer(layout.window)
     -- Time interval at which we'll periodically call a function.
     self.timer.setInterval(layout.updateTimeInterval)
-    
+
     local function timerFunction(game)
       if not game.updateOK then
         -- The previous update call must've gotten an error before
@@ -103,16 +103,16 @@ function Game:startUpdating(layout)
         self.timer.destroy()
         return
       end
-      
+
       game.updateOK = false
-    
+
       if game.usingFrameCounter then
         -- Only update if the game has advanced at least one frame. This way we
         -- can pause emulation and let the game stay paused without wasting too
         -- much CPU.
         local lastUpdateCheckFrame = game.frameCount
         game:updateFrameCount()
-        
+
         if lastUpdateCheckFrame ~= game.frameCount then
           layout:update()
         end
@@ -121,27 +121,27 @@ function Game:startUpdating(layout)
         -- no matter what.
         layout:update()
       end
-      
+
       game.updateOK = true
     end
-    
+
     -- Start calling this function periodically.
     self.timer.setOnTimer(utils.curry(timerFunction, self))
-  
+
   elseif layout.updateMethod == 'breakpoint' then
-  
+
     if self.oncePerFrameAddress == nil then
       error("Must provide a oncePerFrameAddress, because this layout uses"
         .." breakpoint updates.")
     end
-  
+
     -- Frame counter is required.
     self.usingFrameCounter = true
-  
+
     -- This sets a breakpoint at a particular instruction which
     -- should be called exactly once every frame.
     debug_setBreakpoint(self.oncePerFrameAddress)
-    
+
     -- If the oncePerFrameAddress was chosen correctly, the
     -- following function should run exactly once every frame.
     local function runOncePerFrame(game)
@@ -149,30 +149,30 @@ function Game:startUpdating(layout)
       -- the update function so the user isn't bombarded with errors
       -- once per frame.
       if not game.updateOK then return 1 end
-    
+
       game.updateOK = false
-    
+
       if game.usingFrameCounter then
         game:updateFrameCount()
       end
-      
+
       layout:update()
-      
+
       game.updateOK = true
-      
+
       return 1
     end
     debugger_onBreakpoint = utils.curry(runOncePerFrame, self)
-    
+
   elseif layout.updateMethod == 'button' then
-    
+
     self.usingFrameCounter = false
-    
+
     -- First do an initial update.
     layout:update()
     -- Set the update function to run when the update button is clicked.
     layout.updateButton:setOnClick(utils.curry(layout.update, layout))
-  
+
   end
 end
 

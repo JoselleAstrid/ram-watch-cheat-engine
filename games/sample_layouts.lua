@@ -16,9 +16,9 @@ local layouts = {}
 layouts.positionAndVelocity = subclass(Layout)
 function layouts.positionAndVelocity:init()
   self:setUpdatesPerSecond(30)
-  
+
   self.window:setSize(400, 200)
-  
+
   self:addLabel{x=6, y=6, fontSize=12, fontName="Consolas"}
   self:addItem(self.game.posX)
   self:addItem(self.game.posY)
@@ -35,20 +35,20 @@ function layouts.displayExamples:init()
   -- Let's have multiple labels which are spaced vertically across the window
   -- automatically.
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 250)
   self.labelDefaults = {fontSize=12, fontName="Consolas"}
-  
+
   self:addLabel()
   -- You can specify display options.
   self:addItem(self.game.posX, {afterDecimal=5, beforeDecimal=5, signed=true})
   -- Display a Vector3Value.
   self:addItem(self.game.pos, {narrow=true})
-  
+
   self:addLabel()
   -- addItem() can take a string constant.
   self:addItem("----------")
-  
+
   self:addLabel()
   -- addItem() can take a function that returns a string.
   self:addItem(
@@ -68,18 +68,18 @@ function layouts.positionRecording:init()
   -- a performance hit. If you want performance and it's OK to miss frames,
   -- use setUpdatesPerSecond() instead.
   self:setBreakpointUpdateMethod()
-  
+
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 160)
   self.labelDefaults = {fontSize=12, fontName="Consolas"}
-  
+
   -- Display position.
   self:addLabel()
   self:addItem(self.game.posX)
   self:addItem(self.game.posY)
   self:addItem(self.game.posZ)
-  
+
   local tabSeparatedPosition = function()
     local positionComponents = {
       self.game.posX:display{afterDecimal=8, nolabel=true},
@@ -88,7 +88,7 @@ function layouts.positionRecording:init()
     }
     return table.concat(positionComponents, '\t')
   end
-  
+
   -- This adds a GUI element with a button. Click the button to start recording
   -- stats to a file. For every frame of recording, one line is added to
   -- the file.

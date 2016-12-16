@@ -23,9 +23,9 @@ function layouts.addressTest:init()
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(5)
-  
+
   self.window:setSize(400, 300)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
@@ -48,9 +48,9 @@ function layouts.posVel:init()
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(60)
-  
+
   self.window:setSize(400, 200)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game.pos)
   self:addItem(game.velX)

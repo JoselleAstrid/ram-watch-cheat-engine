@@ -20,7 +20,7 @@ function layouts.frameCounterTest:init(window, game)
   self:setBreakpointUpdateMethod()
 
   self.windowSize = {300, 100}
-  
+
   self:addLabel{
     x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
@@ -28,7 +28,7 @@ function layouts.frameCounterTest:init(window, game)
       return "Frame count: "..tonumber(game:getFrameCount())
     end
   )
-  
+
   Layout.init(self, window, game)
 end
 

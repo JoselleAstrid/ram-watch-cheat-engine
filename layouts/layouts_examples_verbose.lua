@@ -37,13 +37,13 @@ layouts.smgVelocityAndInputsVerbose1 = subclass(Layout)
 function layouts.smgVelocityAndInputsVerbose1:init(window, game)
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.windowSize = {144, dolphinNativeResolutionHeight}
-  
+
   -- This should come BEFORE createLabel statements (so self.window and
   -- self.game are set before creating labels)
   Layout.init(self, window, game)
-  
+
   self.mainLabel = self:createLabel{
     x=X, fontSize=fontSize, fontName=fixedWidthFontName}
   self.inputsLabel = self:createLabel{
@@ -58,7 +58,7 @@ function layouts.smgVelocityAndInputsVerbose1:init(window, game)
   self.uiObjs = {
     self.mainLabel, self.inputsLabel,
     self.stickInputImage.image, self.timeLabel}
-  
+
   self.velY = game:V(game.Velocity, "Y")
   self.velXZ = game:V(game.Velocity, "XZ")
   self.velXYZ = game:V(game.Velocity, "XYZ")
@@ -67,7 +67,7 @@ end
 function layouts.smgVelocityAndInputsVerbose1:update()
   local game = self.game
   game:updateAddresses()
-  
+
   local s = table.concat({
     self.velY:display{narrow=true},
     self.velXZ:display{narrow=true},
@@ -75,15 +75,15 @@ function layouts.smgVelocityAndInputsVerbose1:update()
     self.game.pos:display{narrow=true},
   }, "\n")
   self.mainLabel:setCaption(s)
-  
+
   self.inputsLabel:setCaption(
     game:inputDisplay{shake=true, spin=true, narrow=true}
   )
-  
+
   self.stickInputImage:update()
-  
+
   self.timeLabel:setCaption(self.stageTime:display{narrow=true})
-  
+
   if self.autoPositioningActive and not self.autoPositioningDone then
     self:autoPositionElements()
     self.autoPositioningDone = true

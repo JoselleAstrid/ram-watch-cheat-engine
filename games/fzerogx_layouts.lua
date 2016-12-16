@@ -28,7 +28,7 @@ function layouts.addressTest:init()
   self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
@@ -53,16 +53,16 @@ function layouts.kmhRecording:init()
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 130)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer)
-    
+
   self:addLabel()
   self:addItem(game.settingsSlider)
   self:addItem(racer.kmh)
-  
+
   self:addFileWriter(
     racer.kmh, "ram_watch_output.txt",
     {beforeDecimal=1, afterDecimal=10})
@@ -72,15 +72,15 @@ end
 layouts.energy = subclass(Layout)
 function layouts.energy:init(numOfRacers)
   numOfRacers = numOfRacers or 6
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 23*numOfRacers + 25)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   self:addLabel()
   for n = 1, numOfRacers do
     self:addItem(game:getBlock(game.Racer, n).energy)
@@ -91,15 +91,15 @@ end
 layouts.energyEditable = subclass(Layout)
 function layouts.energyEditable:init(numOfRacers)
   numOfRacers = numOfRacers or 6
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(520, 28*numOfRacers + 25)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   for n = 1, numOfRacers do
     self:addEditableValue(game:getBlock(game.Racer, n).energy, {buttonX=400})
   end
@@ -109,16 +109,16 @@ end
 layouts.position = subclass(Layout)
 function layouts.position:init(numOfRacers)
   numOfRacers = numOfRacers or 1
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(350, 23*4*numOfRacers + 25)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   self:addLabel()
   for n = 1, numOfRacers do
     self:addItem(game:getBlock(game.Racer, n).pos)
@@ -131,22 +131,22 @@ function layouts.oneMachineStat:init(statName, numOfRacers, withBase)
   statName = statName or 'accel'
   numOfRacers = numOfRacers or 6
   withBase = withBase or false
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(5)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(500, 23*2*numOfRacers + 25)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   self:addLabel()
   for n = 1, numOfRacers do
     local stat = game:getBlock(game.Racer, n)[statName]
-    
+
     if withBase then
       self:addItem(stat)
-      
+
       if stat.displayBase then
         self:addItem(function() return stat:displayBase() end)
       else
@@ -168,21 +168,21 @@ end
 layouts.allMachineStats = subclass(Layout)
 function layouts.allMachineStats:init(withBase)
   withBase = withBase or false
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(5)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 700)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer)
-  
+
   self:addLabel()
   for _, statName in pairs(game.statNames) do
     local stat = racer[statName]
-    
+
     if withBase then
       if stat.displayCurrentAndBase then
         self:addItem(function() return stat:displayCurrentAndBase() end)
@@ -205,19 +205,19 @@ end
 layouts.allMachineStatsEditable = subclass(Layout)
 function layouts.allMachineStatsEditable:init(
   updateWithButton, initiallyShownStats)
-  
+
   updateWithButton = updateWithButton or false
   initiallyShownStats = initiallyShownStats or self.game.statNames
 
   local game = self.game
   self.margin = 0
   self:activateAutoPositioningY('compact')
-  
+
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local toggleElementsButton = self:addButton("Toggle elements")
   toggleElementsButton:setOnClick(function() self:openToggleDisplayWindow() end)
-  
+
   if updateWithButton then
     local updateButton = self:addButton("Update")
     self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
@@ -226,13 +226,13 @@ function layouts.allMachineStatsEditable:init(
     self:setUpdatesPerSecond(5)
     self.window:setSize(470, 25 + 27 + 27*#game.statNames)
   end
-  
+
   local racer = game:getBlock(game.Racer)
-  
+
   for _, statName in pairs(game.statNames) do
     local element = self:addEditableValue(
       racer[statName], {buttonX=350, checkboxLabel=statName})
-      
+
     element:setVisible(utils.isValueInTable(initiallyShownStats, statName))
   end
 end
@@ -242,18 +242,18 @@ layouts.inputs = subclass(Layout)
 function layouts.inputs:init(calibrated, playerNumber)
   calibrated = calibrated or false
   playerNumber = playerNumber or 1
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY('compact')
-  
+
   self.window:setSize(300, 250)
-  
+
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local player = game:getBlock(game.Player, playerNumber)
-  
+
   self:addLabel{foregroundColor=inputColor}
   if calibrated then
     self:addItem(player.calibratedInput, {LR=true, stick=true})
@@ -275,31 +275,31 @@ layouts.replayInfo = subclass(Layout)
 function layouts.replayInfo:init(racerNumber, cpuSteerRange)
   racerNumber = racerNumber or 1
   cpuSteerRange = cpuSteerRange or false
-  
+
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY('compact')
-  
+
   self.window:setSize(300, 500)
-  
+
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer, racerNumber)
-  
+
   self:addLabel{foregroundColor=inputColor}
   self:addItem(racer.controlState, {strafe=true, steer=true})
-  
+
   self:addImage(
     game.ControlStateStrafeImage, {racer},
     {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
   self:addImage(
     game.ControlStateSteerImage, {racer},
     {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
-  
+
   self:addLabel()
   self:addItem(racer.energy)
-  
+
   self:addLabel()
   self:addItem(racer.raceTimer)
 end
@@ -311,19 +311,19 @@ function layouts.checkpoints:init()
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(250, 400)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   local racer = game:getBlock(game.Racer)
-  
+
   self:addLabel()
   self:addItem(racer.lapIndexPosition)
   self:addItem(racer.checkpointMain)
   self:addItem(racer.checkpointFraction)
   self:addItem(racer.checkpointLateralOffset)
-  
+
   self:addLabel()
   self:addItem(racer.pos)
   self:addItem(racer.checkpointRightVector)
@@ -340,12 +340,12 @@ function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(500, 300)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer, racerNumber)
-  
+
   self:addLabel()
   self:addItem(
     racer.raceTimer,
@@ -362,12 +362,12 @@ function layouts.speed224:init(racerNumber)
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(450, 250)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer, racerNumber)
-  
+
   self:addLabel()
   self:addItem(racer.speed224)
   self:addItem(racer.kmh)
@@ -387,12 +387,12 @@ function layouts.testMisc:init(racerNumber)
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(450, 250)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   local racer = game:getBlock(game.Racer, racerNumber)
-  
+
   self:addLabel()
   self:addItem(game:V(valuetypes.RateOfChange, racer.kmh, "km/h change"))
   self:addItem(game:V(valuetypes.MaxValue, racer.kmh))

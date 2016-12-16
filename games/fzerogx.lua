@@ -48,14 +48,14 @@ GX.defaultResetButton = '<'
 
 function GX:init(options)
   dolphin.DolphinGame.init(self, options)
-  
+
   local version = string.lower(options.gameVersion)
   if version == 'us' or version == 'na' then
     self.gameId = "GFZE01"
   else
     error("gameVersion not supported: " .. options.gameVersion)
   end
-  
+
   self.addrs = {}
   self:initConstantAddresses()
 end
@@ -72,7 +72,7 @@ function GX:initConstantAddresses()
 
   self.addrs.machineBaseStatsBlocks = self.addrs.o + 0x1554000
   self.addrs.machineBaseStatsBlocksCustom = self.addrs.o + 0x1555F04
-  
+
   -- It's useful to have an address where there's always a ton of zeros.
   -- We can use this address as the result when an address computation
   -- is invalid. Zeros are better than unreadable memory (results in
@@ -80,7 +80,7 @@ function GX:initConstantAddresses()
   -- This group of zeros should go on for 0x60000 to 0x70000 bytes.
   self.addrs.zeros = self.addrs.o + 0xB4000
 end
-  
+
 
 
 -- These addresses can change more frequently, so we specify them as
@@ -105,21 +105,21 @@ function GX:updateMachineStatsAndStateAddresses()
   -- A duplicate of the base stats block. We'll use this as a backup of the
   -- original values, when playing with the values in the primary block.
   self.addrs.machineBaseStatsBlocks2 = self.addrs.refPointer + 0x195660
-  
+
   -- Same but for custom machines.
   self.addrs.machineBaseStatsBlocks2Custom = self.addrs.refPointer + 0x1B3B30
-  
+
   -- Racer state.
   local pointer2Address = self.addrs.refPointer + 0x227878
   local pointer2Value = readIntBE(pointer2Address, 4)
-  
+
   if pointer2Value == 0 then
     -- A race is not going on, so there are no valid racer state addresses.
     self.addrs.racerStateBlocks = nil
     self.addrs.racerState2Blocks = nil
   else
     self.addrs.racerStateBlocks = self.addrs.o + pointer2Value - 0x80000000
-    
+
     local pointer3Address = self.addrs.racerStateBlocks - 0x20
     self.addrs.racerState2Blocks =
       self.addrs.o + readIntBE(pointer3Address, 4) - 0x80000000
@@ -207,12 +207,12 @@ function RacerValue:getLabel()
   if self.racer.racerIndex == 0 then
     return self.label
   end
-  
+
   if self.racer.machineName:isValid() then
     return string.format(
       "%s, %s", self.label, self.racer.machineName:get())
   end
-  
+
   return self.label
 end
 
@@ -221,13 +221,13 @@ function RacerValue:isValid()
     self.invalidDisplay = "<Race not active>"
     return false
   end
-  
+
   local racerNumber = self.racer.racerIndex + 1
   if self.game.numOfRacers:get() < racerNumber then
     self.invalidDisplay = string.format("<Racer %d not active>", racerNumber)
     return false
   end
-    
+
   return true
 end
 
@@ -332,14 +332,14 @@ GX.StatWithBase = StatWithBase
 function StatWithBase:init(
   label, offset, baseOffset, typeMixinClass,
   customPartsWithBase, extraArgs, baseExtraArgs)
-  
+
   self.label = label
-    
+
   -- MemoryValue containing current stat value
   self.current = self.block:MV(
     label, offset, StateValue, typeMixinClass, extraArgs)
   self.displayDefaults = self.current.displayDefaults
-  
+
   -- Stuff to help create base-value objects dynamically
   self.baseOffset = baseOffset
   self.typeMixinClass = typeMixinClass
@@ -350,12 +350,12 @@ end
 function StatWithBase:updateStatBasesIfMachineChanged()
   -- Note: it's possible that more than one custom part has a nonzero
   -- base value here. (Check with #self.customPartsWithBase > 1)
-  -- Weight and Body are the only stats where this is true. 
-  -- 
+  -- Weight and Body are the only stats where this is true.
+  --
   -- But handling this properly seems to take a fair bit of extra work,
   -- so no matter what, we'll just get one nonzero base value.
   -- Specifically we'll get the first one, by indexing with [1].
-  -- 
+  --
   -- That's still enough to fully manipulate the stats; it'll just be a bit
   -- unintuitive. e.g. to change Gallant Star-G4's weight, you have to
   -- manipulate the weight of the body part, Dread Hammer (the interface
@@ -363,23 +363,23 @@ function StatWithBase:updateStatBasesIfMachineChanged()
   -- GSG4 2660 to 1660 weight: change Dread Hammer's weight from 1440 to 440
   -- GSG4 2660 to 660 weight: change Dread Hammer's weight from 1440 to -560
   local machineOrPartId = self.racer.machineId:get()
-  
+
   -- If custom machine, id is 50 for P1, 51 for P2...
   local isCustom = (machineOrPartId >= 50)
   if isCustom then
     local customPartTypeWithBase = self.customPartsWithBase[1]
     machineOrPartId = self.racer:customPartIds(customPartTypeWithBase):get()
   end
-  
+
   if self.baseExtraArgs.machineOrPartId == machineOrPartId
     and self.baseExtraArgs.isCustom == isCustom then
     -- Machine or part hasn't changed.
     return
   end
-  
+
   self.baseExtraArgs.machineOrPartId = machineOrPartId
   self.baseExtraArgs.isCustom = isCustom
-  
+
   self.base = self.block:MV(
     self.label.." (B)", self.baseOffset,
     BaseStat1Value, self.typeMixinClass, self.baseExtraArgs)
@@ -436,7 +436,7 @@ end
 function StatWithBase:updateValue()
   -- TODO: Call this less frequently?
   self:updateStatBasesIfMachineChanged()
-  
+
   self.current:update()
   self.base:update()
   self.base2:update()
@@ -455,7 +455,7 @@ function StatWithBase:displayBase(options)
   -- when racerIndex > 0.
   options = options or {}
   options.label = options.label or self:getLabel().." (B)"
-  
+
   if self:isValid() then
     return self.base:display(options)
   end
@@ -476,7 +476,7 @@ end
 
 function StatWithBase:displayCurrentAndBase(options)
   options = options or {}
-  
+
   if self:isValid() then
     options.valueDisplayFunction =
       utils.curry(self.displayCurrentAndBaseValues, self)
@@ -578,7 +578,7 @@ GX.SizeStat = SizeStat
 function SizeStat:init(label, specificLabels, offsets, baseOffsets, formulas)
   self.label = label
   self.formulas = formulas
-  
+
   self.stats = {}
   for n = 1, 4 do
     self.stats[n] = self.block:V(
@@ -588,7 +588,7 @@ function SizeStat:init(label, specificLabels, offsets, baseOffsets, formulas)
       {1}
     )
   end
-  
+
   -- Get display defaults from any stat. We'll pick the first.
   self.displayDefaults = self.stats[1].displayDefaults
 end
@@ -696,7 +696,7 @@ function Racer:customPartIds(number)
   return ids[number]
 end
 
-  
+
 RV.machineId = MV("Machine ID", 0x6, StateValue, ShortType)
 RV.machineName =
   MV("Machine name", 0x3C, StateValue, StringType, {maxLength=64})
@@ -708,7 +708,7 @@ RV.boostStrength = V(StatTiedToBase, "Boost strength", 0x230, 0x34, FloatStat, {
 RV.cameraReorienting = V(StatTiedToBase, "Cam. reorienting", 0x34, 0x4C, FloatStat, {2})
 RV.cameraRepositioning = V(StatTiedToBase, "Cam. repositioning", 0x38, 0x50, FloatStat, {2})
 RV.drag = V(StatTiedToBase, "Drag", 0x23C, 0x40, FloatStat, {3})
-RV.driftAccel = V(StatTiedToBase, "Drift accel", 0x2C, 0x1C, FloatStat, {3}) 
+RV.driftAccel = V(StatTiedToBase, "Drift accel", 0x2C, 0x1C, FloatStat, {3})
 RV.grip1 = V(StatTiedToBase, "Grip 1", 0xC, 0x10, FloatStat, {1})
 RV.grip2 = V(StatTiedToBase, "Grip 2", 0x24, 0x30, FloatStat, {2})
 RV.grip3 = V(StatTiedToBase, "Grip 3", 0x28, 0x14, FloatStat, {1})
@@ -721,7 +721,7 @@ RV.turning1 = V(StatTiedToBase, "Turn tension", 0x10, 0x18, FloatStat, {1})
 RV.turning2 = V(StatTiedToBase, "Turn movement", 0x14, 0x20, FloatStat, {2})
 RV.turning3 = V(StatTiedToBase, "Turn reaction", 0x20, 0x2C, FloatStat, {1})
 RV.weight = V(StatTiedToBase, "Weight", 0x8, 0x4, FloatStat, {1,2,3})
-  
+
 RV.obstacleCollision = MV(
   "Obstacle collision", 0x584, StateValue, FloatStat)
 RV.unknown48 = V(StatTiedToBase, "Unknown 48", 0x477, 0x48, ByteType, {2})
@@ -731,7 +731,7 @@ RV.unknown49a = V(StatTiedToBase, "Unknown 49a", 0x0, 0x49, BinaryType, {2},
 -- Actual is state bit 24; base is 0x49 % 2
 RV.driftCamera = V(StatTiedToBase, "Drift camera", 0x2, 0x49, BinaryType, {2},
   {binarySize=1, binaryStartBit=0}, {binarySize=1, binaryStartBit=0})
-  
+
 RV.frontWidth = V(SizeStat,
   "Size, front width",
   -- Specific labels
@@ -854,7 +854,7 @@ GX.statNames = {
   'backWidth', 'backHeight', 'backLength',
 }
 
-  
+
 -- General-interest state values
 
 RV.generalState1a = MV(
@@ -1052,7 +1052,7 @@ GX.Timer = Timer
 
 function Timer:init(label, offset)
   self.label = label
-  
+
   self.frames = self.block:MV(
     label..", frames", offset, State2Value, IntType)
   self.frameFraction = self.block:MV(
@@ -1073,7 +1073,7 @@ end
 
 function Timer:displayValue(options)
   options = options or {}
-  
+
   local s = string.format(
     "%d'%02d\"%03d", self.mins:get(), self.secs:get(), self.millis:get()
   )
@@ -1104,7 +1104,7 @@ raceTimer.blockValues = {
 
 function raceTimer:init()
   Block.init(self)
-  
+
   self.prevLaps = {
     self.prevLap, self.back2Laps, self.back3Laps,
     self.back4Laps, self.back5Laps, self.back6Laps,
@@ -1117,44 +1117,44 @@ function raceTimer:display(options)
   options.maxPrevLaps = options.maxPrevLaps or 4
   -- The game only saves 8 previous laps
   if options.maxPrevLaps > 8 then options.maxPrevLaps = 8 end
-  
+
   local lines = {}
   table.insert(lines, self.total:display(options))
   table.insert(lines, self.currLap:display(options))
-  
+
   local completedLaps = 0
   local finishedRace = false
   if self.racer.lapIndex:isValid() then
     completedLaps = self.racer.lapIndex:get()
     finishedRace = self.racer:finishedRace()
   end
-  
+
   -- Show up to maxPrevLaps previous individual lap times
   local firstLapToShow = math.max(1, completedLaps - options.maxPrevLaps + 1)
   for lapN = firstLapToShow, completedLaps do
     local prevLapN = completedLaps - lapN + 1
-    
+
     local lapOptions = {}
     utils.updateTable(lapOptions, options)
     lapOptions.label = string.format("Lap %d", lapN)
-    
+
     table.insert(lines, self.prevLaps[prevLapN]:display(lapOptions))
   end
-  
+
   if finishedRace then
     local finalOptions = {}
     utils.updateTable(finalOptions, options)
     finalOptions.label = "Final time"
     table.insert(lines, self.sumOfFinishedLaps:display(finalOptions))
   end
-  
+
   local s = table.concat(lines, "\n")
-  
+
   -- For auto-layout purposes, make this display as tall as its maximum
   -- possible height.
   local maxLines = 3 + options.maxPrevLaps
   for n = #lines + 1, maxLines do s = s.."\n" end
-  
+
   return s
 end
 
@@ -1193,7 +1193,7 @@ function controllerInput:getButton(button)
   elseif button == "<" then value = self.DZ:get()[8]
   else error("Button code not recognized: " .. tostring(button))
   end
-  
+
   return value
 end
 
@@ -1231,11 +1231,11 @@ end
 
 function controllerInput:display(options)
   if not self:isValid() then return self.invalidDisplay end
-  
+
   options = options or {}
-  
+
   local lines = {}
-  
+
   if options.LR then table.insert(
     lines, string.format("L %s R %s", self:LDisplay(), self:RDisplay()))
   end
@@ -1243,7 +1243,7 @@ function controllerInput:display(options)
     lines, string.format("%s %s", self:stickXDisplay(), self:stickYDisplay()))
   end
   table.insert(lines, self:displayAllButtons())
-  
+
   return table.concat(lines, "\n")
 end
 
@@ -1310,7 +1310,7 @@ end
 -- Limitation: We only know the net strafe amount (R minus L), not the
 -- input amounts for each shoulder. Since no L or R results in different
 -- properties from full L+R, we know this means we're missing some info.
-  
+
 local controlState = V(subclass(Value, RacerValue, Block))
 RV.controlState = controlState
 
@@ -1349,7 +1349,7 @@ end
 function controlState:boostDisplay()
   local framesLeft = self.racer.boostFramesLeft:get()
   local delay = self.racer.boostDelay:get()
-  
+
   if framesLeft > 0 then
     -- Show boost frames left
     return utils.intToStr(framesLeft, {digits=3})
@@ -1363,11 +1363,11 @@ end
 
 function controlState:display(options)
   if not self:isValid() then return self.invalidDisplay end
-  
+
   options = options or {}
-  
+
   local lines = {}
-  
+
   if options.strafe then
     local strafe = utils.displayAnalog(
       self.strafe:get(), 'float', ">", "<", {afterDecimal=3})
@@ -1380,11 +1380,11 @@ function controlState:display(options)
       self.steerY:get(), 'float', "^", "v", {afterDecimal=3})
     table.insert(lines, "Steer: "..steerX.." "..steerY)
   end
-  
+
   table.insert(lines, "Boost: "..self:boostDisplay())
-  
+
   table.insert(lines, self:displayAllButtons())
-  
+
   return table.concat(lines, "\n")
 end
 
@@ -1393,7 +1393,7 @@ GX.ControllerLRImage = subclass(layoutsModule.AnalogTriggerInputImage)
 function GX.ControllerLRImage:init(window, player, options)
   options = options or {}
   options.max = options.max or 255
-  
+
   layoutsModule.AnalogTriggerInputImage.init(
     self, window, player.controllerInput.L, player.controllerInput.R, options)
 end
@@ -1404,7 +1404,7 @@ function GX.ControllerStickImage:init(window, player, options)
   options.max = options.max or 255
   options.min = options.min or 0
   options.square = options.square or true
-  
+
   layoutsModule.StickInputImage.init(
     self, window,
     player.controllerInput.stickX, player.controllerInput.stickY, options)
@@ -1414,7 +1414,7 @@ GX.CalibratedLRImage = subclass(layoutsModule.AnalogTriggerInputImage)
 function GX.CalibratedLRImage:init(window, player, options)
   options = options or {}
   options.max = options.max or 1
-  
+
   layoutsModule.AnalogTriggerInputImage.init(
     self, window, player.calibratedInput.L, player.calibratedInput.R, options)
 end
@@ -1424,7 +1424,7 @@ function GX.CalibratedStickImage:init(window, player, options)
   options = options or {}
   options.max = options.max or 1
   options.square = options.square or true
-  
+
   layoutsModule.StickInputImage.init(
     self, window,
     player.calibratedInput.stickX, player.calibratedInput.stickY, options)
@@ -1436,7 +1436,7 @@ function GX.ControlStateStrafeImage:init(window, racer, options)
   options.cpuSteerRange = options.cpuSteerRange or false
   -- CPUs can strafe harder
   if options.cpuSteerRange then options.max = 1.35 else options.max = 1 end
-  
+
   layoutsModule.AnalogTwoSidedInputImage.init(
     self, window, racer.controlState.strafe, options)
 end
@@ -1448,7 +1448,7 @@ function GX.ControlStateSteerImage:init(window, racer, options)
   options.cpuSteerRange = options.cpuSteerRange or false
   -- CPUs can left/right steer harder
   if options.cpuSteerRange then options.max = 1.35 else options.max = 1 end
-  
+
   layoutsModule.StickInputImage.init(
     self, window,
     racer.controlState.steerX, racer.controlState.steerY, options)

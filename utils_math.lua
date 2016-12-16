@@ -12,34 +12,34 @@ function Vector3:new(x, y, z)
   local obj = {}
   setmetatable(obj, self)
   self.__index = self
-  
+
   obj.x = x
   obj.y = y
   obj.z = z
-  
+
   return obj
 end
-  
+
 function Vector3:plus(v2)
   -- Add another Vector3.
   return Vector3:new(self.x+v2.x, self.y+v2.y, self.z+v2.z)
 end
-  
+
 function Vector3:minus(v2)
   -- Subtract another Vector3.
   return Vector3:new(self.x-v2.x, self.y-v2.y, self.z-v2.z)
 end
-  
+
 function Vector3:times(c)
   -- Multiply by scalar.
   return Vector3:new(c*self.x, c*self.y, c*self.z)
 end
-  
+
 function Vector3:dot(v2)
   -- Dot product with another Vector3.
   return self.x*v2.x + self.y*v2.y + self.z*v2.z
 end
-  
+
 function Vector3:cross(v2)
   -- Cross product with another Vector3.
   return Vector3:new(
@@ -48,7 +48,7 @@ function Vector3:cross(v2)
     self.x*v2.y - self.y*v2.x
   )
 end
-  
+
 function Vector3:nearlyEquals(v2)
   -- See if another Vector3 is nearly equal to this one. (We don't
   -- attempt exact equality because we're dealing with floats in general.)
@@ -78,7 +78,7 @@ function Vector3:display(label, options)
   else
     format = "%s: X %s | Y %s | Z %s"
   end
-  
+
   return string.format(
     format,
     label,

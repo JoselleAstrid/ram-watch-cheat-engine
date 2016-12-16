@@ -7,7 +7,7 @@ local layouts = {}
 for _, layoutModuleName in pairs(layouts_examples_modules_names) do
   package.loaded[layoutModuleName] = nil
   local layoutModule = require(layoutModuleName)
-  
+
   for name, layout in pairs(layoutModule.layouts) do
     layouts[name] = layout
   end

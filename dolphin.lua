@@ -22,12 +22,12 @@ DolphinGame.exeName = 'Dolphin.exe'
 function DolphinGame:init(options)
   self.gameVersion =
     options.gameVersion or error("Must provide a gameVersion.")
-    
+
   self.constantGameStartAddress =
     options.constantGameStartAddress or nil
-  
+
   gameModule.Game.init(self, options)
-    
+
   -- Subclasses of DolphinGame must set a gameId attribute in their init().
 end
 
@@ -37,11 +37,11 @@ function DolphinGame:getGameStartAddress()
   if self.constantGameStartAddress then
     return self.constantGameStartAddress
   end
-    
+
   if self.gameId == nil then
     error("The game script must provide a gameId.")
   end
-  
+
   local memScan = createMemScan()
   memScan.firstScan(
     soExactValue,  -- scan option
@@ -61,7 +61,7 @@ function DolphinGame:getGameStartAddress()
   memScan.waitTillDone()
   local foundList = createFoundList(memScan)
   foundList.initialize()
-  
+
   local addrsEndingIn0000 = {}
   for n = 1, foundList.Count do
     local address = foundList.Address[n]
@@ -69,7 +69,7 @@ function DolphinGame:getGameStartAddress()
       table.insert(addrsEndingIn0000, address)
     end
   end
-  
+
   -- For some reason, doing a scan with Lua always gives a final scan result
   -- of 00000000. Even if there are no other results.
   -- So we check for no actual results with <= 1.
@@ -95,7 +95,7 @@ function DolphinGame:getGameStartAddress()
       table.insert(foundAddressStrs, "0x"..address)
     end
     local allFoundAddressesStr = table.concat(foundAddressStrs, "  \n")
-    
+
     local s = string.format(
         "Couldn't find the game ID (%s) in a usable memory location."
       .." Please confirm that:"
@@ -111,7 +111,7 @@ function DolphinGame:getGameStartAddress()
     )
     error(s)
   end
-  
+
   -- The game start address we want should be the 2nd-last actual scan
   -- result ending in 0000.
   -- Again, due to the 00000000 non-result at the end, we actually look at

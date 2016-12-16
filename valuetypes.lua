@@ -14,30 +14,30 @@ local valuetypes = {}
 
 function valuetypes.V(valueClass, ...)
   local newValue = subclass(valueClass)
-  
+
   newValue.init = utils.curryInstance(valueClass.init, ...)
-  
+
   return newValue
 end
 
 function valuetypes.MV(label, offset, valueClass, typeMixinClass, extraArgs)
   local newValue = subclass(valueClass, typeMixinClass)
-  
+
   local function f(
       newV_, label_, offset_, valueClass_, typeMixinClass_, extraArgs_)
     valueClass_.init(newV_, label_, offset_, extraArgs_)
     typeMixinClass_.init(newV_, extraArgs_)
   end
-  
+
   newValue.init = utils.curryInstance(
     f, label, offset, valueClass, typeMixinClass, extraArgs)
-    
+
   return newValue
 end
 
 function valuetypes.initValueAsNeeded(value)
   if value.initCalled then return end
-  
+
   value:init()
   value.initCalled = true
 end
@@ -59,7 +59,7 @@ function Block:init()
     -- Allow the new object to know about this block object (and ancestors).
     self:addParentReferences(self[key])
   end
-  
+
   -- THEN init everything. Some objects' init functions may require
   -- other objects to already be assigned to the block namespace.
   --
@@ -77,7 +77,7 @@ function Block:addParentReferences(value)
   value.block = self
   if self.game then value.game = self.game end
   if self.blockAlias then value[self.blockAlias] = self end
-  
+
   -- In some cases, if this block belongs to another block, etc., it's
   -- also useful to give the object info about those blocks.
   local ancestorBlock = self.block
@@ -122,7 +122,7 @@ Value.invalidDisplay = "<Invalid value>"
 
 function Value:init()
   self.value = self.initialValue
-  
+
   if self.game.usingFrameCounter then
     self.lastUpdateFrame = self.game:getFrameCount()
   end
@@ -135,18 +135,18 @@ end
 
 function Value:update()
   -- Generally this method shouldn't be overridden.
-  
+
   if self.game.usingFrameCounter then
     -- There's no point in updating again if we've already updated on this
     -- game frame.
     -- In fact, some values' accuracies depend on not updating more than once
     -- per frame, particularly rates of change.
     local currentFrame = self.game:getFrameCount()
-    
+
     if self.lastUpdateFrame == currentFrame then return end
     self.lastUpdateFrame = currentFrame
   end
-  
+
   self:updateValue()
 end
 
@@ -191,7 +191,7 @@ function Value:display(passedOptions)
   if passedOptions then
     utils.updateTable(options, passedOptions)
   end
-  
+
   local isValid = self:isValid()
   local valueDisplay = self.invalidDisplay
   if isValid then
@@ -202,7 +202,7 @@ function Value:display(passedOptions)
       valueDisplay = self:displayValue(options)
     end
   end
-  
+
   if options.nolabel then
     return valueDisplay
   else
@@ -330,7 +330,7 @@ function IntTypeLE:write(address, v)
 end
 function IntTypeLE:strToValue(s) return tonumber(s) end
 function IntTypeLE:displayValue() return tostring(self.value) end
-function IntTypeLE:toStrForEditField(v) return tostring(v) end 
+function IntTypeLE:toStrForEditField(v) return tostring(v) end
 IntTypeLE.numOfBytes = 4
 IntTypeLE.addressListType = vtDword
 
@@ -453,7 +453,7 @@ end
 function BinaryType:write(address, v)
   -- v is a table of the bits
   -- For now, we only support binary values contained in a single byte.
-  
+
   -- Start with the current byte value. Then write the bits that need to
   -- be written.
   local byte = utils.readIntBE(address, 1)
@@ -536,7 +536,7 @@ function Vector3Value:set(vec3)
 end
 
 function Vector3Value:isValid()
-  return (self.x:isValid() and self.y:isValid() and self.z:isValid()) 
+  return (self.x:isValid() and self.y:isValid() and self.z:isValid())
 end
 
 function Vector3Value:update()
@@ -555,7 +555,7 @@ function Vector3Value:display(passedOptions)
   if passedOptions then
     utils.updateTable(options, passedOptions)
   end
-  
+
   local label = options.label or self:getLabel()
 
   local format = nil
@@ -564,7 +564,7 @@ function Vector3Value:display(passedOptions)
   else
     format = "%s: X %s | Y %s | Z %s"
   end
-  
+
   local isValid = self:isValid()
   local x = self.invalidDisplay
   local y = self.invalidDisplay
@@ -575,7 +575,7 @@ function Vector3Value:display(passedOptions)
     y = self.y:displayValue(options)
     z = self.z:displayValue(options)
   end
-  
+
   return string.format(format, label, x, y, z)
 end
 
@@ -588,7 +588,7 @@ RateOfChange.initialValue = 0.0
 
 function RateOfChange:init(baseValue, label)
   Value.init(self)
-  
+
   valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = label
@@ -601,7 +601,7 @@ function RateOfChange:updateValue()
   self.prevStat = self.currStat
   self.baseValue:update()
   self.currStat = self.baseValue.value
-  
+
   -- Update rate of change value
   if self.prevStat == nil then
     self.value = 0.0
@@ -617,7 +617,7 @@ valuetypes.ResettableValue = ResettableValue
 
 function ResettableValue:init(resetButton)
   Value.init(self)
-  
+
   -- If a reset button isn't passed in or specified by the game, then the
   -- default reset button is D-Pad Down, which is assumed to be represented
   -- with 'v'.
@@ -641,7 +641,7 @@ function ResettableValue:update()
   end
 
   Value.update(self)
-  
+
   -- If the reset button is being pressed, call the reset function.
   --
   -- First check if the game has a concept of separate players or not
@@ -653,7 +653,7 @@ function ResettableValue:update()
   else
     buttonNamespace = self.game
   end
-  
+
   if buttonNamespace:getButton(self.resetButton) == 1 then
     self:reset()
   end
@@ -668,7 +668,7 @@ MaxValue.initialValue = 0.0
 
 function MaxValue:init(baseValue, resetButton)
   ResettableValue.init(self, resetButton)
-  
+
   valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = "Max "..self.baseValue.label
@@ -699,7 +699,7 @@ AverageValue.initialValue = 0.0
 
 function AverageValue:init(baseValue)
   ResettableValue.init(self, resetButton)
-  
+
   valuetypes.initValueAsNeeded(baseValue)
   self.baseValue = baseValue
   self.label = "Avg "..self.baseValue.label

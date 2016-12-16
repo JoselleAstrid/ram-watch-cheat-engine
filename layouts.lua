@@ -12,7 +12,7 @@ local Layout = {
 
 function Layout:update()
   self.game:updateAddresses()
-  
+
   for _, element in pairs(self.elements) do
     -- Update elements which are not hidden and have an update function
     if element:getVisible() and element.update then element:update() end
@@ -72,7 +72,7 @@ function Layout:autoPositionElements()
       element_:setPosition(element_:getLeft(), pos_)
     end
   end
-  
+
   -- Only deal with elements that aren't hidden from view.
   local elements = {}
   for _, element in pairs(self.elements) do
@@ -87,7 +87,7 @@ function Layout:autoPositionElements()
   for _, element in pairs(elements) do
     lengthSum = lengthSum + getElementLength(element)
   end
-  
+
   local minPos = nil
   local elementSpacing = nil
   if self.autoPositioningType == 'fill' then
@@ -107,11 +107,11 @@ function Layout:autoPositionElements()
     minPos = self.margin
     elementSpacing = self.margin
   end
-  
+
   local currentPos = minPos
   for _, element in pairs(elements) do
     applyAutoPosition(element, currentPos)
-    
+
     currentPos = currentPos + getElementLength(element) + elementSpacing
   end
 end
@@ -120,7 +120,7 @@ end
 function Layout:openToggleDisplayWindow()
   -- Create a window
   local window = createForm(true)
-  
+
   -- Add checkboxes and associated labels
   local checkboxes = {}
   local toggleableElements = {}
@@ -130,40 +130,40 @@ function Layout:openToggleDisplayWindow()
       local checkbox = createCheckBox(window)
       table.insert(checkboxes, checkbox)
       table.insert(toggleableElements, element)
-      
+
       -- Initialize the checkbox according to the element's visibility.
       -- Note that cbChecked is a Cheat Engine defined global value.
       if element:getVisible() then
         checkbox:setState(cbChecked)
       end
-      
+
       checkbox:setPosition(self.margin, currentY)
       checkbox:setCaption(element.checkboxLabel)
       local font = checkbox:getFont()
       font:setSize(9)
-      
+
       currentY = currentY + 20
     end
   end
-  
+
   -- Add an OK button in the window, which would apply the checkbox values
   -- and close the window
   local okButton = createButton(window)
   okButton:setPosition(100, currentY)
   okButton:setCaption("OK")
   okButton:setSize(30, 25)
-  
+
   local okAction = utils.curry(
     self.toggleDisplayOKAction, self, window, toggleableElements, checkboxes)
   okButton:setOnClick(okAction)
-  
+
   -- Add a Cancel button in the window, which would just close the window
   local cancelButton = createButton(window)
   cancelButton:setPosition(140, currentY)
   cancelButton:setCaption("Cancel")
   cancelButton:setSize(50, 25)
   cancelButton:setOnClick(utils.curry(window.close, window))
-  
+
   window:setSize(200, currentY + 30)
   window:centerScreen()
   window:setCaption("Elements to show")
@@ -177,7 +177,7 @@ function Layout:toggleDisplayOKAction(window, toggleableElements, checkboxes)
 
   -- Trigger another run of auto-positioning
   self.autoPositioningDone = false
-  
+
   -- Close the checkboxes window
   window:close()
 end
@@ -210,10 +210,10 @@ function Layout:addElement(creationCallable, passedOptions)
   end
 
   local element = creationCallable(options)
-  
+
   element:setPosition(options.x or self.margin, options.y or self.margin)
   element.checkboxLabel = options.checkboxLabel or nil
-  
+
   table.insert(self.elements, element)
   return element
 end
@@ -252,13 +252,13 @@ function LayoutLabel:setCaption(c) self.uiObj:setCaption(c) end
 function LayoutLabel:init(window, options)
   options = options or {}
   options.text = options.text or ""
-  
+
   self.displayFuncs = {}
 
   -- Call the Cheat Engine function to create a label.
   self.uiObj = createLabel(window)
   self:setCaption(options.text)
-  
+
   applyFontOptions(self.uiObj, options)
 end
 
@@ -276,7 +276,7 @@ function Layout:addLabel(options)
   local creationCallable = utils.curry(
     classInstantiate, LayoutLabel, self.window)
   local label = self:addElement(creationCallable, options)
-  
+
   self.lastAddedLabel = label
   return label
 end
@@ -287,7 +287,7 @@ function Layout:addItem(item, passedDisplayOptions)
   if not self.lastAddedLabel then
     error("Must add a label before adding an item.")
   end
-  
+
   local displayOptions = {}
   -- First apply default options
   if self.itemDisplayDefaults then
@@ -297,7 +297,7 @@ function Layout:addItem(item, passedDisplayOptions)
   if passedDisplayOptions then
     for k, v in pairs(passedDisplayOptions) do displayOptions[k] = v end
   end
-  
+
   if tostring(type(item)) == 'string' then
     -- Assume the item is just a constant string to display directly.
     table.insert(
@@ -335,12 +335,12 @@ function LayoutButton:setCaption(c) self.uiObj:setCaption(c) end
 
 function LayoutButton:init(window, text, options)
   options = options or {}
-  
+
   self.uiObj = createButton(window)
   self:setCaption(text)
-  
+
   applyFontOptions(self.uiObj, options)
-  
+
   local buttonFontSize = self.uiObj:getFont():getSize()
   local buttonWidth = buttonFontSize * #text  -- Based on char count
   local buttonHeight = buttonFontSize * 1.8 + 6
@@ -370,10 +370,10 @@ function StickInputImage:init(window, stickX, stickY, options)
   self.min = options.min or -self.max
   -- Are diagonals confined to a square or circle?
   self.square = options.square or false
-  
+
   self.uiObj = createImage(window)
   self.uiObj:setSize(self.size, self.size)
-  
+
   self.canvas = self.uiObj:getCanvas()
   -- Brush: ellipse/rect fill
   self.canvas:getBrush():setColor(0xF0F0F0)
@@ -382,21 +382,21 @@ function StickInputImage:init(window, stickX, stickY, options)
   self.canvas:getPen():setWidth(self.lineThickness)
   -- Initialize the whole image with the brush color
   self.canvas:fillRect(0,0, self.size,self.size)
-  
+
   self.stickX = stickX
   self.stickY = stickY
 end
 
 function StickInputImage:update()
   local size = self.size
-  
+
   -- Clear the image and redraw the outline.
   if self.square then
     self.canvas:rect(1,1, size,size)
   else
     self.canvas:ellipse(0,0, size,size)
   end
-  
+
   -- Draw a line indicating where the stick is currently positioned.
   --
   -- stickX and stickY range from min to max. Transform that to a range from
@@ -427,27 +427,27 @@ function AnalogTriggerInputImage:init(window, triggerL, triggerR, options)
   self.lineThickness = options.lineThickness or 2
   -- Max value of the trigger range
   self.max = options.max or 1
-  
+
   self.uiObj = createImage(window)
   self.uiObj:setSize(self.width, self.height)
-  
+
   self.canvas = self.uiObj:getCanvas()
   -- Brush: ellipse/rect fill
   self.canvas:getBrush():setColor(self.backgroundColor)
   -- Pen: ellipse/rect outline, line()
   self.canvas:getPen():setColor(self.foregroundColor)
   self.canvas:getPen():setWidth(self.lineThickness)
-  
+
   -- Fill the canvas with the background color
   self.canvas:fillRect(0,0, self.width,self.height)
-  
+
   local gapBetweenMeters = math.floor(self.width / 20)
   -- Depending on whether the width and meter gap are odd/even, the gap will
   -- either be honored exactly or will be 1 greater than specified.
   self.meterOuterWidth = math.floor((self.width - gapBetweenMeters)/2)
   self.meterInnerWidth = self.meterOuterWidth - self.lineThickness
   self:redrawMeterOutlines()
-  
+
   self.triggerL = triggerL
   self.triggerR = triggerR
 end
@@ -460,7 +460,7 @@ end
 
 function AnalogTriggerInputImage:update()
   self:redrawMeterOutlines()
-  
+
   self.canvas:getBrush():setColor(self.foregroundColor)
   -- Left meter fill
   local fractionL = self.triggerL:get() / self.max
@@ -493,19 +493,19 @@ function AnalogTwoSidedInputImage:init(window, analogInput, options)
   -- Min and max value of the analog range
   self.max = options.max or 1
   self.min = options.min or -self.max
-  
+
   self.uiObj = createImage(window)
   self.uiObj:setSize(self.width, self.height)
-  
+
   self.canvas = self.uiObj:getCanvas()
   -- Brush: ellipse/rect fill
   self.canvas:getBrush():setColor(self.backgroundColor)
   -- Pen: ellipse/rect outline, line()
   self.canvas:getPen():setColor(self.foregroundColor)
   self.canvas:getPen():setWidth(self.lineThickness)
-  
+
   self.meterInnerWidth = self.width - self.lineThickness
-  
+
   self.analogInput = analogInput
 end
 
@@ -514,7 +514,7 @@ function AnalogTwoSidedInputImage:update()
   self.canvas:getBrush():setColor(self.backgroundColor)
   self.canvas:rect(1,1, self.width/2,self.height)
   self.canvas:rect(self.width/2,1, self.width,self.height)
-  
+
   -- Meter fill
   self.canvas:getBrush():setColor(self.foregroundColor)
   local fraction = (self.analogInput:get() - self.min) / (self.max - self.min)
@@ -612,15 +612,15 @@ utils.updateTable(FileWriter, {
   timeElapsedLabel = nil,
   endFrame = nil,
   framerate = nil,
-  
+
   currentlyTakingStats = false,
   currentFrame = nil,
   valuesTaken = nil,
 })
-    
+
 function FileWriter:init(window, game, filename, outputStringGetter, options)
   options = options or {}
-  
+
   self.framerate = game.framerate
   self.filename = filename
   self.outputStringGetter = outputStringGetter
@@ -631,21 +631,21 @@ function FileWriter:initializeUI(window, options)
   self.button = createButton(window)
   self.button:setCaption("Take stats")
   self.button:setOnClick(utils.curry(self.startTakingStats, self))
-  
+
   self.timeLimitField = createEdit(window)
   self.timeLimitField.Text = "10"
-  
+
   self.secondsLabel = classInstantiate(LayoutLabel, window, options)
   self.secondsLabel:setCaption("seconds")
-  
+
   self.timeElapsedLabel = classInstantiate(LayoutLabel, window, options)
   -- Allow auto-layout to detect an appropriate width for this element
   -- even though it's not active yet. (Example display: 10.00)
   self.timeElapsedLabel:setCaption("     ")
-  
+
   applyFontOptions(self.button, options)
   applyFontOptions(self.timeLimitField, options)
-  
+
   -- Add the elements to the layout.
   local buttonX = 10
   local buttonFontSize = self.button:getFont():getSize()
@@ -653,54 +653,54 @@ function FileWriter:initializeUI(window, options)
   local buttonHeight = buttonFontSize * 2.0 + 8
   self:addElement({buttonX, 0}, self.button)
   self.button:setSize(buttonWidth, buttonHeight)
-  
+
   local timeLimitFieldX = buttonX + buttonWidth + 5
   local timeLimitFieldFontSize = self.timeLimitField:getFont():getSize()
   local timeLimitFieldWidth = timeLimitFieldFontSize * 5
   local timeLimitFieldHeight = buttonFontSize * 1.5
   self:addElement({timeLimitFieldX, 0}, self.timeLimitField)
   self.timeLimitField:setSize(timeLimitFieldWidth, timeLimitFieldHeight)
-  
+
   local secondsLabelX = timeLimitFieldX + timeLimitFieldWidth + 5
   local secondsLabelY = 3
   self:addElement({secondsLabelX, secondsLabelY}, self.secondsLabel)
-  
+
   local timeElapsedLabelX = secondsLabelX + self.secondsLabel:getWidth() + 15
   local timeElapsedLabelY = 3
   self:addElement({timeElapsedLabelX, timeElapsedLabelY}, self.timeElapsedLabel)
 end
-  
+
 function FileWriter:startTakingStats()
   -- Get the time limit from the field. If it's not a valid number,
   -- don't take any stats.
   local seconds = tonumber(self.timeLimitField.Text)
   if seconds == nil then return end
   self.endFrame = self.framerate * seconds
-  
+
   self.currentlyTakingStats = true
   self.currentFrame = 1
   self.valuesTaken = {}
-  
+
   -- Change the Start taking stats button to a Stop taking stats button
   self.button:setCaption("Stop stats")
   self.button:setOnClick(utils.curry(self.stopTakingStats, self))
   -- Disable the time limit field
   self.timeLimitField:setEnabled(false)
 end
-  
+
 function FileWriter:takeStat()
   self.valuesTaken[self.currentFrame] = self.outputStringGetter()
-  
+
   -- Display the current frame count
   self.timeElapsedLabel:setCaption(
     string.format("%.2f", self.currentFrame / self.framerate))
-  
+
   self.currentFrame = self.currentFrame + 1
   if self.currentFrame > self.endFrame then
     self:stopTakingStats()
   end
 end
-  
+
 function FileWriter:stopTakingStats()
   -- Collect the stats in string form and write them to a file.
   --
@@ -712,16 +712,16 @@ function FileWriter:stopTakingStats()
   local statsFile = io.open(self.filename, "w")
   statsFile:write(statsStr)
   statsFile:close()
-  
+
   self.currentlyTakingStats = false
   self.currentFrame = nil
   self.valuesTaken = {}
   self.endFrame = nil
-  
+
   self.button:setCaption("Take stats")
   self.button:setOnClick(utils.curry(self.startTakingStats, self))
   self.timeLimitField:setEnabled(true)
-  
+
   self.timeElapsedLabel:setCaption("")
 end
 
@@ -740,7 +740,7 @@ function Layout:addFileWriter(
   if passedOutputOptions then
     utils.updateTable(outputOptions, passedOutputOptions)
   end
-  
+
   local outputStringGetter = nil
   if tostring(type(item)) == 'function' then
     -- We'll call the item (a function) to get the output string.
@@ -751,7 +751,7 @@ function Layout:addFileWriter(
   else
     error("Don't know how to get file output from this item: "..tostring(item))
   end
-  
+
   local creationCallable = utils.curry(
     classInstantiate, FileWriter,
     self.window, self.game, filename, outputStringGetter, initOptions)
@@ -766,10 +766,10 @@ utils.updateTable(EditableValue, {
   valueLabel = nil,
   editButton = nil,
 })
-    
+
 function EditableValue:init(window, valueObj, options)
   options = options or {}
-  
+
   self.valueObj = valueObj
   self:initializeUI(window, options)
 end
@@ -784,22 +784,22 @@ function EditableValue:initializeUI(window, options)
   self.listButton = createButton(window)
   self.listButton:setCaption("List")
   self.listButton:setOnClick(utils.curry(self.addAddressesToList, self))
-  
+
   -- Set non-label font attributes.
   applyFontOptions(self.editButton, options)
   applyFontOptions(self.listButton, options)
-  
+
   -- Add the elements to the layout.
   self:addElement({10, 3}, self.valueLabel)
-  
+
   local buttonX = options.buttonX or 300
   local buttonFontSize = self.editButton:getFont():getSize()
   local buttonWidth = buttonFontSize * 4  -- 4 chars in both 'Edit' and 'List'
   local buttonHeight = buttonFontSize * 1.8 + 6
-  
+
   self:addElement({buttonX, 0}, self.editButton)
   self.editButton:setSize(buttonWidth, buttonHeight)
-  
+
   self:addElement({buttonX + buttonWidth + 4, 0}, self.listButton)
   self.listButton:setSize(buttonWidth, buttonHeight)
 end
@@ -814,31 +814,31 @@ function EditableValue:openEditWindow()
   window:setSize(400, 50)
   window:centerScreen()
   window:setCaption(self.valueObj:getEditWindowTitle())
-  
+
   -- Add a text box with the current value
   local textField = createEdit(window)
   textField:setPosition(70, 10)
   textField:setSize(200, 20)
   textField.Text = self.valueObj:getEditFieldText()
-  
+
   -- Add an OK button in the window, which would change the value
   -- to the text field contents, and close the window
   local okButton = createButton(window)
   okButton:setPosition(300, 10)
   okButton:setCaption("OK")
   okButton:setSize(30, 25)
-  
+
   local okAction = utils.curry(
     self.editWindowOKAction, self, window, textField)
   okButton:setOnClick(okAction)
-  
+
   -- Add a Cancel button in the window, which would just close the window
   local cancelButton = createButton(window)
   cancelButton:setPosition(340, 10)
   cancelButton:setCaption("Cancel")
   cancelButton:setSize(50, 25)
   cancelButton:setOnClick(utils.curry(window.close, window))
-  
+
   -- Add a reset button, if applicable
   if self.valueObj.getResetValue then
     local resetButton = createButton(window)
@@ -850,19 +850,19 @@ function EditableValue:openEditWindow()
     end
     resetButton:setOnClick(utils.curry(resetValue, self.valueObj, textField))
   end
-  
+
   -- Put the initial focus on the text field.
   textField:setFocus()
 end
 
 function EditableValue:editWindowOKAction(window, textField)
   local newValue = self.valueObj:strToValue(textField.Text)
-  
+
   -- Do nothing if the entered value is empty or invalid
   if newValue == nil then return end
-  
+
   self.valueObj:set(newValue)
-  
+
   -- Delay for a bit first, because it seems that the
   -- write to the memory address needs a bit of time to take effect.
   sleep(50)
@@ -875,17 +875,17 @@ end
 function EditableValue:addAddressesToList()
   local addressList = getAddressList()
   local entries = self.valueObj:getAddressListEntries()
-  
+
   for _, entry in pairs(entries) do
     local memoryRecord = addressList:createMemoryRecord()
-    
+
     -- setAddress doesn't work for some reason, despite being in CE's Help docs.
     -- So we'll just set the address property directly.
     memoryRecord.Address = entry.Address
-    
+
     memoryRecord:setDescription(entry.Description)
     memoryRecord.Type = entry.Type
-    
+
     if entry.Type == vtCustom then
       memoryRecord.CustomTypeName = entry.CustomTypeName
     elseif entry.Type == vtBinary then
@@ -893,7 +893,7 @@ function EditableValue:addAddressesToList()
       -- And this entry is useless if it's a 0-sized Binary display (which is
       -- default). So, best we can do is to make this entry a Byte...
       memoryRecord.Type = vtByte
-      
+
       -- This didn't work.
       --memoryRecord.Binary.Startbit = entry.BinaryStartBit
       --memoryRecord.Binary.Size = entry.BinarySize

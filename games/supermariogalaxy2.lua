@@ -42,7 +42,7 @@ SMG2.defaultResetButton = 'v'
 
 function SMG2:init(options)
   SMGshared.init(self, options)
-  
+
   local version = string.lower(options.gameVersion)
   if version == 'us' or version == 'na' then
     self.gameId = "SB4E01"
@@ -50,7 +50,7 @@ function SMG2:init(options)
   else
     error("gameVersion not supported: " .. options.gameVersion)
   end
-  
+
   self.addrs = {}
   self:initConstantAddresses()
 end
@@ -64,7 +64,7 @@ local GV = SMG2.blockValues
 
 function SMG2:initConstantAddresses()
   self.addrs.o = self:getGameStartAddress()
-  
+
   -- It's useful to have an address where there's always a ton of zeros.
   -- We can use this address as the result when an address computation
   -- is invalid. Zeros are better than unreadable memory (results in
@@ -100,14 +100,14 @@ function SMG2:updatePosRefPointer()
   -- Another reference pointer, which can be used to find position values.
 
   local ptrValue = readIntBE(self.addrs.refPointer + 0x750, 4)
-  
+
   if ptrValue < 0x80000000 or ptrValue > 0x90000000 then
     -- Rough check that we do not have a valid pointer. This happens when
     -- switching between Mario and Luigi. In this case, we'll give up
     -- on finding the position and read a bunch of zeros instead.
     self.addrs.posRefPointer = self.addrs.zeros
   end
-  
+
   self.addrs.posRefPointer = self.addrs.o + ptrValue - 0x80000000
 end
 
@@ -212,7 +212,7 @@ GV.pos_early1 = V(
 GV.pos_early1.label = "Position"
 GV.pos_early1.displayDefaults =
   {signed=true, beforeDecimal=5, afterDecimal=1}
-  
+
 
 -- Velocity directly from a memory value.
 -- Not all kinds of movement are covered. For example, launch stars and
@@ -304,7 +304,7 @@ GV.midairSpinTimer =
   MV("Midair spin timer", -0x4E05, SMG2.PosRefValue, ByteType)
 GV.midairSpinType =
   MV("Midair spin type", -0x4DE1, SMG2.PosRefValue, ByteType)
-  
+
 GV.stickX = MV("Stick X", 0xB38A8C, SMG2.StaticValue, FloatType)
 GV.stickY = MV("Stick Y", 0xB38A90, SMG2.StaticValue, FloatType)
 

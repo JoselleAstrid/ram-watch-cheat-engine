@@ -110,16 +110,16 @@ function utils.readIntBE(address, numberOfBytesToRead)
   -- In: address - address of a big-endian memory value we want to read
   --     numberOfBytesToRead - the number of bytes to read from that address
   -- Out: integer value of the memory that was read
-  
+
   if numberOfBytesToRead == nil then numberOfBytesToRead = 4 end
-  
+
   -- Call Cheat Engine's built-in readBytes() function.
   -- The "true" parameter says we want the return value as a table of the bytes.
   local bytes = readBytes(address, numberOfBytesToRead, true)
-  
+
   -- If the read failed (maybe an unreadable address?), return nil.
   if bytes == nil then return nil end
-  
+
   local sum = 0
   for _, byteValue in pairs(bytes) do
     sum = 256*sum + byteValue
@@ -129,13 +129,13 @@ end
 
 function utils.readIntLE(address, numberOfBytesToRead)
   -- Same, but for little-endian
-  
+
   if numberOfBytesToRead == nil then numberOfBytesToRead = 4 end
-  
+
   local bytes = readBytes(address, numberOfBytesToRead, true)
-  
+
   if bytes == nil then return nil end
-  
+
   -- We go backwards through the byte array. Other than that, this works the
   -- same as the big-endian version.
   local sum = 0
@@ -158,7 +158,7 @@ function utils.intToFloat(x)
   -- For example, to see what you'd get if you pass in the number 64,
   -- go here and enter 00000040 (64 in hex) in the top box:
   -- http://babbage.cs.qc.cuny.edu/IEEE-754.old/Decimal.html
-  
+
   -- Reference: http://www.doc.ic.ac.uk/~eedwards/compsys/float/
   -- Bits: 31 - sign (s), 30-23 - exponent (e), 22-0 - mantissa (m)
   if x == 0 then return 0 end
@@ -179,7 +179,7 @@ end
 function utils.intToDouble(x)
   -- In: 8-byte integer value
   -- Out: floating-point value from the same bytes
-  
+
   -- Bits: 63 - sign (s), 62-52 - exponent (e), 51-0 - mantissa (m)
   if x == 0 then return 0 end
   local s = nil
@@ -231,16 +231,16 @@ function utils.intToHexStr(x)
   -- In: integer value
   -- Out: string of the integer's hexadecimal representation
   if x == nil then return "nil" end
-  
+
   return string.format("0x%08X", x)
 end
-  
+
 function utils.intToStr(x, options)
   -- In: integer value
   -- Out: string representation, as detailed by the options
   if x == nil then return "nil" end
   options = options or {}
-  
+
   local f = "%"
   if options.signed then f = f.."+" end
   if options.digits then
@@ -261,7 +261,7 @@ function utils.floatToStr(x, options)
   -- Out: string representation, as detailed by the options
   if x == nil then return "nil" end
   if options == nil then options = {} end
-  
+
   -- Guarantee at least a certain number of digits before the decimal
   local beforeDecimal = options.beforeDecimal or nil
   -- Display a certain number of digits after the decimal
@@ -270,7 +270,7 @@ function utils.floatToStr(x, options)
   local trimTrailingZeros = options.trimTrailingZeros or false
   -- Always display a + or - in front of the value depending on the sign
   local signed = options.signed or false
-  
+
   local f = "%"
   if signed then f = f.."+" end
   if beforeDecimal then
@@ -283,16 +283,16 @@ function utils.floatToStr(x, options)
     end
   end
   f = f.."."..afterDecimal.."f"
-  
+
   local s = string.format(f, x)
-  
+
   if trimTrailingZeros then
     -- Trim off 0s one at a time from the right
     while s:sub(-1) == "0" do s = s:sub(1,-2) end
     -- If there's nothing past the decimal now, trim the decimal too
     if s:sub(-1) == "." then s = s:sub(1,-2) end
   end
-  
+
   return s
 end
 
@@ -305,7 +305,7 @@ function utils.displayAnalog(v, valueType, posSymbol, negSymbol, options)
   elseif valueType == 'float' then s = utils.floatToStr(math.abs(v), options)
   else error("Unsupported valueType: "..tostring(valueType))
   end
-  
+
   if v == 0 then s = "  "..s
   elseif v > 0 then s = posSymbol.." "..s
   else s = negSymbol.." "..s end
@@ -326,7 +326,7 @@ function utils.writeIntBE(address, value, numberOfBytesToWrite)
     remainingValue = tonumber(string.format("%.f", remainingValue))
     bytes[n] = byteValue
   end
-  
+
   writeBytes(address, bytes)
 end
 
@@ -340,10 +340,10 @@ function utils.floatToInt(x)
   -- Then copy the "Hexadecimal" result until "Single precision (32 bits)", and
   -- go to Google search, paste that value, and type " in decimal" afterward.
   -- Do the search to get your integer.
-  
+
   -- Reference: http://www.doc.ic.ac.uk/~eedwards/compsys/float/
   -- Bits: 31 - sign (s), 30-23 - exponent (e), 22-0 - mantissa (m)
-  
+
   local s, absX = nil, nil
   if x > 0 then
     s = 0
@@ -354,19 +354,19 @@ function utils.floatToInt(x)
     -- us the desired function result of 0 here).
     return 0
   else
-    s = 1  
+    s = 1
     absX = -x
   end
-  
+
   -- In Lua 5.1, math.log doesn't take a second argument for the base. Need to
   -- divide by log(2) to get the base-2 log.
   local e = math.floor(math.log(absX) / math.log(2))
-  
+
   -- Compute the mantissa, which should end up between 0 and 1.
   local mantissa = (absX / (2^e)) - 1
   -- And encode it into 23 bits.
   local m = twoTo23 * mantissa
-  
+
   -- Now we have all the parts, so put them together.
   local result = twoTo31*s + twoTo23*(e+127) + m
   return result
@@ -413,7 +413,7 @@ function utils.copyFields(child, parents)
       if type(value) == 'table' then
         -- Simple assignment here would mean that the subclass and superclass
         -- share the same table for this field.
-        -- Instead, we must build a new table. 
+        -- Instead, we must build a new table.
         child[key] = {}
         utils.updateTable(child[key], value)
       else
@@ -429,7 +429,7 @@ function utils.subclass(...)
   for _, v in pairs({...}) do
     table.insert(parents, v)
   end
-  
+
   local subcls = {}
   utils.copyFields(subcls, parents)
   return subcls

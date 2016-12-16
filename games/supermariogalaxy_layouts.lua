@@ -30,7 +30,7 @@ function layouts.addressTestSMG1:init()
   self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function ()
@@ -54,7 +54,7 @@ function layouts.addressTestSMG2:init()
   self:setUpdatesPerSecond(5)
 
   self.window:setSize(400, 300)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
@@ -77,7 +77,7 @@ function layouts.stageTime:init()
   self:setBreakpointUpdateMethod()
 
   self.window:setSize(400, 100)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game.stageTime)
 end
@@ -91,7 +91,7 @@ function layouts.stageAndFileTime:init()
   self:setBreakpointUpdateMethod()
 
   self.window:setSize(500, 100)
-  
+
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(game.stageTime)
   self:addItem(game.fileTime)
@@ -104,25 +104,25 @@ function layouts.velocityAndInputs:init()
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   self:addLabel()
   self:addItem(game:V(game.Velocity, "Y"))
   self:addItem(game:V(game.Velocity, "XZ"))
   self:addItem(game:V(game.Velocity, "XYZ"))
   self:addItem(game.pos)
-  
+
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
-  
+
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
     {foregroundColor=inputColor})
-    
+
   self:addLabel()
   self:addItem(game.stageTime)
 end
@@ -134,19 +134,19 @@ function layouts.inputsHorizontal:init()
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningX()
-  
+
   self.window:setSize(550, 110)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-    
+
   self:addLabel()
   self:addItem(game.stageTime)
-  
+
   self:addLabel()
   self:addItem("Buttons")
   self:addItem(function(...) return game.input:displayAllButtons(...) end)
   self:addItem(game.spinStatus)
-  
+
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY})
@@ -159,16 +159,16 @@ function layouts.velYRecording:init()
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(400, 130)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   self:addLabel()
   self:addItem(game.stageTime)
-  
+
   self:addLabel()
   self:addItem(game:V(game.Velocity, "Y"))
-  
+
   self:addFileWriter(
     game:V(game.Velocity, "Y"), "ram_watch_output.txt",
     {beforeDecimal=1, afterDecimal=10})
@@ -186,20 +186,20 @@ function layouts.messages:init()
   self.window:setSize(160, dolphinNativeResolutionHeight)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   self:addLabel()
   self:addItem(game.textProgress)
   self:addItem(game.alphaReq)
   self:addItem(game.fadeRate)
-  
+
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
-  
+
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
     {foregroundColor=inputColor})
-  
+
   self:addLabel()
   self:addItem(game.stageTime)
 end
@@ -208,16 +208,16 @@ end
 layouts.testClasses = subclass(Layout)
 function layouts.testClasses:init(character)
   character = character or 'mario'
-  
+
   local game = self.game
   game.character = character
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(500, 800)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
-  
+
   self:addLabel()
   self:addItem(game.stageTime)
   self:addItem(game:V(game.Velocity, "Y"))
@@ -233,10 +233,10 @@ function layouts.testClasses:init(character)
   self:addItem(game.anchoredHeight)
   self:addItem(game:V(valuetypes.MaxValue, game.pos.y))
   self:addItem(game:V(valuetypes.AverageValue, game.lateralVelocity))
-  
+
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
-  
+
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
@@ -248,17 +248,17 @@ layouts.tilt1 = subclass(Layout)
 function layouts.tilt1:init(character)
   -- Specify the character you're playing as to make the tilt-bonus accurate.
   character = character or 'mario'
-  
+
   local game = self.game
   game.character = character
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   self:addLabel()
   self:addItem(game.downVectorGravity)
   self:addItem(game.upVectorTilt)
@@ -274,32 +274,32 @@ layouts.tilt2 = subclass(Layout)
 function layouts.tilt2:init(character)
   -- Specify the character you're playing as to make the tilt-bonus accurate.
   character = character or 'mario'
-  
+
   local game = self.game
   game.character = character
   self.margin = margin
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
-  
+
   self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
-  
+
   self:addLabel()
   self:addItem(game.upwardVelocityLastJump,
     {beforeDecimal=2, afterDecimal=3})
   self:addItem(game:V(valuetypes.RateOfChange, game.upwardVelocity, "Up Accel"),
     {signed=true, beforeDecimal=2, afterDecimal=3})
   self:addItem(game.upVelocityTiltBonus)
-  
+
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})
-  
+
   self:addImage(
     layoutsModule.StickInputImage,
     {game.stickX, game.stickY},
     {foregroundColor=inputColor})
-  
+
   self:addLabel()
   self:addItem(game.stageTime)
 end

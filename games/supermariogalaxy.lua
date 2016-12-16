@@ -41,7 +41,7 @@ SMG1.defaultResetButton = 'v'
 
 function SMG1:init(options)
   SMGshared.init(self, options)
-  
+
   local version = string.lower(options.gameVersion)
   if version == 'us' or version == 'na' then
     self.gameId = "RMGE01"
@@ -57,7 +57,7 @@ function SMG1:init(options)
   else
     error("gameVersion not supported: " .. options.gameVersion)
   end
-  
+
   self.addrs = {}
   self:initConstantAddresses()
 end
@@ -71,7 +71,7 @@ local GV = SMG1.blockValues
 
 function SMG1:initConstantAddresses()
   self.addrs.o = self:getGameStartAddress()
-  
+
   -- It's useful to have an address where there's always a ton of zeros.
   -- We can use this address as the result when an address computation
   -- is invalid. Zeros are better than unreadable memory (results in
@@ -98,7 +98,7 @@ function SMG1:updateRefPointer()
     + readIntBE(self.addrs.o + self.refPointerOffset, 4)
     - 0x80000000
 end
-  
+
 function SMG1:updateMessageInfoPointer()
   -- Pointer that can be used to locate various message/text related info.
   --
@@ -106,7 +106,7 @@ function SMG1:updateMessageInfoPointer()
   self.addrs.messageInfoPointer =
     self.addrs.o + readIntBE(self.addrs.o + 0x9A9240, 4) - 0x80000000
 end
-  
+
 function SMG1:updatePosBlock()
   self.addrs.posBlock = self.addrs.refPointer + 0x3EEC
 end
@@ -175,7 +175,7 @@ function SMG1:onGround()
 end
 
 
-  
+
 -- Unlike SMG2, SMG1 does not exactly have an in-game timer. However, this
 -- address seems to be the next best thing.
 -- It counts up by 1 per frame starting from the level-beginning cutscenes.
@@ -183,7 +183,7 @@ end
 -- It resets to 0 if you die.
 GV.stageTimeFrames =
   MV("Stage time, frames", 0x9ADE58, SMG1.StaticValue, IntType)
-  
+
 
 
 -- Position, velocity, and other coordinates related stuff.

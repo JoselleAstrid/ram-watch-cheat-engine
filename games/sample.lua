@@ -36,7 +36,7 @@ MP1.gameId = 'GM8E01'
 
 function MP1:init(options)
   dolphin.DolphinGame.init(self, options)
-  
+
   self.addrs = {}
   self:initConstantAddresses()
 end
