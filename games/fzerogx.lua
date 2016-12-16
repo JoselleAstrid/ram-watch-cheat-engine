@@ -955,6 +955,29 @@ RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatType)
 
 RV.checkpointMain = MV("Main checkpoint", 0x618, State2Value, SignedIntType)
 RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatType)
+RV.sectionCheckpoint1 = MV("Section 1 CP", 0x61C, State2Value, SignedIntType)
+RV.sectionCheckpoint1Fraction = MV(
+  "Section 1 CP frac", 0x62C, State2Value, FloatType)
+RV.sectionCheckpoint2 = MV("Section 2 CP", 0x620, State2Value, SignedIntType)
+RV.sectionCheckpoint2Fraction = MV(
+  "Section 2 CP frac", 0x630, State2Value, FloatType)
+RV.sectionCheckpoint3 = MV("Section 3 CP", 0x624, State2Value, SignedIntType)
+RV.sectionCheckpoint3Fraction = MV(
+  "Section 3 CP frac", 0x634, State2Value, FloatType)
+RV.checkpointLastContact = MV("Last contact CP", 0x1CC, StateValue, IntType)
+RV.checkpointLastContactFraction = MV("Last contact CP frac", 0x1D0, StateValue, FloatType)
+RV.checkpointGround = MV("Ground CP", 0x680, State2Value, SignedIntType)
+RV.checkpointGroundFraction = MV("Ground CP frac", 0x690, State2Value, FloatType)
+RV.closestCheckpoint = MV("Closest CP", 0x5FC, State2Value, SignedIntType)
+RV.checkpointNumber74 = MV("Checkpoint 74", 0x74, State2Value, SignedIntType)
+RV.checkpointNumberD0 = MV("Checkpoint D0", 0xD0, State2Value, SignedIntType)
+RV.checkpointNumber154 = MV("Checkpoint 154", 0x154, State2Value, SignedIntType)
+RV.checkpointNumber1B0 = MV("Checkpoint 1B0", 0x1B0, State2Value, SignedIntType)
+RV.checkpointNumber234 = MV("Checkpoint 234", 0x234, State2Value, SignedIntType)
+RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntType)
+RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntType)
+RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntType)
+
 RV.checkpointLateralOffset = MV("CP lateral", 0x668, State2Value, FloatType)
 RV.checkpointRightVector = V(
   subclass(Vector3Value, RacerValue),
@@ -965,23 +988,23 @@ RV.checkpointRightVector = V(
 RV.checkpointRightVector.label = "CP Right"
 RV.checkpointRightVector.displayDefaults = {
   signed=true, beforeDecimal=1, afterDecimal=5}
-RV.sectionCheckpoint = MV("Section CP", 0x61C, State2Value, SignedIntType)
-RV.checkpointPositional = MV("Positional CP", 0x5FC, State2Value, SignedIntType)
-RV.checkpointLastContact = MV("Last contact CP", 0x1CC, StateValue, IntType)
-RV.checkpointGround = MV("Ground CP", 0x680, State2Value, SignedIntType)
-RV.checkpointNumber74 = MV("Checkpoint 74", 0x74, State2Value, SignedIntType)
-RV.checkpointNumberD0 = MV("Checkpoint D0", 0xD0, State2Value, SignedIntType)
-RV.checkpointNumber154 = MV("Checkpoint 154", 0x154, State2Value, SignedIntType)
-RV.checkpointNumber1B0 = MV("Checkpoint 1B0", 0x1B0, State2Value, SignedIntType)
-RV.checkpointNumber234 = MV("Checkpoint 234", 0x234, State2Value, SignedIntType)
-RV.checkpointNumber290 = MV("Checkpoint 290", 0x290, State2Value, SignedIntType)
-RV.checkpointNumber314 = MV("Checkpoint 314", 0x314, State2Value, SignedIntType)
-RV.checkpointNumber370 = MV("Checkpoint 370", 0x370, State2Value, SignedIntType)
+RV.checkpointTrackCenter = V(
+  subclass(Vector3Value, RacerValue),
+  MV("CP Center X", 0x56C, State2Value, FloatType),
+  MV("CP Center Y", 0x57C, State2Value, FloatType),
+  MV("CP Center Z", 0x58C, State2Value, FloatType)
+)
+RV.checkpointTrackCenter.label = "CP Center"
+RV.checkpointTrackCenter.displayDefaults = {
+  signed=true, beforeDecimal=1, afterDecimal=5}
 
 RV.lapIndex = MV("Lap index", 0x67B, State2Value, ByteType)
 RV.lapIndexPosition = MV("Lap index, position", 0x67F, State2Value, SignedByteType)
 RV.lapIndexGround = MV("Lap index, ground", 0x6B7, State2Value, ByteType)
 RV.lapIndexPositionGround = MV("Lap index, pos/gr", 0x6BB, State2Value, SignedByteType)
+
+RV.raceDistance = MV("Race distance", 0x658, State2Value, FloatType)
+RV.lapDistance = MV("Lap distance", 0x660, State2Value, FloatType)
 
 
 -- Physics related
