@@ -33,16 +33,12 @@ local function start(options)
 
   local window = createWindow(options)
 
-  -- Figure out which layout modules we are checking.
+  -- Modules where we'll look for layout definitions.
   local layoutModuleNames = {
-    -- Layouts that could be used for multiple games
-    'layouts_generic',
+    -- Layouts that aren't game specific
+    'generic_layouts',
     -- User-defined layouts (not under version control)
-    'layouts_custom',
-    -- Example layouts that aren't as directly practical as the ones in the
-    -- game-specific modules or the generic module, but still show off some
-    -- useful things
-    'layouts_examples',
+    'custom_layouts',
   }
   -- Game-specific layout modules
   for _, name in pairs(game.layoutModuleNames) do

@@ -1,3 +1,5 @@
+-- Layouts that aren't game specific.
+
 package.loaded.utils = nil
 local utils = require 'utils'
 local subclass = utils.subclass
@@ -16,20 +18,19 @@ local fixedWidthFontName = "Consolas"
 local layouts = {}
 
 layouts.frameCounterTest = subclass(Layout)
-function layouts.frameCounterTest:init(window, game)
+function layouts.frameCounterTest:init()
+  local game = self.game
+  self.margin = margin
   self:setBreakpointUpdateMethod()
 
-  self.windowSize = {300, 100}
+  self.window:setSize(300, 100)
 
-  self:addLabel{
-    x=margin, y=margin, fontSize=fontSize, fontName=fixedWidthFontName}
+  self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
       return "Frame count: "..tonumber(game:getFrameCount())
     end
   )
-
-  Layout.init(self, window, game)
 end
 
 return {
