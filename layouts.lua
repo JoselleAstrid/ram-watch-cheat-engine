@@ -11,7 +11,10 @@ local Layout = {
 
 
 function Layout:update()
-  self.game:updateAddresses()
+  if self.game.updateAddresses then
+    -- Update dynamic addresses (usually, pointers that can move)
+    self.game:updateAddresses()
+  end
 
   for _, element in pairs(self.elements) do
     -- Update elements which are not hidden and have an update function
@@ -237,7 +240,7 @@ function SimpleElement:setVisible(b) self.uiObj:setVisible(b) end
 
 local function applyFontOptions(uiObj, options)
   local font = uiObj:getFont()
-  -- Font size seems to be mandatory; the others aren't
+  -- Font size seems to be mandatory in CE; the others aren't
   font:setSize(options.fontSize or 12)
   if options.fontName ~= nil then font:setName(options.fontName) end
   if options.fontColor ~= nil then font:setColor(options.fontColor) end
