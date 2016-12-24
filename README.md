@@ -45,7 +45,7 @@ If you're having problems before even touching the Lua code, you might want to r
 
 If you're having problems with a Lua script, try the [debugging and troubleshooting page](/docs/debugging.md).
 
-If you've got a question, problem, error message, etc. that you want to ask about, try [this TASvideos forum thread](). (TODO: Add link) Note: In the Lua Engine window, the latest Lua error appears BELOW previous errors.
+If you've got a question, problem, error message, etc. that you want to ask about, try [this TASvideos forum thread](http://tasvideos.org/forum/viewtopic.php?t=18685). Note: In the Lua Engine window, the latest Lua error appears BELOW previous errors.
 
 If you've got more of a suggestion or request, or you think you've found a bug, it might fit better in the GitHub issues section. In general, though, feel free to post at either GitHub or TASvideos.
 
@@ -59,6 +59,6 @@ Cheat Engine is a powerful tool, so don't be too careless when using it. For exa
 
 ## Credits
 
-Masterjun, for writing the Dolphin + Cheat Engine RAM watch script that this project was based on: http://pastebin.com/vUCmhwMQ (2013.08.26)
+Masterjun, for writing the Dolphin + Cheat Engine RAM watch script that this project was based on: http://tasvideos.org/forum/viewtopic.php?t=14379 (2013.08.26)
 
 aldelaro, for the Dolphin + Cheat Engine tutorial I've linked a few times in these docs.
