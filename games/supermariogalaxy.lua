@@ -34,6 +34,19 @@ local SMGshared = require "_supermariogalaxyshared"
 
 local SMG1 = subclass(SMGshared)
 
+SMG1.supportedGameVersions = {
+  -- Wii must be set to English language.
+  na = 'RMGE01',
+  us = 'RMGE01',
+
+  jp = 'RMGJ01',
+  ja = 'RMGJ01',
+
+  -- Wii must be set to English language.
+  eu = 'RMGP01',
+  pal = 'RMGP01',
+}
+
 SMG1.layoutModuleNames = {'supermariogalaxy_layouts'}
 SMG1.framerate = 60
 -- Use D-Pad Down to reset max-value displays, average-value displays, etc.
@@ -42,20 +55,12 @@ SMG1.defaultResetButton = 'v'
 function SMG1:init(options)
   SMGshared.init(self, options)
 
-  local version = string.lower(options.gameVersion)
-  if version == 'us' or version == 'na' then
-    self.gameId = "RMGE01"
+  if self.gameId == 'RMGE01' then
     self.refPointerOffset = 0xF8EF88
-  elseif version == 'jp' or version == 'ja' then
-    self.gameId = "RMGJ01"
+  elseif self.gameId == 'RMGJ01' then
     self.refPointerOffset = 0xF8F328
-  elseif version == 'eu' or version == 'pal' then
-    self.gameId = "RMGP01"
-    -- TODO: This works for English language,
-    -- but not for German language for example.
+  elseif self.gameId == 'RMGP01' then
     self.refPointerOffset = 0xF8EF88
-  else
-    error("gameVersion not supported: " .. options.gameVersion)
   end
 
   self.addrs = {}

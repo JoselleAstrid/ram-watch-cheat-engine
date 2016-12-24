@@ -41,6 +41,11 @@ local layoutsModule = require 'layouts'
 
 local GX = subclass(dolphin.DolphinGame)
 
+GX.supportedGameVersions = {
+  na = 'GFZE01',
+  us = 'GFZE01',
+}
+
 GX.layoutModuleNames = {'fzerogx_layouts'}
 GX.framerate = 60
 -- Use D-Pad Left to reset max-value displays, average-value displays, etc.
@@ -48,13 +53,6 @@ GX.defaultResetButton = '<'
 
 function GX:init(options)
   dolphin.DolphinGame.init(self, options)
-
-  local version = string.lower(options.gameVersion)
-  if version == 'us' or version == 'na' then
-    self.gameId = "GFZE01"
-  else
-    error("gameVersion not supported: " .. options.gameVersion)
-  end
 
   self.addrs = {}
   self:initConstantAddresses()

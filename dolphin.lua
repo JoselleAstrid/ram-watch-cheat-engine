@@ -20,8 +20,22 @@ local DolphinGame = subclass(gameModule.Game)
 DolphinGame.exeName = 'Dolphin.exe'
 
 function DolphinGame:init(options)
-  self.gameVersion =
-    options.gameVersion or error("Must provide a gameVersion.")
+  if not options.gameVersion then error("Must provide a gameVersion.") end
+
+  local version = string.lower(options.gameVersion)
+  self.gameId = self.supportedGameVersions[version]
+  if not self.gameId then
+    error("gameVersion not supported: " .. options.gameVersion)
+  end
+
+  if options.frameCounterAddress then
+    self.frameCounterAddress =
+      getAddress(self.exeName) + options.frameCounterAddress
+  end
+  if options.oncePerFrameAddress then
+    self.oncePerFrameAddress =
+      getAddress(self.exeName) + options.oncePerFrameAddress
+  end
 
   self.constantGameStartAddress =
     options.constantGameStartAddress or nil

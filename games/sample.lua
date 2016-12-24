@@ -1,5 +1,6 @@
--- This is a sample script that is simpler and less structured than the other
--- game scripts (F-Zero GX, Super Mario Galaxy, etc.).
+-- This is a sample script for Metroid Prime.
+-- It's simpler and less structured than the other game scripts
+-- (F-Zero GX, Super Mario Galaxy, etc.).
 -- It's meant to be easier to follow (or at least to imitate) for anyone new
 -- to these Lua scripts.
 
@@ -29,10 +30,16 @@ local Vector3Value = valuetypes.Vector3Value
 
 local MP1 = subclass(dolphin.DolphinGame)
 
+MP1.supportedGameVersions = {
+  na_0_00 = 'GM8E01',
+  us_0_00 = 'GM8E01',
+}
+
+-- Layouts specific to this game module can be found in sample_layouts.lua.
 MP1.layoutModuleNames = {'sample_layouts'}
+-- This game runs at 60 frames per second. A few layouts and functions need
+-- to know the framerate for their calculations.
 MP1.framerate = 60
--- Metroid Prime, North American version 1.00.
-MP1.gameId = 'GM8E01'
 
 function MP1:init(options)
   dolphin.DolphinGame.init(self, options)
@@ -88,4 +95,3 @@ MP1.blockValues.pos.label = "Position"
 
 
 return MP1
-

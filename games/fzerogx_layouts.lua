@@ -128,6 +128,7 @@ end
 
 layouts.oneMachineStat = subclass(Layout)
 function layouts.oneMachineStat:init(statName, numOfRacers, withBase)
+  -- For all the stat names, Ctrl+F for statNames in fzerogx.lua.
   statName = statName or 'accel'
   numOfRacers = numOfRacers or 6
   withBase = withBase or false
@@ -207,6 +208,8 @@ function layouts.allMachineStatsEditable:init(
   updateWithButton, initiallyShownStats)
 
   updateWithButton = updateWithButton or false
+  -- Example: {'accel', 'boostDuration', maxSpeed'}
+  -- For all the stat names, Ctrl+F for statNames in fzerogx.lua.
   initiallyShownStats = initiallyShownStats or self.game.statNames
 
   local game = self.game

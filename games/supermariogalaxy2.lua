@@ -34,6 +34,12 @@ local SMGshared = require "_supermariogalaxyshared"
 
 local SMG2 = subclass(SMGshared)
 
+SMG2.supportedGameVersions = {
+  -- Wii must be set to English language.
+  na = 'SB4E01',
+  us = 'SB4E01',
+}
+
 -- Shares layouts with SMG1.
 SMG2.layoutModuleNames = {'supermariogalaxy_layouts'}
 SMG2.framerate = 60
@@ -43,12 +49,8 @@ SMG2.defaultResetButton = 'v'
 function SMG2:init(options)
   SMGshared.init(self, options)
 
-  local version = string.lower(options.gameVersion)
-  if version == 'us' or version == 'na' then
-    self.gameId = "SB4E01"
+  if self.gameId == 'SB4E01' then
     self.refPointerOffset = 0xC7A2C8
-  else
-    error("gameVersion not supported: " .. options.gameVersion)
   end
 
   self.addrs = {}

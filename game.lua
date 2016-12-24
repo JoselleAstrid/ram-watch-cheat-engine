@@ -16,24 +16,10 @@ local MemoryValue = valuetypes.MemoryValue
 
 local Game = subclass(valuetypes.Block)
 Game.blockAlias = 'game'
-Game.exeName = nil
 
 function Game:init(options)
-  if not self.exeName then
-    error("This game doesn't have an exeName specified.")
-  end
-
   if not self.framerate then
     error("This game doesn't have a framerate specified.")
-  end
-
-  if options.frameCounterAddress then
-    self.frameCounterAddress =
-      getAddress(self.exeName) + options.frameCounterAddress
-  end
-  if options.oncePerFrameAddress then
-    self.oncePerFrameAddress =
-      getAddress(self.exeName) + options.oncePerFrameAddress
   end
 
   valuetypes.Block.init(self)

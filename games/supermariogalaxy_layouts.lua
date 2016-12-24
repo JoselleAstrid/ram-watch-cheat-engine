@@ -207,6 +207,7 @@ end
 
 layouts.testClasses = subclass(Layout)
 function layouts.testClasses:init(character)
+  -- Specify the character you're playing as to make the tilt-bonus accurate.
   character = character or 'mario'
 
   local game = self.game
