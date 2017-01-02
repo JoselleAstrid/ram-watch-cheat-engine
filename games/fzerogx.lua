@@ -289,6 +289,33 @@ end
 
 
 
+local ReplayInputValue = subclass(MemoryValue)
+GX.ReplayInputValue = ReplayInputValue
+
+function ReplayInputValue:getPointer()
+  local rawPointer = readIntBE(self.game.addrs.refPointer + 0x239058, 4)
+  if rawPointer == 0 then return nil end
+
+  return self.game.addrs.o + rawPointer - 0x80000000
+end
+
+function ReplayInputValue:getAddress()
+  local pointer = self:getPointer()
+  local currentIndex = readIntBE(pointer + 0xA0, 2)
+  local inputArrayStart = pointer + 0xA4
+  local elementSize = 7
+  local elementAddress = inputArrayStart + currentIndex*elementSize
+  return elementAddress + self.offset
+end
+
+function ReplayInputValue:isValid()
+  local valid = self:getPointer() ~= nil
+  if not valid then self.invalidDisplay = "<Replay inputs N/A>" end
+  return valid
+end
+
+
+
 local Racer = subclass(Block)
 Racer.blockAlias = 'racer'
 GX.Racer = Racer
@@ -1297,6 +1324,145 @@ function calibratedInput:RDisplay()
 end
 
 
+-- Replay input values.
+-- You can get these during a replay, Time Attack run, or Grand Prix race.
+--
+-- Similar to calibrated inputs, with one notable exception:
+-- For L and R, replay inputs only track net strafe (R value minus L value)
+-- and a boolean saying whether L and R are both greater than zero.
+-- So L 100% / R 100% and L 20% / R 20% are indistinguishable.
+local replayInput = V(Value)
+GV.replayInput = replayInput
+
+function replayInput:init()
+  self.buttons = self.block:MV("Buttons", 0,
+    ReplayInputValue, BinaryType, {binarySize=4, binaryStartBit=7})
+  self.steerX = self.block:MV("Steer X", 1, ReplayInputValue, SignedByteType)
+  self.steerY = self.block:MV("Steer Y", 2, ReplayInputValue, SignedByteType)
+  self.strafe = self.block:MV("Strafe", 3, ReplayInputValue, SignedByteType)
+  self.accel = self.block:MV("Accel", 4, ReplayInputValue, ByteType)
+  self.brake = self.block:MV("Brake", 5, ReplayInputValue, ByteType)
+end
+
+function replayInput:getButton(button)
+  -- Return true if button is pressed, false otherwise.
+  local value = nil
+  if button == "Accel" then value = self.accel:get()
+  elseif button == "Boost" then value = self.buttons:get()[2]
+  elseif button == "Brake" then value = self.brake:get()
+  elseif button == "L+R" then value = self.buttons:get()[4]
+  elseif button == "Side" then value = self.buttons:get()[1]
+  elseif button == "Spin" then value = self.buttons:get()[3]
+  else error("Button code not recognized: " .. tostring(button))
+  end
+
+  return value > 0
+end
+
+function replayInput:isValid()
+  return self.buttons:isValid()
+end
+
+function replayInput:buttonDisplay(button)
+  local pressed = self:getButton(button)
+
+  if pressed then
+    return button
+  else
+    -- A number of spaces equal to the button string
+    return string.rep(" ", string.len(button))
+  end
+end
+
+function replayInput:display(options)
+  if not self:isValid() then
+    local lineCount = 2
+    if options.strafe then lineCount = lineCount + 1 end
+    if options.steer then lineCount = lineCount + 1 end
+    return self.invalidDisplay..string.rep('\n', lineCount-1)
+  end
+
+  options = options or {}
+
+  local lines = {}
+
+  if options.strafe then
+    local strafe = utils.displayAnalog(
+      self.strafe:get(), 'int', ">", "<", {digits=3})
+    local bothLR = self:buttonDisplay("L+R")
+    table.insert(lines, "Strafe: "..strafe.." "..bothLR)
+  end
+  if options.steer then
+    local steerX = utils.displayAnalog(
+      self.steerX:get(), 'int', ">", "<", {digits=3})
+    local steerY = utils.displayAnalog(
+      self.steerY:get(), 'int', "^", "v", {digits=3})
+    table.insert(lines, "Steer: "..steerX.." "..steerY)
+  end
+
+  table.insert(lines,
+    self:buttonDisplay("Accel")
+    .." "..self:buttonDisplay("Side"))
+  table.insert(lines,
+    self:buttonDisplay("Boost")
+    .." "..self:buttonDisplay("Brake")
+    .." "..self:buttonDisplay("Spin"))
+
+  return table.concat(lines, "\n")
+end
+
+-- The following Values implement an approximation of how much L and R
+-- are pressed. Replays don't give full L/R information.
+
+local replayInputLOrR = V(Value)
+
+function replayInputLOrR:init()
+  if not self.game.frameCounterAddress then
+    error("replayInputLOrR requires the frame counter addresses.")
+  end
+end
+
+function replayInputLOrR:isValid()
+  return self.game.replayInput:isValid()
+end
+
+function replayInputLOrR:updateValue()
+  local strafe = self.game.replayInput.strafe:get()
+  if self.isL then strafe = -strafe end
+
+  local bothLR = self.game.replayInput:getButton("L+R")
+  local rangeMax = 100
+
+  local currentFrame = self.game:getFrameCount()
+  self.previousFrame = self.previousFrame or 0
+  local framesElapsed = currentFrame - self.previousFrame
+  self.previousFrame = currentFrame
+  -- Approximation of how fast human fingers will change L/R.
+  local maxChangePerFrame = 25
+  local maxChange = maxChangePerFrame * framesElapsed
+
+  -- Criteria 1: Consider limits implied by strafe/L+R values.
+  -- Criteria 2: Gravitate toward full L + full R while accounting for
+  -- max change.
+  if bothLR then
+    local minPossible = math.max(1, 1+strafe)
+    local maxPossible = math.min(rangeMax, rangeMax+strafe)
+    -- Go as high as possible while respecting maxChange.
+    self.value = math.min(maxPossible, self.value+maxChange)
+    -- If respecting maxChange actually made us undershoot the minPossible,
+    -- then fix that.
+    self.value = math.max(self.value, minPossible)
+  else
+    self.value = math.max(0, strafe)
+  end
+end
+
+GV.replayInputL = V(replayInputLOrR)
+GV.replayInputL.isL = true
+GV.replayInputR = V(replayInputLOrR)
+GV.replayInputR.isL = false
+
+
 -- Racer control state.
 -- Unlike controller input, this:
 -- - corresponds directly to controls (accel, brake, etc.) rather than buttons
@@ -1345,6 +1511,8 @@ function controlState:displayAllButtons()
 end
 
 function controlState:boostDisplay()
+  if not self:isValid() then return self.invalidDisplay end
+
   local framesLeft = self.racer.boostFramesLeft:get()
   local delay = self.racer.boostDelay:get()
 
@@ -1360,7 +1528,12 @@ function controlState:boostDisplay()
 end
 
 function controlState:display(options)
-  if not self:isValid() then return self.invalidDisplay end
+  if not self:isValid() then
+    local lineCount = 2
+    if options.strafe then lineCount = lineCount + 1 end
+    if options.steer then lineCount = lineCount + 1 end
+    return self.invalidDisplay..string.rep('\n', lineCount-1)
+  end
 
   options = options or {}
 
@@ -1379,9 +1552,9 @@ function controlState:display(options)
     table.insert(lines, "Steer: "..steerX.." "..steerY)
   end
 
-  table.insert(lines, "Boost: "..self:boostDisplay())
-
   table.insert(lines, self:displayAllButtons())
+
+  table.insert(lines, "Boost: "..self:boostDisplay())
 
   return table.concat(lines, "\n")
 end
@@ -1426,6 +1599,35 @@ function GX.CalibratedStickImage:init(window, player, options)
   layoutsModule.StickInputImage.init(
     self, window,
     player.calibratedInput.stickX, player.calibratedInput.stickY, options)
+end
+
+GX.ReplayStrafeImage = subclass(layoutsModule.AnalogTwoSidedInputImage)
+function GX.ReplayStrafeImage:init(window, game, options)
+  options = options or {}
+  options.max = options.max or 100
+
+  layoutsModule.AnalogTwoSidedInputImage.init(
+    self, window, game.replayInput.strafe, options)
+end
+
+GX.ReplayLRImage = subclass(layoutsModule.AnalogTriggerInputImage)
+function GX.ReplayLRImage:init(window, game, options)
+  options = options or {}
+  options.max = options.max or 100
+
+  layoutsModule.AnalogTriggerInputImage.init(
+    self, window, game.replayInputL, game.replayInputR, options)
+end
+
+GX.ReplaySteerImage = subclass(layoutsModule.StickInputImage)
+function GX.ReplaySteerImage:init(window, game, options)
+  options = options or {}
+  options.max = options.max or 100
+  options.square = options.square or true
+
+  layoutsModule.StickInputImage.init(
+    self, window,
+    game.replayInput.steerX, game.replayInput.steerY, options)
 end
 
 GX.ControlStateStrafeImage = subclass(layoutsModule.AnalogTwoSidedInputImage)

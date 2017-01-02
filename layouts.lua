@@ -391,6 +391,8 @@ function StickInputImage:init(window, stickX, stickY, options)
 end
 
 function StickInputImage:update()
+  if not self.stickX:isValid() then return end
+
   local size = self.size
 
   -- Clear the image and redraw the outline.
@@ -462,6 +464,8 @@ function AnalogTriggerInputImage:redrawMeterOutlines()
 end
 
 function AnalogTriggerInputImage:update()
+  if not self.triggerL:isValid() then return end
+
   self:redrawMeterOutlines()
 
   self.canvas:getBrush():setColor(self.foregroundColor)
@@ -513,6 +517,8 @@ function AnalogTwoSidedInputImage:init(window, analogInput, options)
 end
 
 function AnalogTwoSidedInputImage:update()
+  if not self.analogInput:isValid() then return end
+
   -- Meter border and center
   self.canvas:getBrush():setColor(self.backgroundColor)
   self.canvas:rect(1,1, self.width/2,self.height)

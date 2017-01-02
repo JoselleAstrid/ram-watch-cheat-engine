@@ -259,29 +259,63 @@ function layouts.inputs:init(calibrated, playerNumber)
 
   self:addLabel{foregroundColor=inputColor}
   if calibrated then
-    self:addItem(player.calibratedInput, {LR=true, stick=true})
     self:addImage(
       game.CalibratedLRImage, {player}, {foregroundColor=inputColor})
     self:addImage(
       game.CalibratedStickImage, {player}, {foregroundColor=inputColor})
+    self:addItem(player.calibratedInput, {LR=true, stick=true})
   else
-    self:addItem(player.controllerInput, {LR=true, stick=true})
     self:addImage(
       game.ControllerLRImage, {player}, {foregroundColor=inputColor})
     self:addImage(
       game.ControllerStickImage, {player}, {foregroundColor=inputColor})
+    self:addItem(player.controllerInput, {LR=true, stick=true})
   end
 end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(racerNumber, cpuSteerRange)
+function layouts.replayInfo:init(netStrafeOnly)
+  -- Visualize net strafe value instead of a guess of L and R inputs
+  netStrafeOnly = netStrafeOnly or false
+
+  local game = self.game
+  self.margin = margin
+  self:setUpdatesPerSecond(30)
+  self:activateAutoPositioningY('compact')
+  self.window:setSize(300, 500)
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
+
+  if netStrafeOnly then
+    self:addImage(game.ReplayStrafeImage, {game}, {foregroundColor=inputColor})
+  else
+    self:addImage(game.ReplayLRImage, {game}, {foregroundColor=inputColor})
+  end
+  self:addImage(game.ReplaySteerImage, {game}, {foregroundColor=inputColor})
+
+  self:addLabel{foregroundColor=inputColor}
+  self:addItem(game.replayInput, {strafe=true, steer=true})
+
+  local racer = game:getBlock(game.Racer)
+
+  self:addLabel()
+  self:addItem(
+    function() return "Boost: "..racer.controlState:boostDisplay() end)
+  self:addItem(racer.energy)
+
+  self:addLabel()
+  self:addItem(racer.raceTimer)
+end
+
+
+layouts.racerInfo = subclass(Layout)
+function layouts.racerInfo:init(racerNumber, cpuSteerRange)
   racerNumber = racerNumber or 1
   cpuSteerRange = cpuSteerRange or false
 
   local game = self.game
   self.margin = margin
-  self:setUpdatesPerSecond(20)
+  self:setUpdatesPerSecond(30)
   self:activateAutoPositioningY('compact')
 
   self.window:setSize(300, 500)
@@ -290,15 +324,15 @@ function layouts.replayInfo:init(racerNumber, cpuSteerRange)
 
   local racer = game:getBlock(game.Racer, racerNumber)
 
-  self:addLabel{foregroundColor=inputColor}
-  self:addItem(racer.controlState, {strafe=true, steer=true})
-
   self:addImage(
     game.ControlStateStrafeImage, {racer},
     {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
   self:addImage(
     game.ControlStateSteerImage, {racer},
     {cpuSteerRange=cpuSteerRange, foregroundColor=inputColor})
+
+  self:addLabel{foregroundColor=inputColor}
+  self:addItem(racer.controlState, {strafe=true, steer=true})
 
   self:addLabel()
   self:addItem(racer.energy)
