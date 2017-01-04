@@ -99,7 +99,9 @@ end
 
 
 layouts.velocityAndInputs = subclass(Layout)
-function layouts.velocityAndInputs:init()
+function layouts.velocityAndInputs:init(noShake)
+  noShake = noShake or false
+
   local game = self.game
   self.margin = margin
   self:setBreakpointUpdateMethod()
@@ -116,7 +118,7 @@ function layouts.velocityAndInputs:init()
   self:addItem(game.pos)
 
   self:addLabel{fontColor=inputColor}
-  self:addItem(game.input, {shake=true, spin=true, stick=true})
+  self:addItem(game.input, {shake=not noShake, spin=true, stick=true})
 
   self:addImage(
     layoutsModule.StickInputImage,

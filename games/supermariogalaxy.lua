@@ -96,24 +96,34 @@ function SMG1:updateRefPointer()
   -- move by the same amount as the value change.
   --
   -- This pointer value changes whenever you load a different area.
-  -- Also, it's invalid during transition screens and before the
+  -- It's invalid during transition screens and before the
   -- title screen.
-  self.addrs.refPointer =
-    self.addrs.o
-    + readIntBE(self.addrs.o + self.refPointerOffset, 4)
-    - 0x80000000
+  local rawPointer = readIntBE(self.addrs.o + self.refPointerOffset, 4)
+  if rawPointer == 0 then
+    self.addrs.refPointer = nil
+  else
+    self.addrs.refPointer = self.addrs.o + rawPointer - 0x80000000
+  end
 end
 
 function SMG1:updateMessageInfoPointer()
   -- Pointer that can be used to locate various message/text related info.
   --
   -- This pointer value changes whenever you load a different area.
-  self.addrs.messageInfoPointer =
-    self.addrs.o + readIntBE(self.addrs.o + 0x9A9240, 4) - 0x80000000
+  local rawPointer = readIntBE(self.addrs.o + 0x9A9240, 4)
+  if rawPointer == 0 then
+    self.addrs.messageInfoPointer = nil
+  else
+    self.addrs.messageInfoPointer = self.addrs.o + rawPointer - 0x80000000
+  end
 end
 
 function SMG1:updatePosBlock()
-  self.addrs.posBlock = self.addrs.refPointer + 0x3EEC
+  if self.addrs.refPointer == nil then
+    self.addrs.posBlock = nil
+  else
+    self.addrs.posBlock = self.addrs.refPointer + 0x3EEC
+  end
 end
 
 function SMG1:updateAddresses()
@@ -139,6 +149,10 @@ function SMG1.RefValue:getAddress()
   return self.game.addrs.refPointer + self.offset
 end
 
+function SMG1.RefValue:isValid()
+  return self.game.addrs.refPointer ~= nil
+end
+
 
 -- Values that are a constant small offset from the position values' location.
 SMG1.PosBlockValue = subclass(MemoryValue)
@@ -147,12 +161,20 @@ function SMG1.PosBlockValue:getAddress()
   return self.game.addrs.posBlock + self.offset
 end
 
+function SMG1.PosBlockValue:isValid()
+  return self.game.addrs.posBlock ~= nil
+end
+
 
 -- Values that are a constant offset from the messageInfoPointer.
 SMG1.MessageInfoValue = subclass(MemoryValue)
 
 function SMG1.MessageInfoValue:getAddress()
   return self.game.addrs.messageInfoPointer + self.offset
+end
+
+function SMG1.MessageInfoValue:isValid()
+  return self.game.addrs.messageInfoPointer ~= nil
 end
 
 
@@ -284,7 +306,7 @@ GV.spinAttackTimer =
 GV.midairSpinTimer =
   MV("Midair spin timer", 0x41BF, SMG1.RefValue, ByteType)
 GV.midairSpinType =
-  MV("Midair spin state", 0x41DF, SMG1.RefValue, ByteType)
+  MV("Midair spin state", 0x41E7, SMG1.RefValue, ByteType)
 
 GV.stickX = MV("Stick X", 0x61D3A0, SMG1.StaticValue, FloatType)
 GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatType)

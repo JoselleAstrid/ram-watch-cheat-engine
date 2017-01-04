@@ -149,6 +149,10 @@ function Velocity:updateValue()
   end
 end
 
+function Velocity:isValid()
+  return self.posObjects[1]:isValid()
+end
+
 
 
 -- Difference between gravity up-vector and character tilt up-vector.
@@ -501,7 +505,13 @@ function GV.shake:updateValue()
   }
 end
 
+function GV.shake:isValid()
+  return self.game.wiimoteShakeBit:isValid()
+end
+
 function GV.shake:display()
+  if not self:isValid() then return self.invalidDisplay end
+  
   self:update()
 
   if self.value.wiimote == 1 then return "Shake Wiimote"
@@ -552,7 +562,13 @@ function GV.spinStatus:updateValue()
   end
 end
 
+function GV.spinStatus:isValid()
+  return self.game.spinCooldownTimer:isValid()
+end
+
 function GV.spinStatus:display()
+  if not self:isValid() then return self.invalidDisplay end
+  
   self:update()
 
   if self.value == 'midair-spin-wiimote' then return "Spin Wiimote"
@@ -586,7 +602,22 @@ function input:displayAllButtons()
   return s
 end
 
+function input:isValid()
+  return self.game.shake:isValid()
+end
+
 function input:display(options)
+  if not self:isValid() then
+    local lineCount = 1
+    if options.shake then lineCount = lineCount + 1 end
+    if options.spin then lineCount = lineCount + 1 end
+    if options.stick then
+      lineCount = lineCount + 1
+      if options.narrow then lineCount = lineCount + 1 end
+    end
+    return self.invalidDisplay..string.rep('\n', lineCount-1)
+  end
+  
   options = options or {}
 
   local lines = {}
