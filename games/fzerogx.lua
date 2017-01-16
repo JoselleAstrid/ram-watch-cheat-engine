@@ -1427,40 +1427,39 @@ function replayInputLOrR:isValid()
 end
 
 function replayInputLOrR:updateValue()
-  local strafe = self.game.replayInput.strafe:get()
-  if self.isL then strafe = -strafe end
+  -- L and R may have to be considered and updated together to make a
+  -- coherent guess.
+  -- But since we have two values, L and R, this function will be called twice
+  -- per display update. Ensure that only one value update happens.
+  local currentFrame = self.game:getFrameCount()
+  self.game.replayLRLastUpdate = self.game.replayLRLastUpdate or 0
+  if self.game.replayLRLastUpdate == currentFrame then return end
+  self.game.replayLRLastUpdate = currentFrame
 
+  local strafe = self.game.replayInput.strafe:get()
   local bothLR = self.game.replayInput:getButton("L+R")
   local rangeMax = 100
 
-  local currentFrame = self.game:getFrameCount()
-  self.previousFrame = self.previousFrame or 0
-  local framesElapsed = currentFrame - self.previousFrame
-  self.previousFrame = currentFrame
-  -- Approximation of how fast human fingers will change L/R.
-  local maxChangePerFrame = 25
-  local maxChange = maxChangePerFrame * framesElapsed
-
-  -- Criteria 1: Consider limits implied by strafe/L+R values.
-  -- Criteria 2: Gravitate toward full L + full R while accounting for
-  -- max change.
   if bothLR then
-    local minPossible = math.max(1, 1+strafe)
-    local maxPossible = math.min(rangeMax, rangeMax+strafe)
-    -- Go as high as possible while respecting maxChange.
-    self.value = math.min(maxPossible, self.value+maxChange)
-    -- If respecting maxChange actually made us undershoot the minPossible,
-    -- then fix that.
-    self.value = math.max(self.value, minPossible)
+    -- The most common cases of L+R are:
+    -- 1. Pressing both all the way
+    -- 2. Pressing one all the way and the other partially
+    --
+    -- This will probably make the input changes more 'sudden' compared to
+    -- actual human inputs. However, there's not really a good way to
+    -- account for this when processing replay inputs in real time
+    -- (i.e. without being able to look at inputs of future frames).
+    self.game.replayInputL.value = math.min(rangeMax, rangeMax-strafe)
+    self.game.replayInputR.value = math.min(rangeMax, rangeMax+strafe)
   else
-    self.value = math.max(0, strafe)
+    -- Only one shoulder button is pressed. Easy to find the values.
+    self.game.replayInputR.value = math.max(0, strafe)
+    self.game.replayInputL.value = math.max(0, -strafe)
   end
 end
 
 GV.replayInputL = V(replayInputLOrR)
-GV.replayInputL.isL = true
 GV.replayInputR = V(replayInputLOrR)
-GV.replayInputR.isL = false
 
 
 -- Racer control state.
