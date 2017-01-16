@@ -69,6 +69,29 @@ function layouts.kmhRecording:init()
 end
 
 
+layouts.settingsEditable = subclass(Layout)
+-- This is a little wonky. Settings edits won't take effect until you go
+-- back to the settings screen. And editing to >100% on the settings screen
+-- won't work unless you disable a particular instruction. This layout's
+-- List button can help with that.
+function layouts.settingsEditable:init()
+  local game = self.game
+  self.margin = margin
+  self:setUpdatesPerSecond(20)
+  self:activateAutoPositioningY()
+
+  self.window:setSize(420, 100)
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
+
+  local racer = game:getBlock(game.Racer)
+
+  self:addEditableValue(game.settingsSlider, {buttonX=300})
+
+  self:addLabel()
+  self:addItem(racer.kmh)
+end
+
+
 layouts.energy = subclass(Layout)
 function layouts.energy:init(numOfRacers)
   numOfRacers = numOfRacers or 6
@@ -275,13 +298,17 @@ end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(netStrafeOnly)
+function layouts.replayInfo:init(updatesPerSecond, boostTimer, netStrafeOnly)
+  -- Higher for fine-grainedness, lower for performance
+  updatesPerSecond = updatesPerSecond or 30
+  -- Show remaining frames and delay frames for boosts
+  boostTimer = boostTimer or false
   -- Visualize net strafe value instead of a guess of L and R inputs
   netStrafeOnly = netStrafeOnly or false
 
   local game = self.game
   self.margin = margin
-  self:setUpdatesPerSecond(30)
+  self:setUpdatesPerSecond(updatesPerSecond)
   self:activateAutoPositioningY('compact')
   self.window:setSize(300, 500)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
@@ -299,8 +326,10 @@ function layouts.replayInfo:init(netStrafeOnly)
   local racer = game:getBlock(game.Racer)
 
   self:addLabel()
-  self:addItem(
-    function() return "Boost: "..racer.controlState:boostDisplay() end)
+  if boostTimer then
+    self:addItem(
+      function() return "Boost: "..racer.controlState:boostDisplay() end)
+  end
   self:addItem(racer.energy)
 
   self:addLabel()
