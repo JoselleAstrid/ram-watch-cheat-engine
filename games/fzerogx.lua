@@ -980,6 +980,7 @@ RV.trackWidth = MV("Track width", 0x5E4, State2Value, FloatType)
 
 RV.checkpointMain = MV("Main checkpoint", 0x618, State2Value, SignedIntType)
 RV.checkpointFraction = MV("CP fraction", 0x628, State2Value, FloatType)
+RV.branchIndicator = MV("Branch", 0x50C, StateValue, IntType)
 RV.sectionCheckpoint1 = MV("Section 1 CP", 0x61C, State2Value, SignedIntType)
 RV.sectionCheckpoint1Fraction = MV(
   "Section 1 CP frac", 0x62C, State2Value, FloatType)
@@ -1030,6 +1031,10 @@ RV.lapIndexPositionGround = MV("Lap index, pos/gr", 0x6BB, State2Value, SignedBy
 
 RV.raceDistance = MV("Race distance", 0x658, State2Value, FloatType)
 RV.lapDistance = MV("Lap distance", 0x660, State2Value, FloatType)
+RV.lengthOfOneLap = MV("1 Lap length", 0x65C, State2Value, FloatType)
+
+RV.facingDirectionRelativeToTrack = MV(
+  "Facing direction", 0x664, State2Value, IntType)
 
 
 -- Physics related
@@ -1049,21 +1054,31 @@ RV.stability1B0 = defineStateFloat("Stability 1B0", 0x1B0)
 RV.stability1B4 = defineStateFloat("Stability 1B4", 0x1B4)
 RV.stability1B8 = defineStateFloat("Stability 1B8", 0x1B8)
 RV.groundContact = defineStateFloat("Ground contact", 0x1C8)
-RV.collision216 = MV("Collision 216", 0x216, StateValue, IntType)
+RV.collision216 = MV("Collision 216", 0x216, StateValue, ByteType)
 RV.speed224 = defineStateFloat("Speed 224", 0x224)
 RV.boost228 = defineStateFloat("Boost 228", 0x228)
 RV.slopeRateOfChange288 = defineStateFloat("Slope rate of change 288", 0x288)
 RV.tilt28C = defineStateFloat("Tilt 28C", 0x28C)
 RV.orientation290 = defineStateFloat("Orientation 290", 0x290)
-RV.collision3D8 = defineStateFloat("Collision 3D8", 0x3D8)
+RV.collision3D8 = V(
+  subclass(Vector3Value, RacerValue),
+  defineStateFloat("Collision 3D8 X", 0x3D8),
+  defineStateFloat("Collision 3D8 Y", 0x3DC),
+  defineStateFloat("Collision 3D8 Z", 0x3E0)
+)
+RV.collision3D8.label = "Collision 3D8"
 RV.speed478 = defineStateFloat("Speed 478", 0x478)
 RV.strafeEffect = MV("Strafe effect", 0x4B0, StateValue, SignedShortType)
 RV.stability4B4 = defineStateFloat("Stability 4B4", 0x4B4)
 RV.turnReactionInput = defineStateFloat("T. reaction input", 0x4D4)
 RV.turnReactionEffect = defineStateFloat("T. reaction effect", 0x4D8)
-RV.collision500X = defineStateFloat("Collision 500, X", 0x500)
-RV.collision500Y = defineStateFloat("Collision 500, Y", 0x504)
-RV.collision500Z = defineStateFloat("Collision 500, Z", 0x508)
+RV.collision500 = V(
+  subclass(Vector3Value, RacerValue),
+  defineStateFloat("Collision 500 X", 0x500),
+  defineStateFloat("Collision 500 Y", 0x504),
+  defineStateFloat("Collision 500 Z", 0x508)
+)
+RV.collision500.label = "Collision 500"
 RV.turning580 = defineStateFloat("Turning 580", 0x580)
 RV.collision5C4 = defineStateFloat("Collision 5C4", 0x5C4)
 RV.turning5C8 = defineStateFloat("Turning 5C8", 0x5C8)
