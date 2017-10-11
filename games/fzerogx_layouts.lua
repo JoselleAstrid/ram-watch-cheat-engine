@@ -22,6 +22,12 @@ local inputColor = 0x880000
 
 
 layouts.addressTest = subclass(Layout)
+-- Displays the addresses of key memory blocks, as computed by the Lua
+-- framework.
+-- We can double check these addresses in Cheat Engine's Memory View to see
+-- if they indeed look like the start of the block. If it doesn't look right,
+-- then maybe something is wrong; e.g. maybe a particular pointer in our code
+-- doesn't work in all possible cases.
 function layouts.addressTest:init()
   local game = self.game
   self.margin = margin
@@ -48,6 +54,11 @@ end
 
 
 layouts.kmhRecording = subclass(Layout)
+-- Provides controls for recording km/h data to a file.
+-- The data will go in a file named ram_watch_output.txt. The folder will be
+-- either A) the same folder as the Cheat Table you have open, or B) the
+-- folder of your Cheat Engine executable, if you don't have a Cheat Table
+-- open.
 function layouts.kmhRecording:init()
   local game = self.game
   self.margin = margin
@@ -70,7 +81,10 @@ end
 
 
 layouts.settingsEditable = subclass(Layout)
--- This is a little wonky. Settings edits won't take effect until you go
+-- Displays machine settings along with an Edit button, and a List button
+-- which adds the settings value to Cheat Engine's address list.
+--
+-- Editing is a little wonky. Settings edits won't take effect until you go
 -- back to the settings screen. And editing to >100% on the settings screen
 -- won't work unless you disable a particular instruction. This layout's
 -- List button can help with that.
@@ -93,6 +107,10 @@ end
 
 
 layouts.energy = subclass(Layout)
+-- Displays energy values for one or more racers.
+--
+-- numOfRacers:
+--   How many racers you want to display energy for.
 function layouts.energy:init(numOfRacers)
   numOfRacers = numOfRacers or 6
 
@@ -112,6 +130,12 @@ end
 
 
 layouts.energyEditable = subclass(Layout)
+-- Displays energy values for one or more racers. Each energy value has an
+-- Edit button next to it, and a List button which adds the value to Cheat
+-- Engine's address list.
+--
+-- numOfRacers:
+--   How many racers you want to display energy for.
 function layouts.energyEditable:init(numOfRacers)
   numOfRacers = numOfRacers or 6
 
@@ -130,6 +154,10 @@ end
 
 
 layouts.position = subclass(Layout)
+-- Displays position values for one or more racers.
+--
+-- numOfRacers:
+--   How many racers you want to display positions for.
 function layouts.position:init(numOfRacers)
   numOfRacers = numOfRacers or 1
 
@@ -150,8 +178,17 @@ end
 
 
 layouts.oneMachineStat = subclass(Layout)
+-- Displays a particular machine stat for one or more racers.
+--
+-- statName:
+--   Name of the stat you want to show. Put it in quotes. Example: 'accel'
+--   To see all the available stat names, Ctrl+F for statNames in fzerogx.lua.
+-- numOfRacers:
+--   How many racers you want to display this stat for.
+-- withBase:
+--   true if you want to display base values as well as actual values.
+--   false if you just want actual values.
 function layouts.oneMachineStat:init(statName, numOfRacers, withBase)
-  -- For all the stat names, Ctrl+F for statNames in fzerogx.lua.
   statName = statName or 'accel'
   numOfRacers = numOfRacers or 6
   withBase = withBase or false
@@ -190,7 +227,15 @@ end
 
 
 layouts.allMachineStats = subclass(Layout)
-function layouts.allMachineStats:init(withBase)
+-- Displays all machine stats.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
+-- withBase:
+--   true if you want to display base values as well as actual values.
+--   false if you just want actual values.
+function layouts.allMachineStats:init(racerNumber, withBase)
+  racerNumber = racerNumber or 1
   withBase = withBase or false
 
   local game = self.game
@@ -198,10 +243,12 @@ function layouts.allMachineStats:init(withBase)
   self:setUpdatesPerSecond(5)
   self:activateAutoPositioningY()
 
-  self.window:setSize(400, 700)
+  local windowWidth = 400
+  if racerNumber ~= 1 then windowWidth = windowWidth + 200 end
+  self.window:setSize(windowWidth, 700)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
 
-  local racer = game:getBlock(game.Racer)
+  local racer = game:getBlock(game.Racer, racerNumber)
 
   self:addLabel()
   for _, statName in pairs(game.statNames) do
@@ -227,12 +274,35 @@ end
 
 
 layouts.allMachineStatsEditable = subclass(Layout)
+-- Displays all (or some) machine stats with Edit buttons next to them.
+--
+-- Note: the Edit buttons will usually edit base stat values, which may not
+-- match the actual stat values. This is because base stats are easier to edit.
+-- Editing actual stats directly usually requires disabling some code
+-- instructions.
+-- There are also List buttons which add a stat's base and actual values
+-- to the Cheat Engine address list. This can help you edit actual stats
+-- directly if you want to go through the trouble.
+--
+-- Note: Editing base stat values might not take effect on CPUs until the
+-- next race. Like, you might have to go back to the menus and select a course,
+-- etc.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
+-- updateWithButton:
+--   true if you want the layout to update only when you click a button
+--   (a little nicer for Dolphin performance). false if you want the layout to
+--   auto-update a few times per second (more convenient to use).
+-- initiallyShownStats:
+--   Here you can specify just a few stats to show on the layout window
+--   initially. Example: {'accel', 'boostDuration', 'maxSpeed'}
+--   To see all the available stat names, Ctrl+F for statNames in fzerogx.lua.
 function layouts.allMachineStatsEditable:init(
-  updateWithButton, initiallyShownStats)
+  racerNumber, updateWithButton, initiallyShownStats)
 
+  racerNumber = racerNumber or 1
   updateWithButton = updateWithButton or false
-  -- Example: {'accel', 'boostDuration', maxSpeed'}
-  -- For all the stat names, Ctrl+F for statNames in fzerogx.lua.
   initiallyShownStats = initiallyShownStats or self.game.statNames
 
   local game = self.game
@@ -243,21 +313,26 @@ function layouts.allMachineStatsEditable:init(
 
   local toggleElementsButton = self:addButton("Toggle elements")
   toggleElementsButton:setOnClick(function() self:openToggleDisplayWindow() end)
+  
+  local buttonX = 350
+  if racerNumber ~= 1 then buttonX = buttonX + 200 end
+  local windowWidth = buttonX + 120
 
   if updateWithButton then
     local updateButton = self:addButton("Update")
-    self:setButtonUpdateMethod(updateButton)  -- Update when clicking this button
-    self.window:setSize(470, 25 + 27*2 + 27*#game.statNames)
+    -- Update when clicking this button
+    self:setButtonUpdateMethod(updateButton)
+    self.window:setSize(windowWidth, 25 + 27*2 + 27*#game.statNames)
   else
     self:setUpdatesPerSecond(5)
-    self.window:setSize(470, 25 + 27 + 27*#game.statNames)
+    self.window:setSize(windowWidth, 25 + 27 + 27*#game.statNames)
   end
 
-  local racer = game:getBlock(game.Racer)
+  local racer = game:getBlock(game.Racer, racerNumber)
 
   for _, statName in pairs(game.statNames) do
     local element = self:addEditableValue(
-      racer[statName], {buttonX=350, checkboxLabel=statName})
+      racer[statName], {buttonX=buttonX, checkboxLabel=statName})
 
     element:setVisible(utils.isValueInTable(initiallyShownStats, statName))
   end
@@ -265,6 +340,17 @@ end
 
 
 layouts.inputs = subclass(Layout)
+-- Displays controller inputs for a human racer.
+-- Does not work for CPUs or Replay mode.
+--
+-- calibrated:
+--   true if you want to display values AFTER calibration is accounted for.
+--   false if you want to display the controller's raw values.
+--   Calibration includes 1) stick calibration as defined by your in-game
+--   calibration settings, and 2) L/R calibration as defined by the game
+--   (e.g. you don't need to push L/R all the way down to get max strafe power).
+-- playerNumber:
+--   1 for Player 1, 2 for Player 2, etc.
 function layouts.inputs:init(calibrated, playerNumber)
   calibrated = calibrated or false
   playerNumber = playerNumber or 1
@@ -298,19 +384,44 @@ end
 
 
 layouts.replayInfo = subclass(Layout)
-function layouts.replayInfo:init(updatesPerSecond, boostTimer, netStrafeOnly)
-  -- Higher for fine-grainedness, lower for performance
+-- Displays controls for the player racer in modes that support replays.
+-- Works in Time Attack, Grand Prix, instant replays, and Replay mode.
+--
+-- updatesPerSecond:
+--   How often this display should be updated.
+--   Set this higher to see more frames of input display (GX runs at
+--   60 FPS, so it doesn't make sense to set this much higher than 60).
+--   Set this lower if Dolphin is stuttering too much.
+-- boostTimer:
+--   true if you want to display remaining frames and delay frames for boosts.
+--   false if you don't want to display this.
+--   Delay frames are displayed with a plus + symbol.
+-- netStrafeOnly:
+--   true if you want to display L/R input as simply the net strafe amount
+--   (R input minus L input).
+--   false if you want to display a prediction of how much both L and R are
+--   pressed. Replay info only gives us the net strafe and whether both L+R are
+--   pressed or not, which is why this is just a prediction. It can give more
+--   info, but in some cases it can be misleading.
+-- windowWidth:
+--   Width of the display window. This is configurable to facilitate using
+--   this layout for video recording.
+-- windowHeight:
+--   Height of the display window.
+function layouts.replayInfo:init(
+  updatesPerSecond, boostTimer, netStrafeOnly, windowWidth, windowHeight)
+  
   updatesPerSecond = updatesPerSecond or 30
-  -- Show remaining frames and delay frames for boosts
   boostTimer = boostTimer or false
-  -- Visualize net strafe value instead of a guess of L and R inputs
   netStrafeOnly = netStrafeOnly or false
+  windowWidth = windowWidth or 300
+  windowHeight = windowHeight or 500
 
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(updatesPerSecond)
   self:activateAutoPositioningY('compact')
-  self.window:setSize(300, 500)
+  self.window:setSize(windowWidth, windowHeight)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
 
   if netStrafeOnly then
@@ -338,6 +449,17 @@ end
 
 
 layouts.racerInfo = subclass(Layout)
+-- Displays controls and other info for any racer.
+-- Works in any live race, but not for Replays.
+-- Works for CPUs.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
+-- cpuSteerRange:
+--   true if you want to display stick and L/R input with CPU limits
+--   (1.35 times that of human racers). Use this if your racerNumber
+--   corresponds to a CPU racer.
+--   false if you want to display with human limits.
 function layouts.racerInfo:init(racerNumber, cpuSteerRange)
   racerNumber = racerNumber or 1
   cpuSteerRange = cpuSteerRange or false
@@ -347,7 +469,9 @@ function layouts.racerInfo:init(racerNumber, cpuSteerRange)
   self:setUpdatesPerSecond(30)
   self:activateAutoPositioningY('compact')
 
-  self.window:setSize(300, 500)
+  local windowWidth = 300
+  if racerNumber ~= 1 then windowWidth = windowWidth + 200 end
+  self.window:setSize(windowWidth, 500)
 
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
 
@@ -372,17 +496,26 @@ end
 
 
 layouts.checkpoints = subclass(Layout)
-function layouts.checkpoints:init()
+-- Displays checkpoint related info for any racer.
+-- Works in any race or replay, and for CPUs.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
+function layouts.checkpoints:init(racerNumber)
+  racerNumber = racerNumber or 1
+  
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
 
-  self.window:setSize(250, 400)
+  local windowWidth = 250
+  if racerNumber ~= 1 then windowWidth = windowWidth + 200 end
+  self.window:setSize(windowWidth, 370)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
 
-  local racer = game:getBlock(game.Racer)
+  local racer = game:getBlock(game.Racer, racerNumber)
 
   self:addLabel()
   self:addItem(racer.lapIndexPosition)
@@ -391,23 +524,32 @@ function layouts.checkpoints:init()
   self:addItem(racer.checkpointLateralOffset)
 
   self:addLabel()
+  self:addItem(racer.raceDistance)
   self:addItem(racer.pos)
-  self:addItem(racer.checkpointRightVector)
 end
 
 
 layouts.timer = subclass(Layout)
-function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
+-- Displays timer and lap time info for any racer.
+-- Works in any race or replay, and for CPUs.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
+-- maxPrevLaps:
+--   Max number of previous lap times to include on the display.
+--   You can set this as high as 8.
+function layouts.timer:init(racerNumber, maxPrevLaps)
   racerNumber = racerNumber or 1
   maxPrevLaps = maxPrevLaps or 4
-  withFrameFraction = withFrameFraction or false
 
   local game = self.game
   self.margin = margin
   self:setUpdatesPerSecond(20)
   self:activateAutoPositioningY()
 
-  self.window:setSize(500, 300)
+  local windowWidth = 400
+  if racerNumber ~= 1 then windowWidth = windowWidth + 200 end
+  self.window:setSize(windowWidth, 300)
   self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
 
   local racer = game:getBlock(game.Racer, racerNumber)
@@ -415,12 +557,17 @@ function layouts.timer:init(racerNumber, maxPrevLaps, withFrameFraction)
   self:addLabel()
   self:addItem(
     racer.raceTimer,
-    {maxPrevLaps=maxPrevLaps, withFrameFraction=withFrameFraction}
+    {maxPrevLaps=maxPrevLaps}
   )
 end
 
 
 layouts.speed224 = subclass(Layout)
+-- Displays "speed 224" (base speed?) value for any racer.
+-- Works in any race or replay, and for CPUs.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
 function layouts.speed224:init(racerNumber)
   racerNumber = racerNumber or 1
 
@@ -446,6 +593,10 @@ end
 
 
 layouts.testMisc = subclass(Layout)
+-- Tests miscellaneous functions/values.
+--
+-- racerNumber:
+--   1 for Player 1, 2 for Player 2 or 1st CPU, 3 for P3 or 2nd CPU, etc.
 function layouts.testMisc:init(racerNumber)
   racerNumber = racerNumber or 1
 

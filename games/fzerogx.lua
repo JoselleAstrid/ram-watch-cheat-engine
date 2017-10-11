@@ -1095,8 +1095,8 @@ function Timer:init(label, offset)
 
   self.frames = self.block:MV(
     label..", frames", offset, State2Value, IntType)
-  self.frameFraction = self.block:MV(
-    label..", frame fraction", offset+4, State2Value, FloatType)
+  self.lapCrossingInterpolation = self.block:MV(
+    label..", lap crossing interpolation", offset+4, State2Value, FloatType)
   self.mins = self.block:MV(
     label..", minutes", offset+8, State2Value, ByteType)
   self.secs = self.block:MV(
@@ -1106,7 +1106,7 @@ function Timer:init(label, offset)
 end
 
 function Timer:updateValue()
-  for _, key in pairs({'frames', 'frameFraction', 'mins', 'secs', 'millis'}) do
+  for _, key in pairs({'frames', 'lapCrossingInterpolation', 'mins', 'secs', 'millis'}) do
     self[key]:update()
   end
 end
@@ -1117,9 +1117,6 @@ function Timer:displayValue(options)
   local s = string.format(
     "%d'%02d\"%03d", self.mins:get(), self.secs:get(), self.millis:get()
   )
-  if options.withFrameFraction then
-    s = s.." + "..string.format("%.4f", self.frameFraction:get())
-  end
   return s
 end
 
