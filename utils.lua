@@ -330,6 +330,21 @@ function utils.writeIntBE(address, value, numberOfBytesToWrite)
   writeBytes(address, bytes)
 end
 
+function utils.writeIntLE(address, value, numberOfBytesToWrite)
+  local remainingValue = value
+  local bytes = {}
+  
+  for n = 1,numberOfBytesToWrite do
+    byteValue = remainingValue % 256
+    byteValue = tonumber(string.format("%.f", byteValue))  -- round to int
+    remainingValue = (remainingValue - byteValue) / 256
+    remainingValue = tonumber(string.format("%.f", remainingValue))
+    bytes[n] = byteValue
+  end
+
+  writeBytes(address, bytes)
+end
+
 function utils.floatToInt(x)
   -- In: floating-point value
   -- Out: 4-byte integer value from the same bytes
@@ -374,6 +389,12 @@ end
 
 function utils.writeFloatBE(address, value, numberOfBytesToWrite)
   utils.writeIntBE(
+    address, utils.floatToInt(value, numberOfBytesToWrite), numberOfBytesToWrite
+  )
+end
+
+function utils.writeFloatLE(address, value, numberOfBytesToWrite)
+  utils.writeIntLE(
     address, utils.floatToInt(value, numberOfBytesToWrite), numberOfBytesToWrite
   )
 end
