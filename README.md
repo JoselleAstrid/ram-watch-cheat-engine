@@ -27,7 +27,9 @@ You can get a RAM watch script up and running without any prior knowledge of Lua
 
 ## Requirements
 
-Windows or Linux. Cheat Engine doesn't have a Mac version, as of CE 6.6.
+Windows, Mac, or Linux. Cheat Engine and Dolphin are supported on all of these platforms, though Windows is probably easiest for Cheat Engine. Also, the tutorial here assumes Windows, but the explanations shouldn't change that much between platforms.
+
+No programming or Lua experience is required for the first few tutorial sections. For the later sections, some programming experience will make it easier, but the tutorial attempts to walk through things slowly for beginners.
 
 
 ## Getting started
@@ -43,13 +45,13 @@ As a general recommendation, it's okay to skip doing a tutorial section if it do
 
 If you're having problems before even touching the Lua code, you might want to read [aldelaro's tutorial](http://tasvideos.org/forum/viewtopic.php?t=17735) on using Cheat Engine with Dolphin.
 
-If you're having problems with a Lua script, try the [debugging and troubleshooting page](/docs/debugging.md).
+If you're having problems with a Lua script, try the [troubleshooting and debugging page](/docs/debugging.md).
 
 If you've got a question, problem, error message, etc. that you want to ask about, try [this TASvideos forum thread](http://tasvideos.org/forum/viewtopic.php?t=18685). Note: In the Lua Engine window, the latest Lua error appears BELOW previous errors.
 
 If you've got more of a suggestion or request, or you think you've found a bug, it might fit better in the GitHub issues section. In general, though, feel free to post at either GitHub or TASvideos.
 
-If you've got a RAM watch script that used an old version of this framework, and you want to update that script, let me (yoshifan) know by PM, the TASvideos thread, Twitter, etc. I'll be happy to help with that.
+I encourage asking questions publicly with the methods above so others can learn too, but messaging me ([yoshifan](https://github.com/yoshifan)) directly is fine too. Feel free to contact me on Twitter or Discord, send a TASvideos PM, or whatever is convenient.
 
 
 ## Disclaimer

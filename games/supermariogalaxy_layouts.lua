@@ -98,12 +98,45 @@ function layouts.stageAndFileTime:init()
 end
 
 
+layouts.positionAndInputs = subclass(Layout)
+function layouts.positionAndInputs:init(noShake, updatesPerSecond)
+  noShake = noShake or false
+  updatesPerSecond = updatesPerSecond or 60
+
+  local game = self.game
+  self.margin = margin
+  self:setUpdatesPerSecond(updatesPerSecond)
+  self:activateAutoPositioningY()
+
+  self.window:setSize(narrowWindowWidth, dolphinNativeResolutionHeight)
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+
+  self:addLabel()
+  self:addItem(game.pos)
+
+  self:addLabel{fontColor=inputColor}
+  self:addItem(game.input, {shake=not noShake, spin=true, stick=true})
+
+  self:addImage(
+    layoutsModule.StickInputImage,
+    {game.stickX, game.stickY},
+    {foregroundColor=inputColor})
+
+  self:addLabel()
+  self:addItem(game.stageTime)
+end
+
+
 layouts.velocityAndInputs = subclass(Layout)
 function layouts.velocityAndInputs:init(noShake)
   noShake = noShake or false
 
   local game = self.game
   self.margin = margin
+  -- Velocity can't be obtained directly from RAM. It must be computed as a
+  -- position difference between consecutive frames. So we use breakpoint-based
+  -- updates in order to not miss any frames.
   self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
 

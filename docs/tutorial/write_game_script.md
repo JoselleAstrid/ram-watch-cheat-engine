@@ -28,17 +28,23 @@ return MyGame
 
 ```
 
-- `supportedGameVersions` was partially covered [here](choose_game_and_layout.md).
+- `supportedGameVersions` was mostly covered [here](games_versions_layouts_options.md#game-versions).
 
-  - To find the 6-character game ID of your Gamecube/Wii game, open Dolphin and right-click your game on the game list. Select Properties. The game ID should be on the title bar of the Properties window.
+  - To find the 6-character game ID of your Gamecube/Wii game, open Dolphin and right-click your game on the game list. Select Properties. The game ID should be on the title bar of the Properties window. The Info tab also has the game ID.
   
-  - If you use a [constantGameStartAddress](different_dolphin.md#optional-constantgamestartaddress), then maybe the game ID itself won't be useful. But often, you'll still want to know the game version, since addresses can easily change between versions.
+  - For the record, the game ID is only really needed if you don't have a [constantGameStartAddress](different_dolphin.md#optional-constantgamestartaddress). Still, it's easy to find the game ID, and it can be useful for anyone else who wants to use your script. Also, if your script supports multiple versions, you can use an `if`-`else` block to compute addresses differently depending on the game ID.
  
-- `layoutModuleNames` specifies which Lua file(s) have layouts for this game. The code above specifies `mygame_layouts.lua`. You can also make this a comma-separated list of files, like `{'mygame_layouts', 'mygame_layouts_extra'}`.
+- `layoutModuleNames` specifies which Lua file(s) have layouts for this game, as covered [here](games_versions_layouts_options.md#finding-the-layout-scripts-for-a-particular-game). Note that this can be a comma-separated list of files, like `{'mygame_layouts', 'mygame_layouts_extra'}`.
 
-- `framerate` should be how many frames per second the game runs in. Currently, this doesn't have a very important use, so it's not a big deal if you get this wrong. Most Dolphin or PC games run at 60 or 30.
+- `framerate` should be how many frames per second the game runs in.
 
-- You can name `MyGame` whatever you want. The rest of the script can stay the same.
+  - If your game can run at full speed in Dolphin, you can see the game's framerate in the title bar of most Dolphin versions.
+  
+  - Most Dolphin or PC games run at 60 or 30 frames per second, though some PC games might vary the framerate.
+  
+  - The framerate currently isn't needed in a lot of layouts. One use is to convert between seconds and frames accurately on data-recording layouts, such as F-Zero GX's `kmhRecording`.
+
+- You can name the `MyGame` variable whatever you want.
 
 
 ## Write and run a layout
@@ -58,7 +64,7 @@ To make the game script actually useful, we'll need to add RAM addresses to it. 
 
 This is a matter of learning how to use Cheat Engine with the game you're analyzing. It's knowledge that's not specific to this Lua framework. Try the following:
 
-- [aldelaro's Dolphin + Cheat Engine tutorial](http://tasvideos.org/forum/viewtopic.php?t=17735)
+- [aldelaro's Dolphin + Cheat Engine tutorial](http://tasvideos.org/forum/viewtopic.php?t=17735). If you know CE but haven't used it with Dolphin, note the requirement to add Big Endian value types.
 
 - Cheat Engine's built-in tutorial (open Cheat Engine, then Help -> Cheat Engine Tutorial)
 
@@ -379,7 +385,7 @@ return {
 
 Even with the tricks we've seen so far, as you add more values and make more complicated displays, you may end up with some long or hard-to-manage Lua code. Can you do something about it? Well, ultimately, you'll probably need to [learn more about Lua](http://www.lua.org/start.html).
 
-If you want to stick to learning by example, I recommend having a detailed look at `sample.lua` in the `games` folder. It doesn't go far beyond what this tutorial covers, but you might still learn a thing or two, and at least it should be a good review.
+If you want to stick to learning by example, I recommend having a detailed look at `metroidprime.lua` in the `games` folder. It doesn't go far beyond what this tutorial covers, but you might still learn a thing or two, and at least it should be a good review.
 
 The other pre-defined scripts, particularly F-Zero GX and Super Mario Galaxy, can be quite complicated. Still, you can try just skimming those files until you see something that looks vaguely interesting or understandable; then see if you can copy some part of it into your game's script.
 

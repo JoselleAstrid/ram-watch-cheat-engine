@@ -31,12 +31,14 @@ local Vector3Value = valuetypes.Vector3Value
 local MP1 = subclass(dolphin.DolphinGame)
 
 MP1.supportedGameVersions = {
+  -- Only revision 0-00 has been tested.
+  -- http://www.metroid2002.com/version_differences_version_number.php
   na_0_00 = 'GM8E01',
   us_0_00 = 'GM8E01',
 }
 
--- Layouts specific to this game module can be found in sample_layouts.lua.
-MP1.layoutModuleNames = {'sample_layouts'}
+-- Layouts specific to this game module can be found in metroidprime_layouts.lua.
+MP1.layoutModuleNames = {'metroidprime_layouts'}
 -- This game runs at 60 frames per second. A few layouts and functions need
 -- to know the framerate for their calculations.
 MP1.framerate = 60

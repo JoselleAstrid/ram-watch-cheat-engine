@@ -1,4 +1,4 @@
--- Layouts to use with sample.lua.
+-- Layouts to use with metroidprime.lua.
 
 package.loaded.utils = nil
 local utils = require 'utils'

@@ -72,7 +72,7 @@ Click Execute Script. Check that the layout works.
 
 ## (Optional) `constantGameStartAddress`
 
-Each time you click Execute Script for a Dolphin game, one of the first script actions is to figure out the address where the Gamecube/Wii game's memory starts. This is done automatically by running a Cheat Engine scan for the game ID (in NA Metroid Prime's case, `GM8E01`) as a string, and then selecting one of the addresses that ends in 0000.
+Each time you click Execute Script for a Dolphin game, one of the first script actions is to figure out the address where the Gamecube/Wii game's memory starts. This is done automatically by running a Cheat Engine scan for the game ID (for Metroid Prime in North America, `GM8E01`) as a string, and then selecting one of the addresses that ends in 0000.
 
 This scan can be slow, and tedious whenever you need to keep fixing and re-running your script. And in many cases, the game start address will stay the same between script runs, rendering the scan unnecessary:
 
