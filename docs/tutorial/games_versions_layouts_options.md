@@ -136,7 +136,7 @@ Here are some additional notes and tips:
 
 - If you have one layout running and you want to try a different layout: Edit the layout name in the Cheat Table script, and click Execute Script again. A new RAM display window should appear with the new layout. You can now close the old layout's RAM display window, as it's no longer in use.
 
-- If you get an error when running a script, see the [Troubleshooting and debugging](/debugging.md) page for advice.
+- If you get an error when running a script, see the [Troubleshooting and debugging](../debugging.md) page for advice.
 
 - Some of the layouts will show a button that, when clicked, will start recording RAM values to a `ram_watch_output.txt` file. This file will be in one of two places:
 
@@ -210,9 +210,9 @@ String | `'drag'`, `'maxSpeed'`
 Float | `0.5`, `3.38`, `-99.16`
 Table (of integers, strings, etc.) | `{'accel', 'maxSpeed'}`, `{0, 1, 3, 7}`
 
-But just because the default value is a integer, doesn't mean that any integer will make the display work fine. For example, it doesn't make sense to display `-1` previous lap times. If there are comments available for a layout, be sure to read those comments to get clarification on the options.
+But just because the default value is an integer, doesn't mean that any integer will make the display work fine. For example, it doesn't make sense to display `-1` previous lap times. If there are comments available for a layout, be sure to read those comments to get clarification on the options.
 
-If you think any of the pre-defined layouts have unclear options (or are just unclear in general), you can [ask about it](/README.md#support).
+Not all of the layouts have comments yet. If you think any of the pre-defined layouts have unclear options (or are just unclear in general), you can [ask about it](/README.md#support).
 
 
 ## Window-level options

@@ -22,7 +22,7 @@ Later, we'll explain which folders these files are allowed to be in.
 
 Suppose you want to define a custom layout for Super Mario Galaxy. One way is to directly edit one of the pre-defined layouts in `supermariogalaxy_layouts.lua`, or add another layout in that file.
 
-This will work, but it's not recommended if you're making more than one or two simple changes. You can easily lose track of your changes if you grab an updated version of `supermariogalaxy_layouts.lua` from GitHub sometime later.
+This will work, but it's not recommended if you're making more than one or two simple changes. You can easily lose track of your changes if you grab an updated version of `supermariogalaxy_layouts.lua` from this GitHub project sometime later.
 
 The recommended way is to define your layout in a `custom_layouts.lua` file. The Lua framework will look for a file of this name, and if the file exists, the layout names defined there will be recognized by the script.
 
@@ -221,7 +221,7 @@ As before, make sure no two Lua files have the same name, regardless of which fo
  
 Specifying extra directories also works for [custom game scripts](write_game_script.md), not just layouts.
 
-One thing to be careful about with `RWCEExtraDirectories`. If you run your script once, and then you later need to change or fix `RWCEExtraDirectories`, you'll have to close and re-open Cheat Engine for your change to be recognized. It's kind of a pain, but this might get fixed in a later version of the framework.
+One thing to be careful about with `RWCEExtraDirectories`. If you run your script once, and then you later need to change or fix `RWCEExtraDirectories`, you'll have to close and re-open Cheat Engine for your change to be recognized. It's kind of a pain, but hopefully you don't have to do this often. We might look into making this nicer in a later version of the framework.
 
 ---
 

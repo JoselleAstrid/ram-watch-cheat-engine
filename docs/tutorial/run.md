@@ -21,9 +21,9 @@
 
 1. Download and install Dolphin 5.0, 64-bit: https://dolphin-emu.org/download/
 
-   - If you have a different Dolphin version and don't feel like downloading 5.0, you'll need to [scan for a couple of addresses](different_dolphin.md) before you execute your script.
+   - If you have a different Dolphin version and don't feel like downloading 5.0, you'll need to [scan for a couple of addresses](different_dolphin.md) before you execute your script. Note: Development versions like 5.0-3967 are different from 5.0 for our purposes.
 
-   - If you don't want to run a Dolphin game, things might get tricky because this tutorial focuses on Dolphin first. You'll probably have to read on until the [non-Dolphin page](non_dolphin.md) before you can run a script.
+   - If you don't want to run a Dolphin game, things might get tricky because this tutorial focuses on Dolphin first. You'll probably have to keep reading until the [non-Dolphin page](non_dolphin.md) before you can run a script.
 
    - Dolphin properly supports Linux, so it doesn't have to run in Wine.
    

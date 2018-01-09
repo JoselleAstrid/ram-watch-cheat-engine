@@ -1,6 +1,6 @@
 # Non-Dolphin scripts
 
-We've occasionally noted small differences between Dolphin and non-Dolphin scripts, but we haven't gone far out of the way for non-Dolphin to keep the tutorial streamlined. This section aims to cover some important differences for non-Dolphin games.
+We've occasionally noted small differences between Dolphin and non-Dolphin scripts, but in the interest of keeping the tutorial streamlined, we haven't gone far out of the way for non-Dolphin yet. This section aims to cover some important differences for non-Dolphin games.
 
 
 ## A minimal non-Dolphin game script
@@ -45,16 +45,14 @@ function MyGame:init(options)
 end
 ```
 
-Since non-Dolphin games don't generally require a time-consuming scan to get a useful start address, the [constantGameStartAddress](different_dolphin.md#optional-constantgamestartaddress) option is not available for non-Dolphin games.
+The [constantGameStartAddress](different_dolphin.md#optional-constantgamestartaddress) option is not available for non-Dolphin games. This isn't a problem though, because if your non-Dolphin game's start address is constant (say, 0x800000), then you simply use the line `self.startAddress = 0x800000`.
 
 
 ## `frameCounterAddress` and `oncePerFrameAddress`
 
 Non-Dolphin games still need to define these addresses to run breakpoint-based layouts (which update once every frame). However, there are differences from [how it works for Dolphin](different_dolphin.md).
 
-First of all, these addresses aren't specified as options in the Cheat Table script. The reason is that, unlike Dolphin, most game programs don't have thousands of different versions that people use.
-
-So for other games and emulators, it often makes more sense to define the addresses directly in the game script:
+First of all, these addresses aren't specified as options in the Cheat Table script. You'll have to define the address computations directly in the game script:
 
 ```lua
 function MyGame:init(options)
@@ -67,6 +65,8 @@ function MyGame:init(options)
 end
 ```
 
+The reason is that the Dolphin way of computing these addresses (start address + constant value) might not work for every other emulator and game ever. Maybe in some games, the most suitable addresses would end up being pointer based, requiring a more complex computation.
+
 Finding the addresses [basically works the same way as Dolphin](different_dolphin.md#finding-the-framecounteraddress), with a couple of differences.
 
 If you're running a non-emulated PC game, you might not have a way to frame advance. However, you can still try repeated scans for an increased value (without specifying how much it has increased by).
@@ -75,7 +75,7 @@ In Dolphin 5.0, there will be 2 green (static) addresses which are based off of 
   
 - Note that games tend to have a lot of "smaller" frame counters which reset under certain conditions. Try going through different menus and levels to get most of the counters to reset. Then use one of the remaining counters as your `frameCounterAddress`.
     
-- When you open the Memory Viewer dialog for a potential `frameCounterAddress`, you probably want to see your game's .exe filename followed by a hexadecimal address. However, this process hasn't been tested with many PC games, so it's possible that there are some games where you can't find a `frameCounterAddress` like this.
+- When you open the Memory Viewer dialog for a potential `frameCounterAddress`, you probably want to see your game's .exe filename (as opposed to a different .exe or a .dll) followed by a hexadecimal address. However, this process hasn't been tested with many PC games, so it's possible that there are some games where you can't find a `frameCounterAddress` like this.
 
 
 ## Reading memory values

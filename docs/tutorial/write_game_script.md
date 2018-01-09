@@ -68,7 +68,7 @@ This is a matter of learning how to use Cheat Engine with the game you're analyz
 
 - Cheat Engine's built-in tutorial (open Cheat Engine, then Help -> Cheat Engine Tutorial)
 
-- Last part of [this post](http://tasvideos.org/forum/viewtopic.php?p=431008#431008): using emulator savestates to scan for pointers
+- The [below section](#defining-pointers-and-dynamic-ram-values) explaining pointers and how to find them
 
 
 ## Defining RAM values in the game script
@@ -96,7 +96,7 @@ end
 
 `self:getGameStartAddress()` runs the scan, and we save the result to `self.startAddress` for access later.
 
-`self:getGameStartAddress()` only works for Dolphin games. If you have a non-Dolphin game, it's still useful to find some kind of start address for your game's memory. However, you'd replace `self:getGameStartAddress()` with the calculations that apply to your game.
+The pre-defined `getGameStartAddress` function is only available for Dolphin games. But if you have a non-Dolphin game, it's still useful to find some kind of start address for your game's memory. So you'd replace the `self:getGameStartAddress()` line with the calculations that apply to your game.
 
 
 ### Defining and displaying static RAM values
@@ -174,10 +174,10 @@ end
 
 There's a lot more happening behind the scenes now, and explaining it all here might be too much. But hopefully it's clear what you need to change for each value you add:
 
-- The name after `MyGame.blockValues` or `self.game` (these must match)
-- The text label
-- The address offset from the `startAddress`
-- The type (Float Big Endian in this example)
+- The name after `MyGame.blockValues` and `self.game` (these must match). Example: `xPosition`
+- The text label. Example: `"X position"`
+- The address offset from the `startAddress`. Example: `0x1082B4`
+- The value type. Example: `FloatTypeBE` (Float Big Endian)
 
 You can give aliases to a few of the names to shorten the definitions further:
 
@@ -198,7 +198,9 @@ So far, we've learned how to work with RAM addresses that are based off of the g
 
 However, Cheat Engine's basic interface can be clunky when working with pointers. This is an area where this Lua framework can help a lot.
 
-Basically, a pointer is a RAM value whose purpose is to track the address of another RAM value (or a block of multiple RAM values). In general, the pointer's value isn't going to be exactly the same number as the address it tracks. But whenever the address moves by X bytes, the pointer's value should change by that same amount, X. For a general method of scanning for pointers, see the end of [this post](http://tasvideos.org/forum/viewtopic.php?p=431008#431008).
+Basically, a pointer is a RAM value whose purpose is to track the address of another RAM value (or a block of multiple RAM values). In general, the pointer's value isn't going to be exactly the same number as the address it tracks. But whenever the address moves by X bytes, the pointer's value should increase or decrease by that same amount, X.
+
+For a pointer scanning method using emulator savestates, see the end of [this post](http://tasvideos.org/forum/viewtopic.php?p=431008#431008). If that doesn't get the results you want, a more sophisticated method is described in the "How to find a pointer path using Dolphin's debugger" section of [this post](http://tasvideos.org/forum/viewtopic.php?p=457290#457290) by aldelaro.
 
 Let's say that you've found your character's life bar value, and the address moves when you enter a different level. You've found a pointer to the life bar address. This pointer's address is the game start address plus 0x240C78. The life bar address equals (game start address + pointer's value - 0x7FFFDB60). How do we get the remaining life value?
 
@@ -213,7 +215,7 @@ Pointer values are always integers. Pointers should be Big Endian if defined wit
 
 We need to read `remainingLife` continually as the script runs, but what about `remainingLifeAddress`? That depends on how often the pointer changes. Some pointers are determined on game startup, and then never change unless the game is restarted. It might make sense to compute `remainingLifeAddress` only once in that case. If the pointer changes mid-game, you'll have to consider whether to accept the inconvenience of re-executing the script on a pointer change, or accept the tiny performance hit of doing an extra memory read operation per frame. Most likely, though, this one memory read is not going to hurt performance much.
 
-What could hurt performance, however, is reading this same pointer 20 times per frame to compute 20 different memory addresses. To help avoid this, the Lua framework recognizes a function called `updateAddresses()` where you can put common pointer calculations. If this function is defined, it's run once per frame.
+However, often, a single pointer will point to a memory block that has a lot of interesting memory values. They are probably related memory values, and maybe you'll even be interested in displaying 20 of them in the same layout. Could reading the pointer 20 times per frame hurt performance significantly? Maybe, maybe not; it's hard to say what your computer will decide to do regarding memory caching. But to help mitigate this concern, the Lua framework recognizes a function called `updateAddresses()` where you can put common pointer calculations. If this function is defined, it's run once per frame.
 
 ```lua
 function MyGame:updateAddresses()
@@ -225,7 +227,7 @@ end
 
 If you're wondering where the `0x80000000` comes from: In Dolphin games, the raw numeric difference between a pointer value and an address it points to is often quite large. For pointers in F-Zero GX and Super Mario Galaxy, if you first add the start address and subtract `0x80000000`, you always get pointer offsets that are much smaller and more manageable. So it makes sense to do that addition and subtraction in advance. Then, for each individual value based on that pointer, add the remaining small offset in order to read the value.
 
-Here's how we might use the `pointerValue`. Let's bring in the same level of complexity that we used for static addresses, too. 
+Here's how we might use the `pointerValue`. Let's bring in the same level of sophistication that we used for static addresses, too. 
 
 ```lua
 package.loaded.valuetypes = nil
@@ -383,7 +385,7 @@ return {
 
 ## Further coding advice
 
-Even with the tricks we've seen so far, as you add more values and make more complicated displays, you may end up with some long or hard-to-manage Lua code. Can you do something about it? Well, ultimately, you'll probably need to [learn more about Lua](http://www.lua.org/start.html).
+Even with the tricks we've seen so far, as you add more values and make more complicated displays, you may end up with some long or hard-to-manage Lua scripts. Can you do something about it? Well, ultimately, you'll probably need to [learn more about Lua](http://www.lua.org/start.html).
 
 If you want to stick to learning by example, I recommend having a detailed look at `metroidprime.lua` in the `games` folder. It doesn't go far beyond what this tutorial covers, but you might still learn a thing or two, and at least it should be a good review.
 
@@ -391,7 +393,7 @@ The other pre-defined scripts, particularly F-Zero GX and Super Mario Galaxy, ca
 
 For more about coding layouts, [see this earlier tutorial section](custom_layout.md).
 
-Try the [debugging and troubleshooting page](/docs/debugging.md) when your script runs into errors.
+Try the [debugging and troubleshooting page](../debugging.md) when your script runs into errors.
 
 
 ## Where to put your game scripts
