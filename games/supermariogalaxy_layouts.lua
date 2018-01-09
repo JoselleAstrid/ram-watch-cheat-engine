@@ -29,16 +29,19 @@ function layouts.addressTestSMG1:init()
   self.margin = margin
   self:setUpdatesPerSecond(5)
 
-  self.window:setSize(400, 300)
+  self.window:setSize(500, 300)
 
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function ()
-      local names = {'o', 'refPointer', 'messageInfoPointer', 'posBlock'}
       local lines = {}
-      for _, name in pairs(names) do
+      for name, value in pairs(game.addrs) do
         table.insert(
-          lines, name..": "..utils.intToHexStr(game.addrs[name]))
+          lines, 'addrs.'..name..": "..utils.intToHexStr(value))
+      end
+      for name, value in pairs(game.pointerValues) do
+        table.insert(
+          lines, 'pointerValues.'..name..": "..utils.intToHexStr(value))
       end
       return table.concat(lines, '\n')
     end
@@ -224,8 +227,8 @@ function layouts.messages:init()
 
   self:addLabel()
   self:addItem(game.textProgress)
-  self:addItem(game.alphaReq)
-  self:addItem(game.fadeRate)
+  self:addItem(game.alphaReq, {afterDecimal=4})
+  self:addItem(game.fadeRate, {afterDecimal=4})
 
   self:addLabel{fontColor=inputColor}
   self:addItem(game.input, {shake=true, spin=true, stick=true})

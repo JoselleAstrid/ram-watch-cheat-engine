@@ -55,15 +55,8 @@ SMG1.defaultResetButton = 'v'
 function SMG1:init(options)
   SMGshared.init(self, options)
 
-  if self.gameId == 'RMGE01' then
-    self.refPointerOffset = 0xF8EF88
-  elseif self.gameId == 'RMGJ01' then
-    self.refPointerOffset = 0xF8F328
-  elseif self.gameId == 'RMGP01' then
-    self.refPointerOffset = 0xF8EF88
-  end
-
   self.addrs = {}
+  self.pointerValues = {}
   self:initConstantAddresses()
 end
 
@@ -75,6 +68,7 @@ local GV = SMG1.blockValues
 -- as long as the game start address is constant.
 
 function SMG1:initConstantAddresses()
+  -- Start or 'origin' address.
   self.addrs.o = self:getGameStartAddress()
 
   -- It's useful to have an address where there's always a ton of zeros.
@@ -83,6 +77,17 @@ function SMG1:initConstantAddresses()
   -- error) or garbage values.
   -- This group of zeros should go on for 0x20000 to 0x30000 bytes.
   self.addrs.zeros = self.addrs.o + 0x626000
+
+  if self.gameId == 'RMGE01' then
+    self.addrs.refPointer = self.addrs.o + 0xF8EF88
+    self.addrs.shakeRelatedBlock = self.addrs.o + 0x9E9C7C
+  elseif self.gameId == 'RMGJ01' then
+    self.addrs.refPointer = self.addrs.o + 0xF8F328
+    self.addrs.shakeRelatedBlock = self.addrs.o + 0x9E9BDC
+  elseif self.gameId == 'RMGP01' then
+    self.addrs.refPointer = self.addrs.o + 0xF8EF88
+    self.addrs.shakeRelatedBlock = self.addrs.o + 0x9E9C7C
+  end
 end
 
 
@@ -98,31 +103,22 @@ function SMG1:updateRefPointer()
   -- This pointer value changes whenever you load a different area.
   -- It's invalid during transition screens and before the
   -- title screen.
-  local rawPointer = readIntBE(self.addrs.o + self.refPointerOffset, 4)
-  if rawPointer == 0 then
-    self.addrs.refPointer = nil
-  else
-    self.addrs.refPointer = self.addrs.o + rawPointer - 0x80000000
-  end
+  self.pointerValues.ref = readIntBE(self.addrs.refPointer, 4)
 end
 
 function SMG1:updateMessageInfoPointer()
   -- Pointer that can be used to locate various message/text related info.
   --
   -- This pointer value changes whenever you load a different area.
-  local rawPointer = readIntBE(self.addrs.o + 0x9A9240, 4)
-  if rawPointer == 0 then
-    self.addrs.messageInfoPointer = nil
-  else
-    self.addrs.messageInfoPointer = self.addrs.o + rawPointer - 0x80000000
-  end
+  self.pointerValues.messageInfoRef = readIntBE(self.addrs.o + 0x9A9240, 4)
 end
 
 function SMG1:updatePosBlock()
-  if self.addrs.refPointer == nil then
+  if self.pointerValues.ref == 0 then
     self.addrs.posBlock = nil
   else
-    self.addrs.posBlock = self.addrs.refPointer + 0x3EEC
+    self.addrs.posBlock = (
+      self.addrs.o + self.pointerValues.ref - 0x80000000 + 0x3EEC)
   end
 end
 
@@ -146,11 +142,20 @@ end
 SMG1.RefValue = subclass(MemoryValue)
 
 function SMG1.RefValue:getAddress()
-  return self.game.addrs.refPointer + self.offset
+  return (
+    self.game.addrs.o + self.game.pointerValues.ref - 0x80000000 + self.offset)
 end
 
 function SMG1.RefValue:isValid()
-  return self.game.addrs.refPointer ~= nil
+  return self.game.pointerValues.ref ~= 0
+end
+
+
+-- Values that are part of the shake-related block.
+SMG1.ShakeRelatedBlockValue = subclass(MemoryValue)
+
+function SMG1.ShakeRelatedBlockValue:getAddress()
+  return self.game.addrs.shakeRelatedBlock + self.offset
 end
 
 
@@ -170,11 +175,13 @@ end
 SMG1.MessageInfoValue = subclass(MemoryValue)
 
 function SMG1.MessageInfoValue:getAddress()
-  return self.game.addrs.messageInfoPointer + self.offset
+  return (
+    self.game.addrs.o + self.game.pointerValues.messageInfoRef
+    - 0x80000000 + self.offset)
 end
 
 function SMG1.MessageInfoValue:isValid()
-  return self.game.addrs.messageInfoPointer ~= nil
+  return self.game.pointerValues.messageInfoRef ~= 0
 end
 
 
@@ -266,9 +273,9 @@ GV.upVectorGravity.displayDefaults =
 
 GV.downVectorGravity = V(
   Vector3Value,
-  MV("Up X", 0x1B10, SMG1.RefValue, FloatType),
-  MV("Up Y", 0x1B14, SMG1.RefValue, FloatType),
-  MV("Up Z", 0x1B18, SMG1.RefValue, FloatType)
+  MV("Down X", 0x1B10, SMG1.RefValue, FloatType),
+  MV("Down Y", 0x1B14, SMG1.RefValue, FloatType),
+  MV("Down Z", 0x1B18, SMG1.RefValue, FloatType)
 )
 GV.downVectorGravity.label = "Grav (Down)"
 GV.downVectorGravity.displayDefaults =
@@ -295,7 +302,7 @@ GV.buttons2 = MV("Buttons 2", 0x61D343, SMG1.StaticValue, BinaryType,
   {binarySize=8, binaryStartBit=7})
 
 GV.wiimoteShakeBit =
-  MV("Wiimote shake bit", 0x27F0, SMG1.RefValue, ByteType)
+  MV("Wiimote shake bit", 0xC, SMG1.ShakeRelatedBlockValue, ByteType)
 GV.nunchukShakeBit =
   MV("Nunchuk shake bit", 0x27F1, SMG1.RefValue, ByteType)
 GV.spinCooldownTimer =
@@ -315,6 +322,8 @@ GV.stickY = MV("Stick Y", 0x61D3A4, SMG1.StaticValue, FloatType)
 
 -- Some other stuff.
 
+-- Underwater breathing
+GV.air = MV("Air", 0x6AB8, SMG1.RefValue, IntType)
 -- Jump, double jump or rainbow star jump, triple jump,
 -- bonk or forward facing slope jump, sideflip, long jump, backflip, wall jump,
 -- midair spin, ?, ledge hop, spring topman bounce, enemy bounce,
