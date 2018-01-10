@@ -4,7 +4,7 @@
 
 Sample videos:
 
-- [Super Mario Galaxy - Tilt research](https://www.youtube.com/watch?v=Hri8f8Pgim8)
+- [Super Mario Galaxy - Tilt research](https://www.youtube.com/watch?v=AEkigdJddw8)
 - [Sonic Adventure 2: Battle - Inputs and coordinates, by Tales](https://www.youtube.com/watch?v=Cp1txiez0OM)
 - [F-Zero GX - Replay inputs and status, customized by superSANIC](https://www.youtube.com/watch?v=ntQt6srYo6A)
 
