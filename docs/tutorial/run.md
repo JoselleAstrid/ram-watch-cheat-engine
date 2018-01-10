@@ -34,6 +34,10 @@
    - Metroid Prime, North American version (GM8E01) [revision 0-00](http://www.metroid2002.com/version_differences_version_number.php)
      
      - If you're not sure whether you have 0-00: Right-click the game in Dolphin, click Properties, and click the Info tab. Revision should be 0.
+     
+   - Sonic Adventure DX: Director's Cut, North American version (GXSE8P)
+   
+   - Sonic Adventure 2: Battle, North American version (GSNE8P)
        
    - Super Mario Galaxy; North American (RMGE01), European (RMGP01), or Japanese (RMGJ01) version
    
@@ -82,6 +86,8 @@
     --- | --- | --- | --- | ---
     F-Zero GX | North America | `'fzerogx'` | `'na'` | `'racerInfo'`
     Metroid Prime | North America 0-00 | `'metroidprime'` | `'na_0_00'` | `'positionAndVelocity'`
+    Sonic Adventure DX: Director's Cut | North America | `'sonicadventuredx'` | `'na'` | `'coordsAndInputs'`
+    Sonic Adventure 2: Battle | North America | `'sonicadventure2battle'` | `'na'` | `'coordsAndInputs'`
     Super Mario Galaxy | North America | `'supermariogalaxy'` | `'na'` | `'positionAndInputs'`
     Super Mario Galaxy | Europe | `'supermariogalaxy'` | `'eu'` | `'positionAndInputs'`
     Super Mario Galaxy | Japan | `'supermariogalaxy'` | `'jp'` | `'positionAndInputs'`

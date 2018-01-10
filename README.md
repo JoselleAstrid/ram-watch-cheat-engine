@@ -72,4 +72,6 @@ The primary authors of this GitHub repository are not affiliated with Dolphin, C
 
 Masterjun, for writing the Dolphin + Cheat Engine RAM watch script that this project was based on: http://tasvideos.org/forum/viewtopic.php?t=14379 (2013.08.26)
 
+Tales, for providing the Sonic Adventure DX and Sonic Adventure 2: Battle scripts that were added to this repository (with slight modifications).
+
 aldelaro, for the Dolphin + Cheat Engine tutorial I've linked a few times in these docs.
