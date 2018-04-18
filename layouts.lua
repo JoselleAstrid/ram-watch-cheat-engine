@@ -371,7 +371,11 @@ function StickInputImage:init(window, stickX, stickY, options)
   -- Min and max of the stickX and stickY value ranges
   self.max = options.max or 1
   self.min = options.min or -self.max
-  -- Are diagonals confined to a square or circle?
+  -- Should diagonals be confined to a square or circle?
+  -- Controller sticks are generally confined to a circle, but note
+  -- that TAS input gets a full square range to use.
+  -- However, most games should treat out-of-circle inputs as if they were
+  -- clamped to a circle anyway.
   self.square = options.square or false
 
   self.uiObj = createImage(window)
@@ -403,17 +407,37 @@ function StickInputImage:update()
   end
 
   -- Draw a line indicating where the stick is currently positioned.
-  --
-  -- stickX and stickY range from min to max. Transform that to a range from
-  -- 0 to width. Also, stickY goes bottom to top while image coordinates go
-  -- top to bottom, so we need to invert the pixel number.
+
+  local xCenter = size/2
+  local yCenter = size/2
+  local radius = size/2
   local xRaw = self.stickX:get()
   local yRaw = self.stickY:get()
+  -- stickX and stickY range from min to max. Transform that to a range from
+  -- 0 to width.
+  -- stickY goes bottom to top while image coordinates go
+  -- top to bottom, so we need to invert the Y pixel number.
   local xInZeroToOneRange = (xRaw - self.min) / (self.max - self.min)
   local yInZeroToOneRange = (yRaw - self.min) / (self.max - self.min)
   local xPixel = xInZeroToOneRange * size
   local yPixel = size - (yInZeroToOneRange * size)
-  self.canvas:line(size/2,size/2, xPixel,yPixel)
+
+  if not self.square then
+    -- Confine the stick position to the circular range.
+    local distanceFromCenter = math.sqrt(
+      (xPixel - xCenter) * (xPixel - xCenter)
+      + (yPixel - yCenter) * (yPixel - yCenter))
+    if distanceFromCenter > radius then
+      -- Position is outside the circle. Snap the position to the edge of
+      -- the circle, preserving direction from center. (We assume this is
+      -- how most circular-ranged games treat such inputs).
+      xPixel = (xPixel - xCenter)*(radius / distanceFromCenter) + xCenter
+      yPixel = (yPixel - yCenter)*(radius / distanceFromCenter) + yCenter
+    end
+  end
+
+  -- Draw a line from the center to the stick position.
+  self.canvas:line(xCenter,yCenter, xPixel,yPixel)
 end
 
 
