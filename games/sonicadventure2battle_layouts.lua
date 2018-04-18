@@ -12,81 +12,141 @@ local fixedWidthFontName = "Consolas"
 
 local inputColor = 0x880000
 
-layouts.addressTest = subclass(Layout)
--- Displays some key addresses, as computed by the Lua framework.
--- We can double check these addresses in Cheat Engine's Memory View.
-function layouts.addressTest:init()
-
-  self:setUpdatesPerSecond(5)
-
-  self.window:setSize(450, 200)
-
-  self:addLabel{x=6, y=6}
-  self:addItem(
-    function()
-      local lines = {}
-      table.insert(
-        lines, "startAddress: "..utils.intToHexStr(self.game.startAddress))
-      table.insert(
-        lines,
-        "FSpeed addr: "..utils.intToHexStr(self.game.fSpeed:getAddress()))
-      return table.concat(lines, '\n')
-    end
-  )
-  
-end
-
-
-layouts.coordsAndInputs = subclass(Layout)
--- General use layout for TASing and stuff.
--- Speed, position, rotation, inputs.
---
--- updatesPerSecond:
---   How often this display should be updated.
---   Set this higher to see more frequent updates. The game runs at
---   60 FPS, so it doesn't make sense to set this much higher than 60.
---   Set this lower if Dolphin is stuttering too much.
---   Set to 0 to use breakpoint updates (should update on every frame more
---   reliably compared to 60, but may make Dolphin stutter more).
-function layouts.coordsAndInputs:init(updatesPerSecond)
-
-  updatesPerSecond = updatesPerSecond or 60
+-- normal is for non-hunting stages
+layouts.normal = subclass(Layout)
+function layouts.normal:init()
   
   local game = self.game
   self.margin = 6
-  if updatesPerSecond == 0 then
-    self:setBreakpointUpdateMethod()
-  else
-    self:setUpdatesPerSecond(updatesPerSecond)
-  end
+  self:setBreakpointUpdateMethod()
   self:activateAutoPositioningY()
   
-  self.window:setSize(220, 460)
-  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
+  self.window:setSize(240, 540)
+  self.labelDefaults = {fontSize=11, fontName=fixedWidthFontName}
   self.itemDisplayDefaults = {narrow=true}
   
   self:addLabel()
+  
+  --Time
+  self:addItem(function(...) return self.game:displayTime(...) end)
+  
+  --Speed
   self:addItem(function(...) return self.game:displaySpeed(...) end)
+  
+  --Position
   self:addItem(function(...) return self.game:displayPosition(...) end)
+  
+  --Rotation
   self:addItem(function(...) return self.game:displayRotation(...) end)
   
-  self:addItem("Input Frames Count")
-  self:addItem(function(...) return self.game:displayInputTime(...) end)
+  --Misc
+  self:addItem(function(...) return self.game:displayMisc(...) end)
   
   self:addLabel{fontColor=inputColor}
-  self:addItem("Buttons")
+  self:addItem("Inputs")
   self:addItem(function(...) return self.game:displayAllButtons(...) end)
   
   self:addLabel{foregroundColor=inputColor}
+  
   self:addImage(
     self.game.ControllerLRImage, {game}, {foregroundColor=inputColor})
 	
   self:addLabel{foregroundColor=inputColor}
   self:addImage(
     self.game.ControllerStickImage, {game}, {foregroundColor=inputColor})
+
+  self:addLabel{fontColor=inputColor}
+  self:addItem(function(...) return self.game:displayAnalogPosition(...) end)
   
 end
 
+-- hunting is for Knuckles's and Rouge's missions 1, 4 and 5 (except Route 280)
+layouts.hunting = subclass(Layout)
+function layouts.hunting:init()
+  
+  local game = self.game
+  self.margin = 6
+  self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningY()
+  
+  self.window:setSize(240, 540)
+  self.labelDefaults = {fontSize=11, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+  
+  self:addLabel()
+  
+  --Time
+  self:addItem(function(...) return self.game:displayTime(...) end)
+  
+  --Speed
+  self:addItem(function(...) return self.game:displayhSpeed(...) end)
+  
+  --Position
+  self:addItem(function(...) return self.game:displayhPosition(...) end)
+  
+  --Rotation
+  self:addItem(function(...) return self.game:displayhRotation(...) end)
+  
+  --Misc
+  self:addItem(function(...) return self.game:displayhMisc(...) end)
+  
+  self:addLabel{fontColor=inputColor}
+  self:addItem("Inputs")
+  self:addItem(function(...) return self.game:displayAllButtons(...) end)
+  
+  self:addLabel{foregroundColor=inputColor}
+  
+  self:addImage(
+    self.game.ControllerLRImage, {game}, {foregroundColor=inputColor})
+	
+  self:addLabel{foregroundColor=inputColor}
+  self:addImage(
+    self.game.ControllerStickImage, {game}, {foregroundColor=inputColor})
+
+  self:addLabel{fontColor=inputColor}
+  self:addItem(function(...) return self.game:displayAnalogPosition(...) end)
+  
+end
+
+layouts.recording = subclass(Layout)
+function layouts.recording:init()
+
+  local game = self.game
+  self.margin = 6
+  self:setBreakpointUpdateMethod()
+  self:activateAutoPositioningY()
+  
+  self.window:setSize(240, 540)
+  self.labelDefaults = {fontSize=fontSize, fontName=fixedWidthFontName}
+  self.itemDisplayDefaults = {narrow=true}
+  
+  -- Watch XPos, FSpeed, YPos and VSpeed
+  
+  self:addLabel()
+  
+  self:addItem(self.game.fSpeed)
+  self:addItem(self.game.vSpeed)
+  
+  self:addItem(self.game.xPos)
+  self:addItem(self.game.yPos)
+  
+  self:addFileWriter(
+    self.game.fSpeed, "fspd_output.txt",
+    {beforeDecimal=1, afterDecimal=10})
+	
+  self:addFileWriter(
+    self.game.vSpeed, "vspd_output.txt",
+    {beforeDecimal=1, afterDecimal=10})
+
+  self:addFileWriter(
+    self.game.xPos, "xpos_output.txt",
+    {beforeDecimal=1, afterDecimal=10})
+	
+  self:addFileWriter(
+    self.game.yPos, "ypos_output.txt",
+    {beforeDecimal=1, afterDecimal=10})
+	
+end
 
 return {
   layouts = layouts,
