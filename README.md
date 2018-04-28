@@ -27,9 +27,18 @@ This repository contains:
 
 - Ready-to-use RAM display layouts for several games.
 
-- A Lua code framework for writing custom RAM displays with the features described above. The main focus of the framework is on games running in Dolphin emulator, but the framework can also be used for PC games and other emulators.
+- A Lua code framework for writing custom RAM displays with the features described above.
 
 - A tutorial to help you get started.
+
+
+## Game compatibility
+
+The main focus of the framework is on games running in Dolphin emulator. Most disc-based Gamecube and Wii games will work in this framework. Any games included in this repository's `games` folder are confirmed to work.
+
+The start-address calculation used in this framework doesn't work for every Dolphin game. In particular, many Virtual Console and WiiWare games will not work, and there may be a few disc-based Gamecube/Wii games using advanced memory features which won't work here. We need to resolve [issue #4](https://github.com/yoshifan/ram-watch-cheat-engine/issues/4) to support these games.
+
+The framework can also be used for PC games and other emulators. If the start address changes in those games, though, then you'll have to figure out the address calculation yourself.
 
 
 ## Requirements
