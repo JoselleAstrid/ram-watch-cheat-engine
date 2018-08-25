@@ -945,6 +945,8 @@ end
 
 return {
   Layout = Layout,
+  SimpleElement = SimpleElement,
+  CompoundElement = CompoundElement,
   StickInputImage = StickInputImage,
   AnalogTriggerInputImage = AnalogTriggerInputImage,
   AnalogTwoSidedInputImage = AnalogTwoSidedInputImage,
