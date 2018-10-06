@@ -1,2 +1,6 @@
 # Temporary files made by text/code editors
 *~
+
+# Tests need luaunit.lua in order to run, but luaunit.lua doesn't need to
+# be tracked in this repo
+luaunit.lua
