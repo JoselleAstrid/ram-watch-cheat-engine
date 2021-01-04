@@ -33,14 +33,15 @@ function layouts.addressTest:init()
   self.margin = margin
   self:setUpdatesPerSecond(5)
 
-  self.window:setSize(400, 300)
+  self.window:setSize(500, 300)
 
   self:addLabel{fontSize=fontSize, fontName=fixedWidthFontName}
   self:addItem(
     function()
       local names = {
         'o', 'refPointer', 'racerStateBlocks', 'racerState2Blocks',
-        'machineBaseStatsBlocks', 'machineBaseStatsBlocks2',
+        'machineBaseStatsBlocks', 'machineBaseStatsBlocksCustom',
+        'machineBaseStatsBlocks2', 'machineBaseStatsBlocks2Custom',
       }
       local lines = {}
       for _, name in pairs(names) do

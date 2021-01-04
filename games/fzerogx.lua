@@ -44,6 +44,9 @@ local GX = subclass(dolphin.DolphinGame)
 GX.supportedGameVersions = {
   na = 'GFZE01',
   us = 'GFZE01',
+
+  jp = 'GFZJ01',
+  ja = 'GFZJ01',
 }
 
 GX.layoutModuleNames = {'fzerogx_layouts'}
@@ -70,6 +73,30 @@ function GX:initConstantAddresses()
 
   self.addrs.machineBaseStatsBlocks = self.addrs.o + 0x1554000
   self.addrs.machineBaseStatsBlocksCustom = self.addrs.o + 0x1555F04
+  
+  if self.gameId == 'GFZE01' then
+    self.addrs.pointer2Offset = 0x227878
+    self.addrs.machineBaseStatsBlocks2Offset = 0x195660
+    self.addrs.machineBaseStatsBlocks2CustomOffset = 0x1B3B30
+    self.addrs.customPartIdOffset = 0x1C7664
+    self.addrs.controllerInputOffset = 0x15CBD0
+    self.addrs.calibratedInputOffset = 0x1BAC30
+    self.addrs.replayInputPointerOffset = 0x239058
+    self.addrs.numOfRacersOffset = 0x1BAFBC
+    self.addrs.numOfHumanRacersOffset = 0x2453E5
+    self.addrs.settingsSliderOffset = 0x24547C
+  elseif self.gameId == 'GFZJ01' then
+    self.addrs.pointer2Offset = 0x222B18
+    self.addrs.machineBaseStatsBlocks2Offset = 0x192140
+    self.addrs.machineBaseStatsBlocks2CustomOffset = 0x1AEF60
+    self.addrs.customPartIdOffset = 0x1C2904
+    self.addrs.controllerInputOffset = 0x15C430
+    self.addrs.calibratedInputOffset = 0x1B5ED0
+    self.addrs.replayInputPointerOffset = 0x2342D8
+    self.addrs.numOfRacersOffset = 0x1B625C
+    self.addrs.numOfHumanRacersOffset = 0x240665
+    self.addrs.settingsSliderOffset = 0x2406FC
+  end
 
   -- It's useful to have an address where there's always a ton of zeros.
   -- We can use this address as the result when an address computation
@@ -102,13 +129,13 @@ end
 function GX:updateMachineStatsAndStateAddresses()
   -- A duplicate of the base stats block. We'll use this as a backup of the
   -- original values, when playing with the values in the primary block.
-  self.addrs.machineBaseStatsBlocks2 = self.addrs.refPointer + 0x195660
+  self.addrs.machineBaseStatsBlocks2 = self.addrs.refPointer + self.addrs.machineBaseStatsBlocks2Offset
 
   -- Same but for custom machines.
-  self.addrs.machineBaseStatsBlocks2Custom = self.addrs.refPointer + 0x1B3B30
+  self.addrs.machineBaseStatsBlocks2Custom = self.addrs.refPointer + self.addrs.machineBaseStatsBlocks2CustomOffset
 
   -- Racer state.
-  local pointer2Address = self.addrs.refPointer + 0x227878
+  local pointer2Address = self.addrs.refPointer + self.addrs.pointer2Offset
   local pointer2Value = readIntBE(pointer2Address, 4)
 
   if pointer2Value == 0 then
@@ -282,7 +309,7 @@ function CustomPartId:getAddress()
   -- Player 2's custom part IDs are 0x81C0 later than P1's, and then P3's IDs
   -- are 0x81C0 later than that, and so on.
   return self.game.addrs.refPointer
-    + 0x1C7664
+    + self.game.addrs.customPartIdOffset
     + (0x81C0 * self.racer.racerIndex)
     + self.offset
 end
@@ -293,7 +320,7 @@ local ReplayInputValue = subclass(MemoryValue)
 GX.ReplayInputValue = ReplayInputValue
 
 function ReplayInputValue:getPointer()
-  local rawPointer = readIntBE(self.game.addrs.refPointer + 0x239058, 4)
+  local rawPointer = readIntBE(self.game.addrs.refPointer + self.game.addrs.replayInputPointerOffset, 4)
   if rawPointer == 0 then return nil end
 
   return self.game.addrs.o + rawPointer - 0x80000000
@@ -695,13 +722,23 @@ end
 
 -- Number of machines competing in the race when it began
 GV.numOfRacers =
-  MV("# Racers", 0x1BAFBC, RefValue, ByteType)
+  MV("# Racers", 0, RefValue, ByteType)
+function GV.numOfRacers:getAddress()
+  return self.game.addrs.refPointer + self.game.addrs.numOfRacersOffset
+end
+
 -- Number of human racers
-GV.numOfHumanRacers = MV("# Human racers", 0x2453E5, RefValue, ByteType)
+GV.numOfHumanRacers = MV("# Human racers", 0, RefValue, ByteType)
+function GV.numOfHumanRacers:getAddress()
+  return self.game.addrs.refPointer + self.game.addrs.numOfHumanRacersOffset
+end
 
 -- Accel/max speed setting; 0 (full accel) to 100 (full max speed).
 -- TODO: This is only for P1, find the formula for the others.
-GV.settingsSlider = MV("Settings slider", 0x24547C, RefValue, IntType)
+GV.settingsSlider = MV("Settings slider", 0, RefValue, IntType)
+function GV.settingsSlider:getAddress()
+  return self.game.addrs.refPointer + self.game.addrs.settingsSliderOffset
+end
 function GV.settingsSlider:displayValue(options)
   return IntType.displayValue(self, options).."%"
 end
@@ -1201,7 +1238,7 @@ local controllerInput = V(subclass(Value, PlayerValue))
 PV.controllerInput = controllerInput
 
 function controllerInput:init()
-  local blockStart = 0x15CBD0 + (self.player.playerIndex * 0x8)
+  local blockStart = self.game.addrs.controllerInputOffset + (self.player.playerIndex * 0x8)
 
   self.ABXYS = self.block:MV("ABXY & Start", blockStart + 0,
     StaticValue, BinaryType, {binarySize=8, binaryStartBit=7})
@@ -1302,7 +1339,7 @@ PV.calibratedInput = calibratedInput
 function calibratedInput:init()
   valuetypes.initValueAsNeeded(self.player.controllerInput)
 
-  local blockStart = 0x1BAC30 + (self.player.playerIndex * 0x20)
+  local blockStart = self.game.addrs.calibratedInputOffset + (self.player.playerIndex * 0x20)
 
   self.ABXYS = self.player.controllerInput.ABXYS
   self.DZ = self.player.controllerInput.DZ
